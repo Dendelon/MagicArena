@@ -1,0 +1,21 @@
+*{
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  overflow: hidden;
+  background: #101322;
+}
+
+#game {
+  display: block;
+}
+
+html,
+body,
+#game {
+  height: 100%;
+  width: 100%;
+}
