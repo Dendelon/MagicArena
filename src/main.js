@@ -2,11 +2,28 @@ import "./style.css";
 import { createCanvas } from "./render/canvas";
 import { drawBackground } from "./render/background";
 import { drawSword } from "./render/sword";
+import { drawHud } from "./render/hud";
+import { createLoop } from "./loop";
 
 const canvas = document.querySelector('#game')
 
-createCanvas(canvas, (ctx, width, height) => {
-  drawBackground(ctx, width, height)
+const { ctx, size } = createCanvas(canvas)
 
-  drawSword(ctx, width / 2, height / 2, 0)
+const simulate = () => {
+  // Тут пізніше буде фізика меча
+};
+
+const render = (alpha, stats) => {
+  drawBackground(ctx, size.width, size.height);
+
+  drawSword(ctx, size.width / 2, size.height / 2);
+
+  drawHud(ctx, stats)
+}
+
+const loop = createLoop({
+  render,
+  simulate
 })
+
+loop.start();
