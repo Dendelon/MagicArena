@@ -22,18 +22,45 @@ let sword = {
 
 let previousSword = {...sword};
 
+const interpolateWrapped = (from, to, alpha, size) => {
+  if (size <= 0) return 0;
+
+  let delta = to - from;
+
+  if (delta > size / 2) delta -= size;
+  if (delta < -size / 2) delta += size;
+
+  const value = from + delta * alpha;
+
+  return ((value % size) + size) % size;
+};
+
 const simulate = (dt) => {
   previousSword = sword;
 
-  sword = integrate(sword, input.getState(), dt)
+  sword = integrate(sword, input.getState(), dt, size)
 };
 
 const render = (alpha, stats) => {
+  const x = interpolateWrapped(
+    previousSword.x,
+    sword.x,
+    alpha,
+    size.width
+  );
+
+  const y = interpolateWrapped(
+    previousSword.y,
+    sword.y,
+    alpha,
+    size.height
+  );
+
   const angle = previousSword.angle + (sword.angle -
     previousSword.angle) * alpha;
   
   drawBackground(ctx, size.width, size.height);
-  drawSword(ctx, sword.x, sword.y, angle);
+  drawSword(ctx, x, y, angle);
   drawHud(ctx, stats)
 }
 
