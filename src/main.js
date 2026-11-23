@@ -20,7 +20,7 @@ let sword = {
   angle: 0,
 }
 
-let previousSword = {...sword};
+let previousSword = { ...sword };
 
 const interpolateWrapped = (from, to, alpha, size) => {
   if (size <= 0) return 0;
@@ -37,6 +37,10 @@ const interpolateWrapped = (from, to, alpha, size) => {
 
 const simulate = (dt) => {
   previousSword = sword;
+
+  if (input.justPressed('Space')) {
+    console.log('Space натиснуто!');
+  }
 
   sword = integrate(sword, input.getState(), dt, size)
 };
@@ -58,9 +62,9 @@ const render = (alpha, stats) => {
 
   const angle = previousSword.angle + (sword.angle -
     previousSword.angle) * alpha;
-  
+
   drawBackground(ctx, size.width, size.height);
-  drawSword(ctx, x, y, angle);
+  drawSword(ctx, x, y, angle, input.getState().forward);
   drawHud(ctx, stats)
 }
 
