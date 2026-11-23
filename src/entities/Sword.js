@@ -1,7 +1,10 @@
-
 import { Entity } from '../sim/entity.js';
 import { Vector2 } from '../sim/vector.js';
 import { integrate } from '../sim/sword.js';
+import { Bullet } from './Bullet.js';
+
+const BULLET_SPEED = 550;
+const SWORD_TIP_OFFSET = 60;
 
 export class Sword extends Entity {
   constructor({
@@ -43,5 +46,33 @@ export class Sword extends Entity {
     this.pos = new Vector2(next.x, next.y);
     this.vel = new Vector2(next.vx, next.vy);
     this.angle = next.angle;
+  }
+
+
+  fire(world) {
+    const direction = Vector2.fromAngle(
+      this.angle - Math.PI / 2,
+    );
+
+    const pos = this.pos.add(
+      direction.scale(SWORD_TIP_OFFSET),
+    );
+
+    const vel = this.vel.add(
+      direction.scale(BULLET_SPEED),
+    );
+
+    const bullet = new Bullet({
+      pos: new Vector2(
+        ((pos.x % world.width) + world.width) % world.width,
+        ((pos.y % world.height) + world.height) % world.height,
+      ),
+      vel,
+      ownerId: this.id,
+    });
+
+    world.spawn(bullet);
+
+    return bullet;
   }
 }

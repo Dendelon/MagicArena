@@ -3,6 +3,7 @@ import { createCanvas } from './render/canvas';
 import { drawBackground } from './render/background';
 import { drawSword } from './render/sword';
 import { drawHud } from './render/hud';
+import { drawBullet } from './render/bullet.js';
 import { createLoop } from './loop';
 import { createInput } from './input';
 import { Vector2 } from './sim/vector.js';
@@ -43,7 +44,6 @@ const interpolateWrapped = (from, to, alpha, size) => {
   return ((value % size) + size) % size;
 };
 
-
 const simulate = (dt) => {
   previousSword = {
     x: sword.pos.x,
@@ -54,6 +54,11 @@ const simulate = (dt) => {
   inputs.set(sword.id, input.getState());
 
   world.step(dt, inputs);
+
+  // Один постріл на одне натискання Space
+  if (input.justPressed('Space')) {
+    sword.fire(world);
+  }
 };
 
 const render = (alpha, stats) => {
@@ -76,6 +81,24 @@ const render = (alpha, stats) => {
     (sword.angle - previousSword.angle) * alpha;
 
   drawBackground(ctx, size.width, size.height);
+
+  for (const bullet of world.ofKind('bullet')) {
+    const bulletX = interpolateWrapped(
+      bullet.previousPos.x,
+      bullet.pos.x,
+      alpha,
+      size.width,
+    );
+
+    const bulletY = interpolateWrapped(
+      bullet.previousPos.y,
+      bullet.pos.y,
+      alpha,
+      size.height,
+    );
+
+    drawBullet(ctx, bulletX, bulletY, bullet.radius);
+  }
 
   drawSword(ctx, x, y, angle, input.getState().forward);
 
