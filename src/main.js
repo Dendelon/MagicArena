@@ -7,6 +7,7 @@ import { createLoop } from './loop';
 import { createInput } from './input';
 import { Vector2 } from './sim/vector.js';
 import { Sword } from './entities/Sword.js';
+import { World } from './sim/world.js';
 
 const canvas = document.querySelector('#game');
 const { ctx, size } = createCanvas(canvas);
@@ -16,6 +17,12 @@ const input = createInput();
 const sword = new Sword({
   pos: new Vector2(size.width / 2, size.height / 2),
 });
+
+const world = new World(size);
+
+world.spawn(sword);
+
+const inputs = new Map();
 
 let previousSword = {
   x: sword.pos.x,
@@ -36,6 +43,7 @@ const interpolateWrapped = (from, to, alpha, size) => {
   return ((value % size) + size) % size;
 };
 
+
 const simulate = (dt) => {
   previousSword = {
     x: sword.pos.x,
@@ -43,8 +51,9 @@ const simulate = (dt) => {
     angle: sword.angle,
   };
 
-  sword.setInput(input.getState());
-  sword.update(dt, size);
+  inputs.set(sword.id, input.getState());
+
+  world.step(dt, inputs);
 };
 
 const render = (alpha, stats) => {
