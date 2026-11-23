@@ -12,11 +12,7 @@ export const drawHud = (ctx, stats) => {
   // Показники
   ctx.fillText(`FPS: ${stats.fps}`, 28, 42);
   ctx.fillText(`Steps/s: ${stats.sps}`, 28, 67);
-  ctx.fillText(
-    `Frame: ${stats.frameTimeMs.toFixed(2)} ms`,
-    28,
-    92
-  );
+  ctx.fillText(`Frame: ${stats.frameTimeMs.toFixed(2)} ms`, 28, 92);
 
   ctx.restore();
 };

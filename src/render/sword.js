@@ -39,7 +39,7 @@ export const drawSword = (ctx, x, y, angle = 0, thrusting = false) => {
   ctx.lineWidth = 1.5;
 
   ctx.beginPath();
-  ctx.moveTo(0, -55);     // Вістря
+  ctx.moveTo(0, -55); // Вістря
   ctx.lineTo(9, -30);
   ctx.lineTo(7, 10);
   ctx.lineTo(-7, 10);

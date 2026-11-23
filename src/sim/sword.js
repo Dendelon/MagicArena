@@ -1,4 +1,3 @@
-
 import { wrap } from './arena.js';
 
 const ROTATION_SPEED = Math.PI;

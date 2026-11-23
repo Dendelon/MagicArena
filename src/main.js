@@ -1,14 +1,14 @@
-import "./style.css";
-import { createCanvas } from "./render/canvas";
-import { drawBackground } from "./render/background";
-import { drawSword } from "./render/sword";
-import { drawHud } from "./render/hud";
-import { createLoop } from "./loop";
-import { createInput } from "./input";
+import './style.css';
+import { createCanvas } from './render/canvas';
+import { drawBackground } from './render/background';
+import { drawSword } from './render/sword';
+import { drawHud } from './render/hud';
+import { createLoop } from './loop';
+import { createInput } from './input';
 import { integrate } from './sim/sword.js';
 
-const canvas = document.querySelector('#game')
-const { ctx, size } = createCanvas(canvas)
+const canvas = document.querySelector('#game');
+const { ctx, size } = createCanvas(canvas);
 
 const input = createInput();
 
@@ -18,7 +18,7 @@ let sword = {
   vx: 0,
   vy: 0,
   angle: 0,
-}
+};
 
 let previousSword = { ...sword };
 
@@ -42,35 +42,24 @@ const simulate = (dt) => {
     console.log('Space натиснуто!');
   }
 
-  sword = integrate(sword, input.getState(), dt, size)
+  sword = integrate(sword, input.getState(), dt, size);
 };
 
 const render = (alpha, stats) => {
-  const x = interpolateWrapped(
-    previousSword.x,
-    sword.x,
-    alpha,
-    size.width
-  );
+  const x = interpolateWrapped(previousSword.x, sword.x, alpha, size.width);
 
-  const y = interpolateWrapped(
-    previousSword.y,
-    sword.y,
-    alpha,
-    size.height
-  );
+  const y = interpolateWrapped(previousSword.y, sword.y, alpha, size.height);
 
-  const angle = previousSword.angle + (sword.angle -
-    previousSword.angle) * alpha;
+  const angle = previousSword.angle + (sword.angle - previousSword.angle) * alpha;
 
   drawBackground(ctx, size.width, size.height);
   drawSword(ctx, x, y, angle, input.getState().forward);
-  drawHud(ctx, stats)
-}
+  drawHud(ctx, stats);
+};
 
 const loop = createLoop({
   render,
-  simulate
-})
+  simulate,
+});
 
 loop.start();

@@ -1,4 +1,3 @@
-
 export const createLoop = ({ simulate, render, step = 1 / 60 }) => {
   let running = false;
   let frameId = null;
