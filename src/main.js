@@ -5,7 +5,7 @@ import { drawSword } from "./render/sword";
 import { drawHud } from "./render/hud";
 import { createLoop } from "./loop";
 import { createInput } from "./input";
-import { integrate } from "./physics";
+import { integrate } from './sim/sword.js';
 
 const canvas = document.querySelector('#game')
 const { ctx, size } = createCanvas(canvas)
