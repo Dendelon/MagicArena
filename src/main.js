@@ -5,22 +5,23 @@ import { drawSword } from './render/sword';
 import { drawHud } from './render/hud';
 import { createLoop } from './loop';
 import { createInput } from './input';
-import { integrate } from './sim/sword.js';
+import { Vector2 } from './sim/vector.js';
+import { Sword } from './entities/Sword.js';
 
 const canvas = document.querySelector('#game');
 const { ctx, size } = createCanvas(canvas);
 
 const input = createInput();
 
-let sword = {
-  x: size.width / 2,
-  y: size.height / 2,
-  vx: 0,
-  vy: 0,
-  angle: 0,
-};
+const sword = new Sword({
+  pos: new Vector2(size.width / 2, size.height / 2),
+});
 
-let previousSword = { ...sword };
+let previousSword = {
+  x: sword.pos.x,
+  y: sword.pos.y,
+  angle: sword.angle,
+};
 
 const interpolateWrapped = (from, to, alpha, size) => {
   if (size <= 0) return 0;
@@ -36,24 +37,39 @@ const interpolateWrapped = (from, to, alpha, size) => {
 };
 
 const simulate = (dt) => {
-  previousSword = sword;
+  previousSword = {
+    x: sword.pos.x,
+    y: sword.pos.y,
+    angle: sword.angle,
+  };
 
-  if (input.justPressed('Space')) {
-    console.log('Space натиснуто!');
-  }
-
-  sword = integrate(sword, input.getState(), dt, size);
+  sword.setInput(input.getState());
+  sword.update(dt, size);
 };
 
 const render = (alpha, stats) => {
-  const x = interpolateWrapped(previousSword.x, sword.x, alpha, size.width);
+  const x = interpolateWrapped(
+    previousSword.x,
+    sword.pos.x,
+    alpha,
+    size.width,
+  );
 
-  const y = interpolateWrapped(previousSword.y, sword.y, alpha, size.height);
+  const y = interpolateWrapped(
+    previousSword.y,
+    sword.pos.y,
+    alpha,
+    size.height,
+  );
 
-  const angle = previousSword.angle + (sword.angle - previousSword.angle) * alpha;
+  const angle =
+    previousSword.angle +
+    (sword.angle - previousSword.angle) * alpha;
 
   drawBackground(ctx, size.width, size.height);
+
   drawSword(ctx, x, y, angle, input.getState().forward);
+
   drawHud(ctx, stats);
 };
 
@@ -61,5 +77,6 @@ const loop = createLoop({
   render,
   simulate,
 });
+
 
 loop.start();
