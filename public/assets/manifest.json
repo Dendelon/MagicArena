@@ -1,9 +1,34 @@
 {
   "sprites": [
-    { "id": "sword", "url": "/assets/sprites/sword.png" },
-    { "id": "bullet", "url": "/assets/sprites/bullet.png" },
-    { "id": "obstacle", "url": "/assets/sprites/obstacle.png" }
+    {
+      "id": "sword",
+      "url": "/assets/sprites/sword.png"
+    },
+    {
+      "id": "bullet",
+      "url": "/assets/sprites/bullet.png"
+    },
+    {
+      "id": "obstacle",
+      "url": "/assets/sprites/obstacle.png"
+    }
   ],
-  "audio": [],
-  "arena": { "id": "magic-arena", "url": "/assets/arena.json" }
+  "audio": [
+    {
+      "id": "shoot",
+      "url": "/assets/audio/shoot.wav"
+    },
+    {
+      "id": "hit",
+      "url": "/assets/audio/hit.wav"
+    },
+    {
+      "id": "explosion",
+      "url": "/assets/audio/explosion.wav"
+    }
+  ],
+  "arena": {
+    "id": "magic-arena",
+    "url": "/assets/arena.json"
+  }
 }
