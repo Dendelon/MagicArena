@@ -1,0 +1,60 @@
+.magic-lobby {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  background: radial-gradient(circle at 50% 15%, #302149 0%, #141125 65%);
+  color: #e9d5ff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  font-family: system-ui, sans-serif;
+  padding: 24px;
+}
+.magic-lobby h1 {
+  letter-spacing: 0.15em;
+  margin-bottom: 5px;
+  font-size: clamp(28px, 5vw, 46px);
+}
+.magic-lobby > p {
+  opacity: 0.82;
+}
+.magic-lobby form {
+  width: min(420px, 100%);
+  display: grid;
+  gap: 16px;
+  margin-top: 20px;
+}
+.magic-lobby label {
+  display: grid;
+  gap: 7px;
+  font-weight: 650;
+}
+.magic-lobby input,
+.magic-lobby select {
+  padding: 12px;
+  border: 1px solid #9675be;
+  border-radius: 8px;
+  background: #20172f;
+  color: #f5eaff;
+  font: inherit;
+}
+.magic-lobby button {
+  border: 0;
+  border-radius: 10px;
+  background: #a78bfa;
+  padding: 13px;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+.magic-lobby button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.magic-lobby-status {
+  min-height: 20px;
+  color: #bdb1d7;
+  font-size: 13px;
+  margin: 0;
+}

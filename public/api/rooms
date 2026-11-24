@@ -1,0 +1,6 @@
+{
+  "rooms": [
+    { "id": "arcane", "name": "Arcane Ruins", "arenaId": "magic-arena", "players": 1, "maxPlayers": 4, "obstacleCount": 3 },
+    { "id": "training", "name": "Training Grounds", "arenaId": "magic-arena", "players": 0, "maxPlayers": 4, "obstacleCount": 2 }
+  ]
+}

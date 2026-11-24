@@ -18,6 +18,8 @@ import { Sword } from './entities/Sword.js';
 import { World } from './sim/world.js';
 import { Obstacle } from './entities/Obstacle.js';
 import { Pickup } from './entities/Pickup.js';
+import { Lobby } from './lobby/Lobby.js';
+import { mountLobby } from './lobby/view.js';
 
 const canvas = document.querySelector('#game');
 const { ctx, size } = createCanvas(canvas);
@@ -31,6 +33,9 @@ let sword = new Sword({
 const world = new World(size);
 
 world.spawn(sword);
+
+let playerName = 'Mage';
+let roomName = 'Arcane Ruins';
 
 // Створюємо три рунічні камені
 const obstacles = [
@@ -244,13 +249,21 @@ const render = (alpha, stats) => {
     score: world.score,
     respawnSeconds: respawnTimer,
   });
+
+  ctx.save();
+  ctx.fillStyle = '#ddd6fe';
+  ctx.font = '13px monospace';
+  ctx.textAlign = 'right';
+
+  ctx.fillText(`${playerName} | ${roomName}`, size.width - 18, 30);
+
+  ctx.restore();
 };
 
 const loop = createLoop({
   render,
   simulate,
 });
-
 
 const audioContext = new AudioContext();
 
@@ -260,31 +273,49 @@ void bootGame({
   audioContext,
 
   start: (assets) => {
-    const audio = createGameAudio(
-      audioContext,
-      assets.audio,
-    );
+    // Підключаємо звуки
+    const audio = createGameAudio(audioContext, assets.audio);
 
     audio.subscribe(world);
 
-    const enableSound = () => {
-      void audio.unlock().catch(console.error);
+    // Створюємо лобі
+    const lobby = new Lobby({
+      url: '/api/rooms',
+      refreshMs: 5000,
+      timeoutMs: 3000,
+    });
 
-      window.removeEventListener(
-        'keydown',
-        enableSound,
+    // Обробка входу в кімнату
+    const onJoined = (event) => {
+      const { name, room } = event.detail;
+
+      playerName = name;
+      roomName = room.name;
+
+      // Налаштовуємо кількість каменів
+      const obstacleCount = Math.max(
+        0,
+        Math.min(obstacles.length, room.obstacleCount ?? obstacles.length),
       );
 
-      window.removeEventListener(
-        'pointerdown',
-        enableSound,
-      );
+      for (const obstacle of obstacles.slice(obstacleCount)) {
+        world.despawn(obstacle.id);
+      }
+
+      // Прибираємо лобі та запускаємо гру
+      destroyLobby();
+      loop.start();
     };
 
-    window.addEventListener('keydown', enableSound);
-    window.addEventListener('pointerdown', enableSound);
+    lobby.addEventListener('joined', onJoined, {
+      once: true,
+    });
 
-    loop.start();
+    // Показуємо лобі
+    const destroyLobby = mountLobby(lobby, {
+      onJoinGesture: () => {
+        void audio.unlock().catch(console.error);
+      },
+    });
   },
 });
-
