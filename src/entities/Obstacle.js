@@ -27,6 +27,8 @@ export class Obstacle extends Entity {
   update(dt, world) {
     this.previousPos = this.pos;
 
+    this.homing?.update(this, world, dt);
+
     // Переміщення за допомогою Entity.update()
     super.update(dt);
 

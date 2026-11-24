@@ -1,20 +1,17 @@
-export const drawBullet = (ctx, x, y, radius = 6) => {
+export const drawBullet = (ctx, x, y, radius = 6, isHoming = false) => {
   ctx.save();
 
-  // Магічне світіння
-  ctx.shadowColor = '#a855f7';
+  ctx.shadowColor = isHoming ? '#22d3ee' : '#a855f7';
   ctx.shadowBlur = 15;
 
-  // Зовнішня частина снаряда
-  ctx.fillStyle = '#9b6dff';
+  ctx.fillStyle = isHoming ? '#22d3ee' : '#9b6dff';
 
   ctx.beginPath();
   ctx.arc(x, y, radius, 0, Math.PI * 2);
   ctx.fill();
 
-  // Яскраве ядро
   ctx.shadowBlur = 0;
-  ctx.fillStyle = '#e9d5ff';
+  ctx.fillStyle = isHoming ? '#ecfeff' : '#e9d5ff';
 
   ctx.beginPath();
   ctx.arc(x, y, radius * 0.5, 0, Math.PI * 2);

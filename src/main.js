@@ -1,5 +1,6 @@
 import './style.css';
 import { createCanvas } from './render/canvas';
+import { createHoming } from './sim/behaviors/homing.js';
 import { drawBackground } from './render/background';
 import { drawSword } from './render/sword';
 import { drawHud } from './render/hud';
@@ -50,6 +51,12 @@ const obstacles = [
 for (const obstacle of obstacles) {
   world.spawn(obstacle);
 }
+
+obstacles[0].homing = createHoming({
+  targetKind: 'sword',
+  turnRate: 2.4,
+  speed: 70,
+});
 
 let respawnTimer = null;
 
@@ -112,6 +119,7 @@ const interpolateWrapped = (from, to, alpha, size) => {
 const simulate = (dt) => {
   const controls = input.getState();
   const firePressed = input.justPressed('Space');
+  const homingFirePressed = input.justPressed('KeyH');
 
   if (sword.alive) {
     previousSword = {
@@ -127,6 +135,17 @@ const simulate = (dt) => {
 
   if (sword.alive && firePressed) {
     sword.fire(world);
+  }
+
+  if (sword.alive && homingFirePressed) {
+    const bullet = sword.fire(world);
+
+    bullet.homing = createHoming({
+      targetKind: 'obstacle',
+      turnRate: 9,
+    });
+
+    bullet.ttl = 3;
   }
 
   // Обробка знищеного меча
@@ -185,7 +204,7 @@ const render = (alpha, stats) => {
       size.height,
     );
 
-    drawBullet(ctx, bulletX, bulletY, bullet.radius);
+    drawBullet(ctx, bulletX, bulletY, bullet.radius, Boolean(bullet.homing));
   }
 
   if (sword.alive) {

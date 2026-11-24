@@ -28,6 +28,8 @@ export class Bullet extends Entity {
   update(dt, world) {
     this.previousPos = this.pos;
 
+    this.homing?.update(this, world, dt);
+
     super.update(dt);
 
     this.pos = new Vector2(wrap(this.pos.x, world.width), wrap(this.pos.y, world.height));
