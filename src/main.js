@@ -10,6 +10,7 @@ import { drawBullet } from './render/bullet.js';
 import { drawObstacle } from './render/obstacle.js';
 import { drawExplosion } from './render/explosion.js';
 import { drawPickup } from './render/pickup.js';
+import { drawSheetSprite } from './render/sprites.js';
 import { createLoop } from './loop';
 import { createInput } from './input';
 import { bootGame } from './assets/boot.js';
@@ -31,6 +32,8 @@ let sword = new Sword({
 });
 
 const world = new World(size);
+
+let loadedAssets = null;
 
 world.spawn(sword);
 
@@ -197,13 +200,23 @@ const simulate = (dt) => {
 const render = (alpha, stats) => {
   drawBackground(ctx, size.width, size.height);
 
+  const sprites = loadedAssets?.sprites ?? {};
+  const frame = Math.floor(performance.now() / 150) % 4;
+
   // Малювання рунічних каменів
   for (const obstacle of world.ofKind('obstacle')) {
     const x = obstacle.previousPos.x + (obstacle.pos.x - obstacle.previousPos.x) * alpha;
 
     const y = obstacle.previousPos.y + (obstacle.pos.y - obstacle.previousPos.y) * alpha;
 
-    drawObstacle(ctx, x, y, obstacle.radius);
+    if (
+      !drawSheetSprite(ctx, sprites.obstacle, x, y, {
+        frame,
+        scale: (obstacle.radius / 25) * 1.65,
+      })
+    ) {
+      drawObstacle(ctx, x, y, obstacle.radius);
+    }
   }
 
   for (const pickup of world.ofKind('pickup')) {
@@ -225,7 +238,23 @@ const render = (alpha, stats) => {
       size.height,
     );
 
-    drawBullet(ctx, bulletX, bulletY, bullet.radius, Boolean(bullet.homing));
+    ctx.save();
+
+    // Самонавідний снаряд буде блакитним
+    if (bullet.homing) {
+      ctx.filter = 'hue-rotate(90deg) saturate(1.5)';
+    }
+
+    if (
+      !drawSheetSprite(ctx, sprites.bullet, bulletX, bulletY, {
+        frame,
+        scale: (bullet.radius / 6) * 0.9,
+      })
+    ) {
+      drawBullet(ctx, bulletX, bulletY, bullet.radius, Boolean(bullet.homing));
+    }
+
+    ctx.restore();
   }
 
   if (sword.alive) {
@@ -235,7 +264,15 @@ const render = (alpha, stats) => {
 
     const angle = previousSword.angle + (sword.angle - previousSword.angle) * alpha;
 
-    drawSword(ctx, x, y, angle, input.getState().forward);
+    if (
+      !drawSheetSprite(ctx, sprites.sword, x, y, {
+        frame,
+        angle,
+        scale: 2.15,
+      })
+    ) {
+      drawSword(ctx, x, y, angle, input.getState().forward);
+    }
   }
 
   // Малювання вибухів
@@ -273,6 +310,8 @@ void bootGame({
   audioContext,
 
   start: (assets) => {
+    loadedAssets = assets;
+
     // Підключаємо звуки
     const audio = createGameAudio(audioContext, assets.audio);
 
