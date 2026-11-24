@@ -11,6 +11,7 @@ import { drawExplosion } from './render/explosion.js';
 import { drawPickup } from './render/pickup.js';
 import { createLoop } from './loop';
 import { createInput } from './input';
+import { bootGame } from './assets/boot.js';
 import { Vector2 } from './sim/vector.js';
 import { Sword } from './entities/Sword.js';
 import { World } from './sim/world.js';
@@ -249,4 +250,11 @@ const loop = createLoop({
   simulate,
 });
 
-loop.start();
+void bootGame({
+  ctx,
+  size,
+  start: (assets) => {
+    console.info('Loaded assets:', assets);
+    loop.start();
+  },
+});

@@ -1,0 +1,7 @@
+{
+  "id": "magic-arena",
+  "name": "Magic Arena",
+  "theme": "arcane",
+  "maxPlayers": 4,
+  "obstacleCount": 3
+}
