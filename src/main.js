@@ -1,18 +1,21 @@
 import './style.css';
 import { createCanvas } from './render/canvas';
 import { createHoming } from './sim/behaviors/homing.js';
+import { createHealingEffect } from './sim/behaviors/healing.js';
 import { drawBackground } from './render/background';
 import { drawSword } from './render/sword';
 import { drawHud } from './render/hud';
 import { drawBullet } from './render/bullet.js';
 import { drawObstacle } from './render/obstacle.js';
 import { drawExplosion } from './render/explosion.js';
+import { drawPickup } from './render/pickup.js';
 import { createLoop } from './loop';
 import { createInput } from './input';
 import { Vector2 } from './sim/vector.js';
 import { Sword } from './entities/Sword.js';
 import { World } from './sim/world.js';
 import { Obstacle } from './entities/Obstacle.js';
+import { Pickup } from './entities/Pickup.js';
 
 const canvas = document.querySelector('#game');
 const { ctx, size } = createCanvas(canvas);
@@ -57,6 +60,13 @@ obstacles[0].homing = createHoming({
   turnRate: 2.4,
   speed: 70,
 });
+
+const healingPickup = new Pickup({
+  pos: new Vector2(size.width * 0.5, size.height * 0.78),
+  effect: createHealingEffect(1),
+});
+
+world.spawn(healingPickup);
 
 let respawnTimer = null;
 
@@ -187,6 +197,10 @@ const render = (alpha, stats) => {
     const y = obstacle.previousPos.y + (obstacle.pos.y - obstacle.previousPos.y) * alpha;
 
     drawObstacle(ctx, x, y, obstacle.radius);
+  }
+
+  for (const pickup of world.ofKind('pickup')) {
+    drawPickup(ctx, pickup.pos.x, pickup.pos.y, pickup.radius);
   }
 
   for (const bullet of world.ofKind('bullet')) {

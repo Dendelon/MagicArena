@@ -34,6 +34,14 @@ export const resolveCollisions = (world) => {
 
     const sword = a.kind === 'sword' ? a : b.kind === 'sword' ? b : null;
 
+    const pickup = a.kind === 'pickup' ? a : b.kind === 'pickup' ? b : null;
+
+    // Підбирання магічного кристала
+    if (sword && pickup) {
+      pickup.collect(sword, world);
+      continue;
+    }
+
     // Влучання снаряда в камінь
     if (bullet && obstacle) {
       world.despawn(bullet.id);

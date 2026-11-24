@@ -29,6 +29,18 @@ export class Sword extends Entity {
     return true;
   }
 
+  heal(amount = 1) {
+    if (!this.alive || amount <= 0) {
+      return false;
+    }
+
+    const previousHp = this.#hp;
+
+    this.#hp = Math.min(3, this.#hp + amount);
+
+    return this.#hp > previousHp;
+  }
+
   constructor({ pos = new Vector2(), vel = new Vector2(), angle = 0 } = {}) {
     super({
       pos,
