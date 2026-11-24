@@ -4,11 +4,13 @@ import { drawBackground } from './render/background';
 import { drawSword } from './render/sword';
 import { drawHud } from './render/hud';
 import { drawBullet } from './render/bullet.js';
+import { drawObstacle } from './render/obstacle.js';
 import { createLoop } from './loop';
 import { createInput } from './input';
 import { Vector2 } from './sim/vector.js';
 import { Sword } from './entities/Sword.js';
 import { World } from './sim/world.js';
+import { Obstacle } from './entities/Obstacle.js';
 
 const canvas = document.querySelector('#game');
 const { ctx, size } = createCanvas(canvas);
@@ -22,6 +24,33 @@ const sword = new Sword({
 const world = new World(size);
 
 world.spawn(sword);
+
+
+// Створюємо три рунічні камені
+const obstacles = [
+  new Obstacle({
+    pos: new Vector2(size.width * 0.2, size.height * 0.3),
+    vel: new Vector2(40, 25),
+    radius: 28,
+  }),
+
+  new Obstacle({
+    pos: new Vector2(size.width * 0.8, size.height * 0.65),
+    vel: new Vector2(-35, 30),
+    radius: 24,
+  }),
+
+  new Obstacle({
+    pos: new Vector2(size.width * 0.7, size.height * 0.2),
+    vel: new Vector2(-25, -40),
+    radius: 32,
+  }),
+];
+
+for (const obstacle of obstacles) {
+  world.spawn(obstacle);
+}
+
 
 const inputs = new Map();
 
@@ -81,6 +110,19 @@ const render = (alpha, stats) => {
     (sword.angle - previousSword.angle) * alpha;
 
   drawBackground(ctx, size.width, size.height);
+
+  // Малювання рунічних каменів
+  for (const obstacle of world.ofKind('obstacle')) {
+    const x =
+      obstacle.previousPos.x +
+      (obstacle.pos.x - obstacle.previousPos.x) * alpha;
+
+    const y =
+      obstacle.previousPos.y +
+      (obstacle.pos.y - obstacle.previousPos.y) * alpha;
+
+    drawObstacle(ctx, x, y, obstacle.radius);
+  }
 
   for (const bullet of world.ofKind('bullet')) {
     const bulletX = interpolateWrapped(

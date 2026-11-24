@@ -1,3 +1,5 @@
+import { resolveCollisions } from './collision.js';
+
 export class World {
   #entities = new Map();
 
@@ -58,9 +60,11 @@ export class World {
   }
 
   // Один крок симуляції
+
   step(dt, inputs = new Map()) {
     const entities = [...this.#entities.values()];
 
+    // 1. Оновлюємо всі сутності
     for (const entity of entities) {
       if (!entity.alive) continue;
 
@@ -74,9 +78,10 @@ export class World {
       entity.update(dt, this);
     }
 
-    // Пізніше тут буде перевірка зіткнень
+    // 2. Перевіряємо зіткнення
+    resolveCollisions(this);
 
-    // Остаточне видалення мертвих сутностей
+    // 3. Видаляємо знищені об'єкти
     for (const [id, entity] of this.#entities) {
       if (!entity.alive) {
         this.#entities.delete(id);
