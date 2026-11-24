@@ -1,4 +1,5 @@
-// Перевірка перетину двох кіл
+import { Explosion } from '../entities/Explosion.js';
+
 export const circlesOverlap = (a, b) => {
   const dx = a.pos.x - b.pos.x;
   const dy = a.pos.y - b.pos.y;
@@ -8,11 +9,8 @@ export const circlesOverlap = (a, b) => {
   return dx * dx + dy * dy <= radiusSum * radiusSum;
 };
 
-// Генерує пари сутностей, які зіткнулися
 export function* collisionPairs(world) {
-  const entities = [...world].filter(
-    (entity) => entity.alive && entity.radius > 0,
-  );
+  const entities = [...world].filter((entity) => entity.alive && entity.radius > 0);
 
   for (let i = 0; i < entities.length; i++) {
     for (let j = i + 1; j < entities.length; j++) {
@@ -26,25 +24,65 @@ export function* collisionPairs(world) {
   }
 }
 
-// Обробка зіткнень
 export const resolveCollisions = (world) => {
   for (const [a, b] of collisionPairs(world)) {
     if (!a.alive || !b.alive) continue;
 
-    // Шукаємо снаряд серед двох об'єктів
-    const bullet =
-      a.kind === 'bullet' ? a :
-      b.kind === 'bullet' ? b : null;
+    const bullet = a.kind === 'bullet' ? a : b.kind === 'bullet' ? b : null;
 
-    // Шукаємо перешкоду
-    const obstacle =
-      a.kind === 'obstacle' ? a :
-      b.kind === 'obstacle' ? b : null;
+    const obstacle = a.kind === 'obstacle' ? a : b.kind === 'obstacle' ? b : null;
 
-    // Поки обробляємо лише влучання у камені
+    const sword = a.kind === 'sword' ? a : b.kind === 'sword' ? b : null;
+
+    // Влучання снаряда в камінь
     if (bullet && obstacle) {
       world.despawn(bullet.id);
-      world.despawn(obstacle.id);
+
+      obstacle.takeDamage(bullet.damage);
+
+      if (!obstacle.alive) {
+        world.spawn(
+          new Explosion({
+            pos: obstacle.pos,
+          }),
+        );
+
+        world.score += 10;
+      }
+    }
+
+    // Влучання чужого снаряда в меч
+    else if (bullet && sword) {
+      if (bullet.ownerId === sword.id) continue;
+
+      world.despawn(bullet.id);
+
+      const damaged = sword.takeDamage(bullet.damage);
+
+      if (damaged && !sword.alive) {
+        world.spawn(
+          new Explosion({
+            pos: sword.pos,
+            count: 35,
+            color: '#66e0ff',
+          }),
+        );
+      }
+    }
+
+    // Зіткнення меча з каменем
+    else if (sword && obstacle) {
+      const damaged = sword.takeDamage(1);
+
+      if (damaged && !sword.alive) {
+        world.spawn(
+          new Explosion({
+            pos: sword.pos,
+            count: 35,
+            color: '#66e0ff',
+          }),
+        );
+      }
     }
   }
 };

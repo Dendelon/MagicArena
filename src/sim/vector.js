@@ -1,4 +1,3 @@
-
 export class Vector2 {
   constructor(x = 0, y = 0) {
     this.x = x;
@@ -6,24 +5,15 @@ export class Vector2 {
   }
 
   add(vector) {
-    return new Vector2(
-      this.x + vector.x,
-      this.y + vector.y
-    );
+    return new Vector2(this.x + vector.x, this.y + vector.y);
   }
 
   sub(vector) {
-    return new Vector2(
-      this.x - vector.x,
-      this.y - vector.y
-    );
+    return new Vector2(this.x - vector.x, this.y - vector.y);
   }
 
   scale(value) {
-    return new Vector2(
-      this.x * value,
-      this.y * value
-    );
+    return new Vector2(this.x * value, this.y * value);
   }
 
   length() {
@@ -42,10 +32,7 @@ export class Vector2 {
     const cos = Math.cos(angle);
     const sin = Math.sin(angle);
 
-    return new Vector2(
-      this.x * cos - this.y * sin,
-      this.x * sin + this.y * cos
-    );
+    return new Vector2(this.x * cos - this.y * sin, this.x * sin + this.y * cos);
   }
 
   dot(vector) {
@@ -53,9 +40,6 @@ export class Vector2 {
   }
 
   static fromAngle(angle) {
-    return new Vector2(
-      Math.cos(angle),
-      Math.sin(angle)
-    );
+    return new Vector2(Math.cos(angle), Math.sin(angle));
   }
 }

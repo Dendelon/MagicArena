@@ -2,11 +2,7 @@ import { Entity } from '../sim/entity.js';
 import { Vector2 } from '../sim/vector.js';
 
 export class Obstacle extends Entity {
-  constructor({
-    pos = new Vector2(),
-    vel = new Vector2(),
-    radius = 26,
-  } = {}) {
+  constructor({ pos = new Vector2(), vel = new Vector2(), radius = 26 } = {}) {
     super({
       pos,
       vel,
@@ -15,6 +11,17 @@ export class Obstacle extends Entity {
     });
 
     this.previousPos = pos;
+    this.hp = 1;
+  }
+
+  takeDamage(amount = 1) {
+    if (!this.alive) return;
+
+    this.hp = Math.max(0, this.hp - amount);
+
+    if (this.hp === 0) {
+      this.destroy();
+    }
   }
 
   update(dt, world) {

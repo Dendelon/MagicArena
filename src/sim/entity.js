@@ -1,4 +1,3 @@
-
 import { Vector2 } from './vector.js';
 
 export class Entity {

@@ -14,7 +14,7 @@ export const drawObstacle = (ctx, x, y, radius) => {
   ctx.beginPath();
 
   for (let i = 0; i < 6; i++) {
-    const angle = -Math.PI / 2 + i * Math.PI / 3;
+    const angle = -Math.PI / 2 + (i * Math.PI) / 3;
 
     const px = Math.cos(angle) * radius;
     const py = Math.sin(angle) * radius;

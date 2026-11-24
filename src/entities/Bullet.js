@@ -30,10 +30,7 @@ export class Bullet extends Entity {
 
     super.update(dt);
 
-    this.pos = new Vector2(
-      wrap(this.pos.x, world.width),
-      wrap(this.pos.y, world.height),
-    );
+    this.pos = new Vector2(wrap(this.pos.x, world.width), wrap(this.pos.y, world.height));
 
     this.ttl -= dt;
 

@@ -5,6 +5,7 @@ export class World {
 
   constructor(bounds) {
     this.bounds = bounds;
+    this.score = 0;
   }
 
   get width() {
@@ -68,10 +69,7 @@ export class World {
     for (const entity of entities) {
       if (!entity.alive) continue;
 
-      if (
-        typeof entity.setInput === 'function' &&
-        inputs.has(entity.id)
-      ) {
+      if (typeof entity.setInput === 'function' && inputs.has(entity.id)) {
         entity.setInput(inputs.get(entity.id));
       }
 
