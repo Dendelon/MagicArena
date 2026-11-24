@@ -2,6 +2,7 @@ import './style.css';
 import { createCanvas } from './render/canvas';
 import { createHoming } from './sim/behaviors/homing.js';
 import { createHealingEffect } from './sim/behaviors/healing.js';
+import { createGameAudio } from './audio/audio.js';
 import { drawBackground } from './render/background';
 import { drawSword } from './render/sword';
 import { drawHud } from './render/hud';
@@ -250,11 +251,40 @@ const loop = createLoop({
   simulate,
 });
 
+
+const audioContext = new AudioContext();
+
 void bootGame({
   ctx,
   size,
+  audioContext,
+
   start: (assets) => {
-    console.info('Loaded assets:', assets);
+    const audio = createGameAudio(
+      audioContext,
+      assets.audio,
+    );
+
+    audio.subscribe(world);
+
+    const enableSound = () => {
+      void audio.unlock().catch(console.error);
+
+      window.removeEventListener(
+        'keydown',
+        enableSound,
+      );
+
+      window.removeEventListener(
+        'pointerdown',
+        enableSound,
+      );
+    };
+
+    window.addEventListener('keydown', enableSound);
+    window.addEventListener('pointerdown', enableSound);
+
     loop.start();
   },
 });
+

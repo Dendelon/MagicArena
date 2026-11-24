@@ -1,11 +1,17 @@
 import { resolveCollisions } from './collision.js';
 
-export class World {
+export class World extends EventTarget {
   #entities = new Map();
 
   constructor(bounds) {
+    super();
+
     this.bounds = bounds;
     this.score = 0;
+  }
+
+  emit(name, detail = {}) {
+    this.dispatchEvent(new CustomEvent(name, { detail }));
   }
 
   get width() {
@@ -27,6 +33,13 @@ export class World {
     }
 
     this.#entities.set(entity.id, entity);
+
+    if (entity.kind === 'bullet') {
+      this.emit('fired', {
+        entityId: entity.id,
+        pos: entity.pos,
+      });
+    }
 
     return entity;
   }

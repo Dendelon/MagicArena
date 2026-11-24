@@ -24,6 +24,21 @@ export function* collisionPairs(world) {
   }
 }
 
+const explode = (world, entity, { count = 20, color = '#b794f6' } = {}) => {
+  world.spawn(
+    new Explosion({
+      pos: entity.pos,
+      count,
+      color,
+    }),
+  );
+
+  world.emit('exploded', {
+    kind: entity.kind,
+    pos: entity.pos,
+  });
+};
+
 export const resolveCollisions = (world) => {
   for (const [a, b] of collisionPairs(world)) {
     if (!a.alive || !b.alive) continue;
@@ -36,30 +51,36 @@ export const resolveCollisions = (world) => {
 
     const pickup = a.kind === 'pickup' ? a : b.kind === 'pickup' ? b : null;
 
-    // Підбирання магічного кристала
+    // Підбирання кристала
     if (sword && pickup) {
-      pickup.collect(sword, world);
+      if (pickup.collect(sword, world)) {
+        world.emit('healed', { hp: sword.hp });
+      }
       continue;
     }
 
-    // Влучання снаряда в камінь
+    // Снаряд потрапив у камінь
     if (bullet && obstacle) {
       world.despawn(bullet.id);
-
       obstacle.takeDamage(bullet.damage);
 
+      world.emit('hit', {
+        kind: 'obstacle',
+        pos: obstacle.pos,
+      });
+
       if (!obstacle.alive) {
-        world.spawn(
-          new Explosion({
-            pos: obstacle.pos,
-          }),
-        );
+        explode(world, obstacle);
 
         world.score += 10;
+
+        world.emit('scoreChanged', {
+          score: world.score,
+        });
       }
     }
 
-    // Влучання чужого снаряда в меч
+    // Чужий снаряд потрапив у меч
     else if (bullet && sword) {
       if (bullet.ownerId === sword.id) continue;
 
@@ -67,29 +88,37 @@ export const resolveCollisions = (world) => {
 
       const damaged = sword.takeDamage(bullet.damage);
 
+      if (damaged) {
+        world.emit('hit', {
+          kind: 'sword',
+          pos: sword.pos,
+        });
+      }
+
       if (damaged && !sword.alive) {
-        world.spawn(
-          new Explosion({
-            pos: sword.pos,
-            count: 35,
-            color: '#66e0ff',
-          }),
-        );
+        explode(world, sword, {
+          count: 35,
+          color: '#66e0ff',
+        });
       }
     }
 
-    // Зіткнення меча з каменем
+    // Меч зіткнувся з каменем
     else if (sword && obstacle) {
       const damaged = sword.takeDamage(1);
 
+      if (damaged) {
+        world.emit('hit', {
+          kind: 'sword',
+          pos: sword.pos,
+        });
+      }
+
       if (damaged && !sword.alive) {
-        world.spawn(
-          new Explosion({
-            pos: sword.pos,
-            count: 35,
-            color: '#66e0ff',
-          }),
-        );
+        explode(world, sword, {
+          count: 35,
+          color: '#66e0ff',
+        });
       }
     }
   }
