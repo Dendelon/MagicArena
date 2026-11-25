@@ -1,0 +1,73 @@
+.magic-chat {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 20;
+
+  width: min(320px, calc(100vw - 32px));
+  padding: 14px;
+
+  color: #ddd6fe;
+  background: rgba(18, 12, 35, 0.94);
+  border: 1px solid #7652a5;
+  border-radius: 12px;
+
+  font-family: monospace;
+  font-size: 12px;
+}
+
+.magic-chat h3 {
+  margin: 0 0 8px;
+  color: #c4b5fd;
+}
+
+.magic-chat-status {
+  margin: 4px 0;
+  color: #67e8f9;
+}
+
+.magic-chat-roster {
+  margin: 8px 0;
+  color: #facc15;
+}
+
+.magic-chat-messages {
+  height: 150px;
+  overflow-y: auto;
+  padding: 8px;
+  margin-bottom: 10px;
+
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 6px;
+
+  overflow-wrap: anywhere;
+}
+
+.magic-chat-messages div {
+  margin-bottom: 6px;
+}
+
+.magic-chat-form {
+  display: flex;
+  gap: 6px;
+}
+
+.magic-chat-form input {
+  width: 100%;
+  min-width: 0;
+  padding: 7px;
+
+  color: white;
+  background: #251d3b;
+  border: 1px solid #67538c;
+  border-radius: 5px;
+}
+
+.magic-chat-form button {
+  padding: 7px 10px;
+  color: white;
+  background: #7050a5;
+  border: 0;
+  border-radius: 5px;
+  cursor: pointer;
+}

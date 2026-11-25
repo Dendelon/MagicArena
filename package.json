@@ -2,7 +2,10 @@
   "name": "magicarena",
   "private": true,
   "type": "module",
-  "workspaces": ["client", "server"],
+  "workspaces": [
+    "client",
+    "server"
+  ],
   "scripts": {
     "dev": "npm run dev:client",
     "dev:client": "npm run dev -w client",

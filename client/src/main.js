@@ -22,6 +22,8 @@ import { Obstacle } from './entities/Obstacle.js';
 import { Pickup } from './entities/Pickup.js';
 import { Lobby } from './lobby/Lobby.js';
 import { mountLobby } from './lobby/view.js';
+import { createConnection } from './network/connection.js';
+import { mountRoomChat } from './network/chat.js';
 
 const canvas = document.querySelector('#game');
 const { ctx, size } = createCanvas(canvas);
@@ -350,6 +352,15 @@ void bootGame({
 
       // Прибираємо лобі та запускаємо гру
       destroyLobby();
+
+      const connection = createConnection({
+        name: playerName,
+        roomId: room.id,
+      });
+
+      mountRoomChat(connection);
+      connection.connect();
+
       loop.start();
     };
 

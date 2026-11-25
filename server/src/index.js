@@ -1,35 +1,30 @@
-
 import { createServer } from 'node:http';
 import { createReadStream } from 'node:fs';
 import { mkdir, stat } from 'node:fs/promises';
-import { randomUUID } from 'node:crypto';
 import { extname, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { pipeline } from 'node:stream/promises';
 import { config } from './config.js';
+import { RoomManager } from './rooms.js';
+import { setupWebSocket } from './ws.js';
 
-const distDir = resolve(
-  fileURLToPath(new URL('../../client/dist/', import.meta.url)),
-);
+const distDir = resolve(fileURLToPath(new URL('../../client/dist/', import.meta.url)));
 
-const rooms = new Map([
-  ['arcane', {
-    id: 'arcane',
-    name: 'Arcane Ruins',
-    arenaId: 'magic-arena',
-    players: 0,
-    maxPlayers: 4,
-    obstacleCount: 3,
-  }],
-  ['training', {
-    id: 'training',
-    name: 'Training Grounds',
-    arenaId: 'magic-arena',
-    players: 0,
-    maxPlayers: 4,
-    obstacleCount: 2,
-  }],
-]);
+const rooms = new RoomManager();
+
+rooms.create({
+  id: 'arcane',
+  name: 'Arcane Ruins',
+  obstacleCount: 3,
+  maxPlayers: 4,
+});
+
+rooms.create({
+  id: 'training',
+  name: 'Training Grounds',
+  obstacleCount: 2,
+  maxPlayers: 4,
+});
 
 const mimeTypes = {
   '.html': 'text/html; charset=utf-8',
@@ -71,9 +66,7 @@ const readJsonBody = async (req) => {
   }
 
   try {
-    return JSON.parse(
-      Buffer.concat(chunks).toString('utf8'),
-    );
+    return JSON.parse(Buffer.concat(chunks).toString('utf8'));
   } catch {
     const error = new Error('Invalid JSON');
     error.status = 400;
@@ -82,8 +75,7 @@ const readJsonBody = async (req) => {
 };
 
 const serveStatic = async (pathname, req, res) => {
-  const relativePath =
-    pathname === '/' ? 'index.html' : pathname.slice(1);
+  const relativePath = pathname === '/' ? 'index.html' : pathname.slice(1);
 
   const filePath = resolve(distDir, relativePath);
 
@@ -108,9 +100,7 @@ const serveStatic = async (pathname, req, res) => {
   }
 
   res.writeHead(200, {
-    'Content-Type':
-      mimeTypes[extname(filePath)] ??
-      'application/octet-stream',
+    'Content-Type': mimeTypes[extname(filePath)] ?? 'application/octet-stream',
   });
 
   if (req.method === 'HEAD') {
@@ -136,10 +126,7 @@ const handleRequest = async (req, res) => {
   // Перевіряємо шлях до нормалізації URL
   const segments = decodedPath.replaceAll('\\', '/').split('/');
 
-  if (
-    segments.includes('..') ||
-    decodedPath.includes('\0')
-  ) {
+  if (segments.includes('..') || decodedPath.includes('\0')) {
     sendJson(res, 403, { error: 'Forbidden path' });
     return;
   }
@@ -154,7 +141,7 @@ const handleRequest = async (req, res) => {
 
   if (pathname === '/api/rooms' && req.method === 'GET') {
     sendJson(res, 200, {
-      rooms: [...rooms.values()],
+      rooms: rooms.list(),
     });
     return;
   }
@@ -177,18 +164,13 @@ const handleRequest = async (req, res) => {
       return;
     }
 
-    const room = {
-      id: randomUUID(),
+    const room = rooms.create({
       name: body.name.trim(),
-      arenaId: 'magic-arena',
-      players: 0,
-      maxPlayers: 4,
       obstacleCount: body.obstacleCount,
-    };
+      maxPlayers: 4,
+    });
 
-    rooms.set(room.id, room);
-
-    sendJson(res, 201, room);
+    sendJson(res, 201, room.getInfo());
     return;
   }
 
@@ -220,6 +202,8 @@ const server = createServer((req, res) => {
   });
 });
 
+const websocket = setupWebSocket(server, rooms);
+
 server.on('error', (error) => {
   console.error('Server error:', error);
   process.exitCode = 1;
@@ -233,6 +217,8 @@ const shutdown = () => {
   stopping = true;
 
   console.log('Shutting down server...');
+
+  websocket.shutdown();
 
   server.close((error) => {
     process.exitCode = error ? 1 : 0;
@@ -252,7 +238,5 @@ process.on('SIGTERM', shutdown);
 await mkdir(config.logDir, { recursive: true });
 
 server.listen(config.port, config.host, () => {
-  console.log(
-    `Magic Arena server: http://${config.host}:${config.port}`,
-  );
+  console.log(`Magic Arena server: http://${config.host}:${config.port}`);
 });
