@@ -1,78 +1,99 @@
 import './style.css';
-import { createCanvas } from './render/canvas';
-import { World, createInputMessage } from '@magicarena/shared';
-import { createGameAudio } from './audio/audio.js';
+
+import {
+  World,
+  createInputMessage,
+  toSeq,
+  toTick,
+} from '@magicarena/shared';
+
+import type { EntityId, PlayerId, Seq, Tick } from '@magicarena/shared';
+
+import { createCanvas } from './render/canvas.ts';
+import { createGameAudio } from './audio/audio.ts';
 import {
   drawArenaBorder,
   drawBackground,
   drawOuterBackground,
-} from './render/background';
-import { drawSword } from './render/sword';
-import { drawHud } from './render/hud';
-import { drawBullet } from './render/bullet.js';
-import { drawObstacle } from './render/obstacle.js';
-import { drawExplosion } from './render/explosion.js';
-import { drawPickup } from './render/pickup.js';
-import { drawSheetSprite } from './render/sprites.js';
-import { drawSwordThrust } from './render/swordThrust.js';
-import { createLoop } from './loop';
-import { createInput } from './input';
-import { bootGame } from './assets/boot.js';
-import { Lobby } from './lobby/Lobby.js';
-import { mountLobby } from './lobby/view.js';
-import { createConnection } from './network/connection.js';
-import { mountRoomChat } from './network/chat.js';
-import { mountNetgraph } from './network/netgraph.js';
-import { createPrediction } from './network/prediction.js';
+} from './render/background.ts';
+import { drawSword } from './render/sword.ts';
+import { drawHud } from './render/hud.ts';
+import { drawBullet } from './render/bullet.ts';
+import { drawObstacle } from './render/obstacle.ts';
+import { drawExplosion } from './render/explosion.ts';
+import { drawPickup } from './render/pickup.ts';
+import { drawSheetSprite } from './render/sprites.ts';
+import { drawSwordThrust } from './render/swordThrust.ts';
+import { createLoop } from './loop.ts';
+import { createInput } from './input.ts';
+import { bootGame } from './assets/boot.ts';
+import { Lobby, type LobbyEvents } from './lobby/Lobby.ts';
+import { mountLobby } from './lobby/view.ts';
+import { createConnection, type Connection } from './network/connection.ts';
+import { mountRoomChat } from './network/chat.ts';
+import { mountNetgraph, type Netgraph } from './network/netgraph.ts';
+import { createPrediction } from './network/prediction.ts';
 import {
   DEFAULT_INTERPOLATION_DELAY_MS,
   createInterpolation,
-} from './network/interpolation.js';
-import { createProjectilePredictor } from './network/projectiles.js';
+} from './network/interpolation.ts';
+import { createProjectilePredictor } from './network/projectiles.ts';
+
+import type { FrameStats, LoadedAssets } from './types.ts';
+import type { TypedEvent } from './events.ts';
 
 const INPUT_INTERVAL = 1 / 30;
 
 const canvas = document.querySelector('#game');
+
+if (!(canvas instanceof HTMLCanvasElement)) {
+  throw new Error('Game canvas was not found');
+}
+
 const { ctx, size } = createCanvas(canvas);
 
 const input = createInput();
 
 const world = new World({ width: 0, height: 0 });
 
-let loadedAssets = null;
-let gameAudio = null;
+let loadedAssets: LoadedAssets | null = null;
+let gameAudio: ReturnType<typeof createGameAudio> | null = null;
 
 let playerName = 'Mage';
 let roomName = 'Arcane Ruins';
 
-let connection = null;
-let netgraph = null;
-let myPlayerId = null;
-let myEntityId = null;
-let respawnTimer = null;
-let lastAppliedSnapshotTick = null;
-let lastServerAckSeq = 0;
+let connection: Connection | null = null;
+let netgraph: Netgraph | null = null;
+let myPlayerId: PlayerId | null = null;
+let myEntityId: EntityId | null = null;
+let respawnTimer: number | null = null;
+let lastAppliedSnapshotTick: Tick | null = null;
+let lastServerAckSeq: Seq = toSeq(0);
 
 const prediction = createPrediction();
-const interpolation = createInterpolation({ delayMs: DEFAULT_INTERPOLATION_DELAY_MS });
+const interpolation = createInterpolation({
+  delayMs: DEFAULT_INTERPOLATION_DELAY_MS,
+});
 const projectiles = createProjectilePredictor();
 
-let inputSeq = 0;
-let clientTick = 0;
+let inputSeq: Seq = toSeq(0);
+let clientTick: Tick = toTick(0);
 let inputAccumulator = 0;
 let pendingFire = false;
 let pendingHomingFire = false;
-let pendingShotSeq = null;
+let pendingShotSeq: Seq | null = null;
 
-const pollLocalShots = () => {
+const pollLocalShots = (): void => {
   const firePressed = input.justPressed('Space');
   const homingFirePressed = input.justPressed('KeyH');
 
   if (!firePressed && !homingFirePressed) return;
-  if (!connection?.isJoined?.() || myPlayerId === null || !prediction.isAlive) return;
+  if (!connection?.isJoined() || myPlayerId === null || !prediction.isAlive) {
+    return;
+  }
 
   if (pendingShotSeq === null) {
-    pendingShotSeq = inputSeq + 1;
+    pendingShotSeq = toSeq(inputSeq + 1);
   }
 
   const spawnFire = firePressed && !pendingFire;
@@ -98,10 +119,10 @@ const pollLocalShots = () => {
   }
 };
 
-const simulate = (dt) => {
+const simulate = (dt: number): void => {
   pollLocalShots();
 
-  if (!connection?.isJoined?.() || myPlayerId === null) return;
+  if (!connection?.isJoined() || myPlayerId === null) return;
 
   inputAccumulator += dt;
 
@@ -112,11 +133,13 @@ const simulate = (dt) => {
   const controls = input.getState();
   const turn = Number(controls.right) - Number(controls.left);
 
-  inputSeq += 1;
-  clientTick += 1;
+  inputSeq = toSeq(inputSeq + 1);
+  clientTick = toTick(clientTick + 1);
 
   const wantsNewShot = pendingFire || pendingHomingFire;
-  const retryShot = !wantsNewShot ? projectiles.getRetryShot(lastServerAckSeq) : null;
+  const retryShot = !wantsNewShot
+    ? projectiles.getRetryShot(lastServerAckSeq)
+    : null;
 
   const message = createInputMessage({
     seq: inputSeq,
@@ -125,7 +148,9 @@ const simulate = (dt) => {
     turn,
     brake: controls.brake,
     fire: wantsNewShot ? pendingFire : Boolean(retryShot?.fire),
-    homingFire: wantsNewShot ? pendingHomingFire : Boolean(retryShot?.homingFire),
+    homingFire: wantsNewShot
+      ? pendingHomingFire
+      : Boolean(retryShot?.homingFire),
     fireSeq: wantsNewShot
       ? pendingShotSeq !== null && pendingShotSeq !== inputSeq
         ? pendingShotSeq
@@ -143,19 +168,16 @@ const simulate = (dt) => {
   netgraph?.setPendingCount(prediction.pendingCount);
 };
 
-const render = (_alpha, stats) => {
+const render = (_alpha: number, stats: FrameStats): void => {
   pollLocalShots();
   drawOuterBackground(ctx, size.width, size.height);
   prediction.advanceSmoothing(stats.frameTimeMs);
 
   const now = performance.now();
 
-  projectiles.advanceRenderTime(
-    world,
-    netgraph?.getRttMs?.() ?? 0,
-    now,
-  );
-  const sprites = loadedAssets?.sprites ?? {};
+  projectiles.advanceRenderTime(world, netgraph?.getRttMs() ?? 0, now);
+  const sprites: Readonly<Record<string, ImageBitmap>> =
+    loadedAssets?.sprites ?? {};
   const frame = Math.floor(now / 150) % 4;
 
   if (world.width > 0 && world.height > 0) {
@@ -199,7 +221,12 @@ const render = (_alpha, stats) => {
       drawPickup(ctx, pickup.pos.x, pickup.pos.y, pickup.radius);
     }
 
-    const drawBulletSprite = (bulletX, bulletY, radius, isHoming) => {
+    const drawBulletSprite = (
+      bulletX: number,
+      bulletY: number,
+      radius: number,
+      isHoming: boolean,
+    ): void => {
       const bulletSprite = isHoming ? sprites.bulletHoming : sprites.bullet;
 
       ctx.save();
@@ -231,7 +258,7 @@ const render = (_alpha, stats) => {
 
     for (const sword of world.ofKind('sword')) {
       const isOwnSword =
-        myPlayerId !== null && sword.ownerId !== null && sword.ownerId !== undefined
+        myPlayerId !== null && sword.ownerId !== null
           ? sword.ownerId === myPlayerId
           : myEntityId !== null && sword.id === myEntityId;
       const usePredicted = isOwnSword && prediction.isAlive;
@@ -244,7 +271,9 @@ const render = (_alpha, stats) => {
       const x = renderState ? renderState.x : sword.pos.x;
       const y = renderState ? renderState.y : sword.pos.y;
       const angle = renderState ? renderState.angle : sword.angle;
-      const thrusting = renderState ? renderState.thrust : Boolean(sword.input?.forward);
+      const thrusting = renderState
+        ? renderState.thrust
+        : Boolean(sword.input.forward);
 
       if (thrusting) {
         drawSwordThrust(ctx, x, y, angle);
@@ -275,7 +304,7 @@ const render = (_alpha, stats) => {
 
   drawHud(ctx, {
     ...stats,
-    hp: mySword?.alive ? mySword.hp : 0,
+    hp: mySword?.kind === 'sword' && mySword.alive ? mySword.hp : 0,
     score: world.score,
     respawnSeconds: respawnTimer,
   });
@@ -311,7 +340,7 @@ void bootGame({
 
     audio.subscribe(world, {
       shouldPlay: (event) => {
-        const detail = event.detail ?? {};
+        const detail = event.detail;
         const isOwnEvent =
           (myPlayerId !== null && detail.ownerPlayerId === myPlayerId) ||
           (myEntityId !== null && detail.ownerId === myEntityId);
@@ -328,7 +357,7 @@ void bootGame({
     });
 
     // Обробка входу в кімнату
-    const onJoined = (event) => {
+    const onJoined = (event: TypedEvent<LobbyEvents['joined']>): void => {
       const { name, room } = event.detail;
 
       playerName = name;
@@ -337,18 +366,20 @@ void bootGame({
       // Прибираємо лобі та запускаємо гру
       destroyLobby();
 
-      connection = createConnection({
+      const activeConnection = createConnection({
         name: playerName,
         roomId: room.id,
       });
 
-      const resetSessionState = () => {
+      connection = activeConnection;
+
+      const resetSessionState = (): void => {
         myPlayerId = null;
         myEntityId = null;
         lastAppliedSnapshotTick = null;
-        lastServerAckSeq = 0;
-        inputSeq = 0;
-        clientTick = 0;
+        lastServerAckSeq = toSeq(0);
+        inputSeq = toSeq(0);
+        clientTick = toTick(0);
         inputAccumulator = 0;
         pendingFire = false;
         pendingHomingFire = false;
@@ -359,12 +390,12 @@ void bootGame({
         projectiles.reset();
       };
 
-      connection.addEventListener('joined', (joinedEvent) => {
+      activeConnection.addEventListener('joined', (joinedEvent) => {
         const detail = joinedEvent.detail;
 
         resetSessionState();
-        myPlayerId = detail.player?.id ?? null;
-        myEntityId = detail.entityId ?? detail.player?.entityId ?? null;
+        myPlayerId = detail.player.id;
+        myEntityId = detail.entityId ?? detail.player.entityId ?? null;
 
         if (detail.bounds) {
           world.bounds = {
@@ -374,41 +405,50 @@ void bootGame({
         }
       });
 
-      connection.addEventListener('disconnected', () => {
+      activeConnection.addEventListener('disconnected', () => {
         resetSessionState();
       });
 
-      connection.addEventListener('status', (statusEvent) => {
+      activeConnection.addEventListener('status', (statusEvent) => {
         if (
           statusEvent.detail === 'Connecting...' ||
-          String(statusEvent.detail).startsWith('Reconnecting')
+          statusEvent.detail.startsWith('Reconnecting')
         ) {
           resetSessionState();
         }
       });
 
-      connection.addEventListener('fireAck', (ackEvent) => {
-        if (!connection?.isJoined?.() || myPlayerId === null) return;
+      activeConnection.addEventListener('fireAck', (ackEvent) => {
+        if (
+          connection !== activeConnection ||
+          !activeConnection.isJoined() ||
+          myPlayerId === null
+        ) {
+          return;
+        }
 
         projectiles.onFireAck(ackEvent.detail);
       });
 
-      connection.addEventListener('snapshot', (snapshotEvent) => {
-        if (!connection?.isJoined?.() || myPlayerId === null) return;
+      activeConnection.addEventListener('snapshot', (snapshotEvent) => {
+        if (
+          connection !== activeConnection ||
+          !activeConnection.isJoined() ||
+          myPlayerId === null
+        ) {
+          return;
+        }
 
         const snapshot = snapshotEvent.detail;
 
         if (
-          typeof snapshot.tick === 'number' &&
           lastAppliedSnapshotTick !== null &&
           snapshot.tick <= lastAppliedSnapshotTick
         ) {
           return;
         }
 
-        if (typeof snapshot.tick === 'number') {
-          lastAppliedSnapshotTick = snapshot.tick;
-        }
+        lastAppliedSnapshotTick = snapshot.tick;
 
         lastServerAckSeq = snapshot.lastProcessedSeq ?? lastServerAckSeq;
         interpolation.pushSnapshot(snapshot);
@@ -430,8 +470,8 @@ void bootGame({
         }
       });
 
-      const destroyChat = mountRoomChat(connection);
-      netgraph = mountNetgraph(connection, {
+      const destroyChat = mountRoomChat(activeConnection);
+      netgraph = mountNetgraph(activeConnection, {
         initialInterpolationDelayMs: interpolation.delayMs,
         onInterpolationDelayChange: (nextDelayMs) => {
           interpolation.setDelay(nextDelayMs);
@@ -449,7 +489,7 @@ void bootGame({
         { once: true },
       );
 
-      connection.connect();
+      activeConnection.connect();
 
       loop.start();
     };
@@ -466,3 +506,4 @@ void bootGame({
     });
   },
 });
+

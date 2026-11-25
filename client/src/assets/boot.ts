@@ -1,19 +1,39 @@
-import { loadJson, loadAll, withRetry } from './loader.js';
-import { drawLoadingScreen } from '../render/loading.js';
+import { loadJson, loadAll, withRetry } from './loader.ts';
+import { AssetManifestSchema } from './schemas.ts';
+import { drawLoadingScreen } from '../render/loading.ts';
 
-export const bootGame = async ({ ctx, size, start, audioContext = null }) => {
-  let removeRetryHandler = () => {};
+import type { CanvasSize, LoadedAssets } from '../types.ts';
 
-  const run = async () => {
+interface BootOptions {
+  ctx: CanvasRenderingContext2D;
+  size: CanvasSize;
+
+  start: (assets: LoadedAssets) => void;
+
+  audioContext?: AudioContext | null;
+}
+
+export const bootGame = async ({
+  ctx,
+  size,
+  start,
+  audioContext = null,
+}: BootOptions): Promise<void> => {
+  let removeRetryHandler = (): void => {};
+
+  const run = async (): Promise<void> => {
     removeRetryHandler();
 
     const controller = new AbortController();
     const params = new URLSearchParams(window.location.search);
     const isTimeoutTest = import.meta.env.DEV && params.get('lab03') === 'timeout';
     const timeoutMs = isTimeoutTest ? 1 : 15000;
-    const signal = AbortSignal.any([controller.signal, AbortSignal.timeout(timeoutMs)]);
+    const signal = AbortSignal.any([
+      controller.signal,
+      AbortSignal.timeout(timeoutMs),
+    ]);
 
-    const onKeyDown = (event) => {
+    const onKeyDown = (event: KeyboardEvent): void => {
       if (event.code === 'KeyA') controller.abort();
     };
     window.addEventListener('keydown', onKeyDown);
@@ -24,13 +44,16 @@ export const bootGame = async ({ ctx, size, start, audioContext = null }) => {
     try {
       // Deterministic demo of AbortSignal.timeout for ?lab03=timeout.
       if (isTimeoutTest) {
-        await new Promise((resolve) => setTimeout(resolve, 25));
+        await new Promise<void>((resolve) => setTimeout(resolve, 25));
         if (signal.aborted) throw signal.reason;
       }
-      const manifest = await withRetry(
+
+      const rawManifest = await withRetry(
         () => loadJson('/assets/manifest.json', { signal }),
         { signal },
       );
+
+      const manifest = AssetManifestSchema.parse(rawManifest);
 
       const assets = await loadAll(manifest, {
         audioContext,
@@ -44,19 +67,22 @@ export const bootGame = async ({ ctx, size, start, audioContext = null }) => {
 
       // Keep the loading screen visible briefly for the lab demonstration.
       if (import.meta.env.DEV) {
-        await new Promise((resolve) => setTimeout(resolve, 1500));
+        await new Promise<void>((resolve) => setTimeout(resolve, 1500));
       }
       if (signal.aborted) throw signal.reason;
       start(assets);
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('[Lab03] Loading failed:', error);
       drawLoadingScreen(ctx, size, {
         done: 0,
         total: 1,
-        error: `${error.name}: ${error.message}`,
+        error:
+          error instanceof Error
+            ? `${error.name}: ${error.message}`
+            : String(error),
       });
 
-      const onRetry = (event) => {
+      const onRetry = (event: KeyboardEvent): void => {
         if (event.code !== 'KeyR') return;
         window.removeEventListener('keydown', onRetry);
         void run();
@@ -73,3 +99,4 @@ export const bootGame = async ({ ctx, size, start, audioContext = null }) => {
 
   await run();
 };
+

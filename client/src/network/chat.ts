@@ -1,6 +1,8 @@
 import './chat.css';
 
-export const mountRoomChat = (connection) => {
+import type { Connection } from './connection.ts';
+
+export const mountRoomChat = (connection: Connection): (() => void) => {
   const panel = document.createElement('aside');
   panel.className = 'magic-chat';
 
@@ -34,7 +36,7 @@ export const mountRoomChat = (connection) => {
   panel.append(title, status, roster, messages, form);
   document.body.append(panel);
 
-  const addMessage = (text) => {
+  const addMessage = (text: string): void => {
     const line = document.createElement('div');
     line.textContent = text;
 
@@ -42,7 +44,7 @@ export const mountRoomChat = (connection) => {
 
     // Не зберігаємо нескінченну кількість повідомлень у DOM
     if (messages.children.length > 100) {
-      messages.firstChild.remove();
+      messages.firstElementChild?.remove();
     }
 
     messages.scrollTop = messages.scrollHeight;
@@ -98,3 +100,4 @@ export const mountRoomChat = (connection) => {
     panel.remove();
   };
 };
+

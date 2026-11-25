@@ -10,8 +10,7 @@
     "erasableSyntaxOnly": true,
     "isolatedModules": true,
     "allowImportingTsExtensions": true,
-    "allowJs": true,
-    "checkJs": false,
+    "allowJs": false,
     "noEmit": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true

@@ -1,4 +1,9 @@
-export const drawObstacle = (ctx, x, y, radius) => {
+export const drawObstacle = (
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  radius: number,
+): void => {
   ctx.save();
   ctx.translate(x, y);
 
@@ -50,3 +55,4 @@ export const drawObstacle = (ctx, x, y, radius) => {
 
   ctx.restore();
 };
+

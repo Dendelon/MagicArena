@@ -1,8 +1,16 @@
+import type { CanvasSize } from '../types.ts';
+
+interface LoadingOptions {
+  done?: number;
+  total?: number;
+  error?: string;
+}
+
 export const drawLoadingScreen = (
-  ctx,
-  size,
-  { done = 0, total = 1, error = '' } = {},
-) => {
+  ctx: CanvasRenderingContext2D,
+  size: CanvasSize,
+  { done = 0, total = 1, error = '' }: LoadingOptions = {},
+): void => {
   const { width, height } = size;
   const ratio = total > 0 ? Math.min(1, done / total) : 1;
   const barWidth = Math.min(420, width * 0.72);
@@ -18,7 +26,11 @@ export const drawLoadingScreen = (
   ctx.font = 'bold 27px sans-serif';
   ctx.fillText('MAGIC ARENA', width / 2, height / 2 - 48);
   ctx.font = '16px sans-serif';
-  ctx.fillText(error ? 'Loading failed' : 'Loading assets...', width / 2, height / 2 - 8);
+  ctx.fillText(
+    error ? 'Loading failed' : 'Loading assets...',
+    width / 2,
+    height / 2 - 8,
+  );
 
   ctx.fillStyle = '#342849';
   ctx.fillRect(x, y, barWidth, barHeight);
@@ -29,7 +41,11 @@ export const drawLoadingScreen = (
 
   ctx.font = '14px sans-serif';
   ctx.fillStyle = '#ddd6fe';
-  ctx.fillText(`${done}/${total}  (${Math.round(ratio * 100)}%)`, width / 2, y + 41);
+  ctx.fillText(
+    `${done}/${total}  (${Math.round(ratio * 100)}%)`,
+    width / 2,
+    y + 41,
+  );
 
   if (error) {
     ctx.fillStyle = '#fca5a5';
@@ -39,3 +55,4 @@ export const drawLoadingScreen = (
   }
   ctx.restore();
 };
+

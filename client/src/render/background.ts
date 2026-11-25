@@ -1,9 +1,19 @@
-export const drawOuterBackground = (ctx, width, height) => {
+export const drawOuterBackground = (
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+): void => {
   ctx.fillStyle = '#060711';
   ctx.fillRect(0, 0, width, height);
 };
 
-export const drawArenaBorder = (ctx, x, y, width, height) => {
+export const drawArenaBorder = (
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+): void => {
   ctx.save();
 
   ctx.strokeStyle = 'rgba(168, 85, 247, 0.78)';
@@ -44,7 +54,11 @@ export const drawArenaBorder = (ctx, x, y, width, height) => {
   ctx.restore();
 };
 
-export const drawBackground = (ctx, width, height) => {
+export const drawBackground = (
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+): void => {
   const gradient = ctx.createRadialGradient(
     width / 2,
     height / 2,
@@ -77,20 +91,5 @@ export const drawBackground = (ctx, width, height) => {
   }
 
   ctx.stroke();
-
-  // const centerX = width / 2;
-  // const centerY = height / 2;
-  // const radius = Math.min(width, height) * 0.32;
-
-  // ctx.strokeStyle = '#9165c7';
-  // ctx.lineWidth = 3;
-
-  // ctx.beginPath();
-  // ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
-  // ctx.stroke();
-
-  // ctx.lineWidth = 1.5;
-  // ctx.beginPath();
-  // ctx.arc(centerX, centerY, radius * 0.75, 0, Math.PI * 2);
-  // ctx.stroke();
 };
+

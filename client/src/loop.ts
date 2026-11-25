@@ -1,18 +1,32 @@
-export const createLoop = ({ simulate, render, step = 1 / 60 }) => {
-  let running = false;
-  let frameId = null;
+import type { FrameStats } from './types.ts';
 
-  let lastTime = null;
+interface LoopOptions {
+  simulate: (dt: number) => void;
+
+  render: (alpha: number, stats: FrameStats) => void;
+
+  step?: number;
+}
+
+export const createLoop = ({
+  simulate,
+  render,
+  step = 1 / 60,
+}: LoopOptions) => {
+  let running = false;
+  let frameId: number | null = null;
+
+  let lastTime: number | null = null;
   let accumulator = 0;
 
-  let statsStart = null;
+  let statsStart: number | null = null;
   let frameCount = 0;
   let stepCount = 0;
 
   let fps = 0;
   let sps = 0;
 
-  const frame = (now) => {
+  const frame = (now: number): void => {
     if (!running) return;
 
     // Час між поточним і попереднім кадром
@@ -55,7 +69,7 @@ export const createLoop = ({ simulate, render, step = 1 / 60 }) => {
     frameId = requestAnimationFrame(frame);
   };
 
-  const start = () => {
+  const start = (): void => {
     if (running) return;
 
     running = true;
@@ -70,10 +84,15 @@ export const createLoop = ({ simulate, render, step = 1 / 60 }) => {
     frameId = requestAnimationFrame(frame);
   };
 
-  const stop = () => {
+  const stop = (): void => {
     running = false;
-    cancelAnimationFrame(frameId);
+
+    if (frameId !== null) {
+      cancelAnimationFrame(frameId);
+      frameId = null;
+    }
   };
 
   return { start, stop };
 };
+

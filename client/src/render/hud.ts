@@ -1,4 +1,9 @@
-export const drawHud = (ctx, stats) => {
+import type { HudStats } from '../types.ts';
+
+export const drawHud = (
+  ctx: CanvasRenderingContext2D,
+  stats: HudStats,
+): void => {
   ctx.save();
 
   ctx.fillStyle = 'rgba(15, 12, 30, 0.85)';
@@ -26,3 +31,4 @@ export const drawHud = (ctx, stats) => {
 
   ctx.restore();
 };
+

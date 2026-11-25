@@ -1,5 +1,26 @@
-import { Bullet, Sword, createHoming, wrap } from '@magicarena/shared';
-import { shortestWrappedDelta } from './math.js';
+import {
+  Bullet,
+  Sword,
+  createHoming,
+  toEntityId,
+  wrap,
+} from '@magicarena/shared';
+
+import type {
+  World,
+  EntityId,
+  PlayerId,
+  Seq,
+  Vec2Like,
+  SnapshotMessage,
+  FireAckMessage,
+} from '@magicarena/shared';
+
+import type { BulletSnapshot } from '@magicarena/shared/types';
+
+import type { PredictedSwordState, RenderBullet } from '../types.ts';
+import type { Interpolation } from './interpolation.ts';
+import { shortestWrappedDelta } from './math.ts';
 
 const FIXED_DT = 1 / 30;
 const MAX_LOCAL_PROJECTILES = 32;
@@ -10,25 +31,111 @@ const RECONCILE_BLEND_RATE = 10;
 const MAX_CORRECTION_RATIO = 0.5;
 const MAX_RENDER_DT_SEC = 0.05;
 
+interface PendingShot {
+  originSeq: Seq;
+
+  fire: boolean;
+  homingFire: boolean;
+
+  createdAt: number;
+  lastSentAt: number;
+
+  retries: number;
+}
+
+interface RetryShot {
+  fire: boolean;
+  homingFire: boolean;
+  fireSeq: Seq;
+}
+
+interface ProjectileRecord {
+  originSeq: Seq;
+  isHoming: boolean;
+
+  bullet: Bullet;
+
+  visualPos: Vec2Like;
+  lastVisualAt: number;
+
+  accepted: boolean | null;
+
+  serverEntityId: EntityId | null;
+  serverEntityIds: readonly EntityId[] | null;
+
+  seenOnServer: boolean;
+  seenSnapshotAfterAck: boolean;
+
+  lastServerPos: Vec2Like | null;
+  lastServerVel: Vec2Like | null;
+
+  lastSnapshotReceivedAt: number | null;
+
+  createdAt: number;
+}
+
+interface SpawnShotOptions {
+  originSeq: Seq;
+
+  swordState: PredictedSwordState;
+
+  fire: boolean;
+  homingFire: boolean;
+
+  world: World;
+
+  ownerId: EntityId | null;
+  ownerPlayerId: PlayerId | null;
+}
+
+type BulletIdentity = Pick<
+  BulletSnapshot,
+  'id' | 'ownerId' | 'ownerPlayerId' | 'originSeq' | 'homing'
+>;
+
+type SnapshotBullet = Extract<
+  SnapshotMessage['entities'][number],
+  { kind: 'bullet' }
+>;
+
+interface BulletRenderOptions {
+  world: World;
+
+  interpolation: Interpolation;
+
+  myPlayerId: PlayerId | null;
+  myEntityId: EntityId | null;
+
+  now?: number;
+}
+
 export const createProjectilePredictor = () => {
-  const ownProjectiles = new Map();
-  const pendingShots = new Map();
+  const ownProjectiles = new Map<string, ProjectileRecord>();
+  const pendingShots = new Map<Seq, PendingShot>();
 
-  const makeKey = (originSeq, isHoming) => `${originSeq}:${isHoming ? 'h' : 'n'}`;
+  const makeKey = (originSeq: Seq, isHoming: boolean): string =>
+    `${originSeq}:${isHoming ? 'h' : 'n'}`;
 
-  const reset = () => {
+  const reset = (): void => {
     ownProjectiles.clear();
     pendingShots.clear();
   };
 
-  const isOwnBullet = (bullet, myPlayerId, myEntityId) =>
-    myPlayerId !== null &&
-      bullet.ownerPlayerId !== null &&
-      bullet.ownerPlayerId !== undefined
+  const isOwnBullet = (
+    bullet: BulletIdentity,
+    myPlayerId: PlayerId | null,
+    myEntityId: EntityId | null,
+  ): boolean =>
+    myPlayerId !== null && bullet.ownerPlayerId !== null
       ? bullet.ownerPlayerId === myPlayerId
       : myEntityId !== null && bullet.ownerId === myEntityId;
 
-  const isMatchedByServer = (record, bullet, myPlayerId, myEntityId) => {
+  const isMatchedByServer = (
+    record: ProjectileRecord,
+    bullet: BulletIdentity,
+    myPlayerId: PlayerId | null,
+    myEntityId: EntityId | null,
+  ): boolean => {
     if (record.serverEntityId !== null && bullet.id === record.serverEntityId) {
       return true;
     }
@@ -56,8 +163,8 @@ export const createProjectilePredictor = () => {
     world,
     ownerId,
     ownerPlayerId,
-  }) => {
-    if (!swordState?.alive || world.width <= 0 || world.height <= 0) {
+  }: SpawnShotOptions): boolean => {
+    if (!swordState.alive || world.width <= 0 || world.height <= 0) {
       return false;
     }
 
@@ -74,8 +181,11 @@ export const createProjectilePredictor = () => {
     });
 
     if (pendingShots.size > MAX_LOCAL_PROJECTILES) {
-      const oldestKey = pendingShots.keys().next().value;
-      pendingShots.delete(oldestKey);
+      const oldest = pendingShots.keys().next();
+
+      if (!oldest.done) {
+        pendingShots.delete(oldest.value);
+      }
     }
 
     const { pos, vel } = Sword.createBulletSpawn({
@@ -85,18 +195,21 @@ export const createProjectilePredictor = () => {
       world,
     });
 
-    const addRecord = (isHoming) => {
+    const addRecord = (isHoming: boolean): void => {
       const key = makeKey(originSeq, isHoming);
 
       if (ownProjectiles.has(key)) return;
 
       if (ownProjectiles.size >= MAX_LOCAL_PROJECTILES) {
-        const oldestKey = ownProjectiles.keys().next().value;
-        ownProjectiles.delete(oldestKey);
+        const oldest = ownProjectiles.keys().next();
+
+        if (!oldest.done) {
+          ownProjectiles.delete(oldest.value);
+        }
       }
 
       const bullet = new Bullet({
-        id: -originSeq - (isHoming ? 0.5 : 0),
+        id: toEntityId(-originSeq - (isHoming ? 0.5 : 0)),
         pos,
         vel,
         ttl: isHoming ? 1 : 1.5,
@@ -105,9 +218,9 @@ export const createProjectilePredictor = () => {
         originSeq,
         homing: isHoming
           ? createHoming({
-            targetKind: 'obstacle',
-            turnRate: 9,
-          })
+              targetKind: 'obstacle',
+              turnRate: 9,
+            })
           : null,
       });
 
@@ -135,7 +248,10 @@ export const createProjectilePredictor = () => {
     return true;
   };
 
-  const getRetryShot = (lastProcessedSeq, now = performance.now()) => {
+  const getRetryShot = (
+    lastProcessedSeq: Seq,
+    now = performance.now(),
+  ): RetryShot | null => {
     for (const [originSeq, shot] of pendingShots) {
       if (
         now - shot.createdAt > MAX_UNCONFIRMED_AGE_MS ||
@@ -146,7 +262,8 @@ export const createProjectilePredictor = () => {
       }
 
       const skippedByServer =
-        typeof lastProcessedSeq === 'number' && lastProcessedSeq >= shot.originSeq;
+        typeof lastProcessedSeq === 'number' &&
+        lastProcessedSeq >= shot.originSeq;
       const timedOut = now - shot.lastSentAt >= RETRY_INTERVAL_MS;
 
       if (skippedByServer || timedOut) {
@@ -164,7 +281,9 @@ export const createProjectilePredictor = () => {
     return null;
   };
 
-  const step = (dt = FIXED_DT, world) => {
+  const step = (dt: number = FIXED_DT, world?: World): void => {
+    if (!world) return;
+
     const now = performance.now();
 
     for (const [key, record] of ownProjectiles) {
@@ -182,10 +301,10 @@ export const createProjectilePredictor = () => {
   };
 
   const advanceRenderTime = (
-    world,
+    world: World,
     rttMs = 0,
     now = performance.now(),
-  ) => {
+  ): void => {
     if (world.width <= 0 || world.height <= 0) return;
 
     const halfRttSec = Math.max(
@@ -203,13 +322,14 @@ export const createProjectilePredictor = () => {
 
       if (dt === 0) continue;
 
-      let vel = record.bullet.vel;
-      let target = null;
+      let vel: Vec2Like = record.bullet.vel;
+      let target: Vec2Like | null = null;
 
       if (
         record.seenOnServer &&
         record.lastServerPos &&
-        record.lastServerVel
+        record.lastServerVel &&
+        record.lastSnapshotReceivedAt !== null
       ) {
         vel = record.lastServerVel;
 
@@ -224,27 +344,14 @@ export const createProjectilePredictor = () => {
         );
 
         target = {
-          x: wrap(
-            record.lastServerPos.x + vel.x * lead,
-            world.width,
-          ),
-          y: wrap(
-            record.lastServerPos.y + vel.y * lead,
-            world.height,
-          ),
+          x: wrap(record.lastServerPos.x + vel.x * lead, world.width),
+          y: wrap(record.lastServerPos.y + vel.y * lead, world.height),
         };
       }
 
       // Безперервний рух у кожному кадрі.
-      const x = wrap(
-        record.visualPos.x + vel.x * dt,
-        world.width,
-      );
-
-      const y = wrap(
-        record.visualPos.y + vel.y * dt,
-        world.height,
-      );
+      const x = wrap(record.visualPos.x + vel.x * dt, world.width);
+      const y = wrap(record.visualPos.y + vel.y * dt, world.height);
 
       let correctionX = 0;
       let correctionY = 0;
@@ -252,16 +359,11 @@ export const createProjectilePredictor = () => {
       if (target) {
         const blend = 1 - Math.exp(-RECONCILE_BLEND_RATE * dt);
 
-        correctionX =
-          shortestWrappedDelta(x, target.x, world.width) * blend;
-
-        correctionY =
-          shortestWrappedDelta(y, target.y, world.height) * blend;
+        correctionX = shortestWrappedDelta(x, target.x, world.width) * blend;
+        correctionY = shortestWrappedDelta(y, target.y, world.height) * blend;
 
         const length = Math.hypot(correctionX, correctionY);
-
-        const limit =
-          Math.hypot(vel.x, vel.y) * dt * MAX_CORRECTION_RATIO;
+        const limit = Math.hypot(vel.x, vel.y) * dt * MAX_CORRECTION_RATIO;
 
         if (length > limit && length > 0) {
           correctionX *= limit / length;
@@ -276,7 +378,11 @@ export const createProjectilePredictor = () => {
     }
   };
 
-  const bindServerEntityToRecord = (record, serverEntity, receivedAt) => {
+  const bindServerEntityToRecord = (
+    record: ProjectileRecord,
+    serverEntity: BulletSnapshot,
+    receivedAt: number,
+  ): void => {
     record.serverEntityId = serverEntity.id;
     record.accepted = true;
     record.seenOnServer = true;
@@ -298,15 +404,16 @@ export const createProjectilePredictor = () => {
     originSeq,
     accepted,
     entityId = null,
-    entityIds = null,
-  }) => {
+    entityIds = [],
+  }: FireAckMessage): void => {
     pendingShots.delete(originSeq);
 
-    const ids = Array.isArray(entityIds)
-      ? entityIds
-      : entityId !== null && entityId !== undefined
-        ? [entityId]
-        : [];
+    const ids =
+      entityIds.length > 0
+        ? entityIds
+        : entityId !== null
+          ? [entityId]
+          : [];
 
     for (const [key, record] of ownProjectiles) {
       if (record.originSeq !== originSeq) continue;
@@ -319,16 +426,21 @@ export const createProjectilePredictor = () => {
       record.accepted = true;
 
       if (record.serverEntityId === null) {
-        record.serverEntityId = ids.length === 1 ? ids[0] : null;
+        record.serverEntityId = ids.length === 1 ? (ids[0] ?? null) : null;
         record.serverEntityIds = ids;
       }
     }
   };
 
-  const onSnapshot = (snapshot, myPlayerId, myEntityId) => {
+  const onSnapshot = (
+    snapshot: SnapshotMessage,
+    myPlayerId: PlayerId | null,
+    myEntityId: EntityId | null,
+  ): void => {
     const now = performance.now();
-    const serverBullets = (snapshot.entities ?? []).filter(
-      (entity) => entity.kind === 'bullet' && entity.alive,
+    const serverBullets = snapshot.entities.filter(
+      (entity): entity is SnapshotBullet =>
+        entity.kind === 'bullet' && entity.alive,
     );
 
     for (const [key, record] of ownProjectiles) {
@@ -365,11 +477,11 @@ export const createProjectilePredictor = () => {
     myPlayerId,
     myEntityId,
     now = performance.now(),
-  }) => {
-    const renderList = [];
-    const claimedServerBulletIds = new Set();
+  }: BulletRenderOptions): RenderBullet[] => {
+    const renderList: RenderBullet[] = [];
+    const claimedServerBulletIds = new Set<EntityId>();
     const serverBullets = [...world.ofKind('bullet')];
-    const sampleHomingPosition = (bullet) =>
+    const sampleHomingPosition = (bullet: Bullet) =>
       interpolation.getInterpolatedPosition(bullet, world, now);
 
     for (const record of ownProjectiles.values()) {
@@ -436,3 +548,6 @@ export const createProjectilePredictor = () => {
     reset,
   };
 };
+
+export type ProjectilePredictor = ReturnType<typeof createProjectilePredictor>;
+

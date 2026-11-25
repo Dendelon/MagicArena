@@ -1,4 +1,9 @@
-export const drawExplosion = (ctx, explosion) => {
+import type { Explosion } from '@magicarena/shared';
+
+export const drawExplosion = (
+  ctx: CanvasRenderingContext2D,
+  explosion: Explosion,
+): void => {
   ctx.save();
 
   ctx.fillStyle = explosion.color;
@@ -15,3 +20,4 @@ export const drawExplosion = (ctx, explosion) => {
 
   ctx.restore();
 };
+

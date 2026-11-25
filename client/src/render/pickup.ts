@@ -1,4 +1,9 @@
-export const drawPickup = (ctx, x, y, radius = 18) => {
+export const drawPickup = (
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  radius = 18,
+): void => {
   ctx.save();
   ctx.translate(x, y);
 
@@ -45,3 +50,4 @@ export const drawPickup = (ctx, x, y, radius = 18) => {
 
   ctx.restore();
 };
+

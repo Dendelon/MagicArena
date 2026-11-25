@@ -1,4 +1,10 @@
-export const drawBullet = (ctx, x, y, radius = 6, isHoming = false) => {
+export const drawBullet = (
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  radius = 6,
+  isHoming = false,
+): void => {
   ctx.save();
 
   ctx.shadowColor = isHoming ? '#22d3ee' : '#a855f7';
@@ -19,3 +25,4 @@ export const drawBullet = (ctx, x, y, radius = 6, isHoming = false) => {
 
   ctx.restore();
 };
+

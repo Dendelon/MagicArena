@@ -1,11 +1,18 @@
+interface SpriteOptions {
+  frame?: number;
+  angle?: number;
+  scale?: number;
+  size?: number;
+}
+
 // Frames in M1 atlas: four 64x64 frames in a 256x64 PNG.
 export const drawSheetSprite = (
-  ctx,
-  bitmap,
-  x,
-  y,
-  { frame = 0, angle = 0, scale = 1, size = 64 } = {},
-) => {
+  ctx: CanvasRenderingContext2D,
+  bitmap: ImageBitmap | undefined,
+  x: number,
+  y: number,
+  { frame = 0, angle = 0, scale = 1, size = 64 }: SpriteOptions = {},
+): boolean => {
   if (!bitmap) return false;
   const frameSize = bitmap.height;
   const frames = Math.max(1, Math.floor(bitmap.width / 320));
@@ -30,3 +37,4 @@ export const drawSheetSprite = (
   ctx.restore();
   return true;
 };
+

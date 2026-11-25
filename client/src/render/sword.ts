@@ -1,4 +1,9 @@
-export const drawSword = (ctx, x, y, angle = 0) => {
+export const drawSword = (
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  angle = 0,
+): void => {
   ctx.save();
 
   // Переміщуємо центр координат до меча та повертаємо його
@@ -77,3 +82,4 @@ export const drawSword = (ctx, x, y, angle = 0) => {
 
   ctx.restore();
 };
+

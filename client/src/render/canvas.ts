@@ -1,12 +1,18 @@
-export const createCanvas = (canvas) => {
+import type { CanvasSize } from '../types.ts';
+
+export const createCanvas = (canvas: HTMLCanvasElement) => {
   const ctx = canvas.getContext('2d');
 
-  const size = {
+  if (!ctx) {
+    throw new Error('Canvas 2D context is unavailable');
+  }
+
+  const size: CanvasSize = {
     width: 0,
     height: 0,
   };
 
-  function resize() {
+  const resize = (): void => {
     const dpr = window.devicePixelRatio || 1;
 
     size.width = window.innerWidth;
@@ -16,10 +22,11 @@ export const createCanvas = (canvas) => {
     canvas.height = Math.round(size.height * dpr);
 
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  }
+  };
 
   window.addEventListener('resize', resize);
   resize();
 
   return { ctx, size };
 };
+

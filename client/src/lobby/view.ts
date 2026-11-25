@@ -1,6 +1,16 @@
 import './lobby.css';
 
-export const mountLobby = (lobby, { onJoinGesture = () => {} } = {}) => {
+import type { Lobby, LobbyEvents } from './Lobby.ts';
+import type { TypedEvent } from '../events.ts';
+
+interface LobbyViewOptions {
+  onJoinGesture?: () => void;
+}
+
+export const mountLobby = (
+  lobby: Lobby,
+  { onJoinGesture = () => {} }: LobbyViewOptions = {},
+): (() => void) => {
   const overlay = document.createElement('section');
   overlay.className = 'magic-lobby';
   overlay.setAttribute('aria-label', 'Magic Arena lobby');
@@ -36,7 +46,7 @@ export const mountLobby = (lobby, { onJoinGesture = () => {} } = {}) => {
   overlay.append(title, subtitle, form);
   document.body.append(overlay);
 
-  const onRooms = (event) => {
+  const onRooms = (event: TypedEvent<LobbyEvents['roomsChanged']>): void => {
     const selected = roomsSelect.value;
     roomsSelect.replaceChildren();
     for (const room of event.detail) {
@@ -45,7 +55,8 @@ export const mountLobby = (lobby, { onJoinGesture = () => {} } = {}) => {
       option.textContent = `${room.name} (${room.players ?? 0}/${room.maxPlayers ?? 4})`;
       roomsSelect.append(option);
     }
-    if (event.detail.some((room) => room.id === selected)) roomsSelect.value = selected;
+    if (event.detail.some((room) => room.id === selected))
+      roomsSelect.value = selected;
     const hasRooms = event.detail.length > 0;
     roomsSelect.disabled = !hasRooms;
     joinButton.disabled = !hasRooms;
@@ -54,11 +65,11 @@ export const mountLobby = (lobby, { onJoinGesture = () => {} } = {}) => {
       : 'No rooms available';
   };
 
-  const onError = (event) => {
+  const onError = (event: TypedEvent<LobbyEvents['error']>): void => {
     status.textContent = `Room request failed: ${event.detail.message}. Retrying...`;
   };
 
-  const onSubmit = (event) => {
+  const onSubmit = (event: SubmitEvent): void => {
     event.preventDefault();
     if (!nameInput.value.trim() || !roomsSelect.value) return;
     onJoinGesture(); // AudioContext.resume is initiated in a real click gesture.
@@ -79,3 +90,4 @@ export const mountLobby = (lobby, { onJoinGesture = () => {} } = {}) => {
     overlay.remove();
   };
 };
+

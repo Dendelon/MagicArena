@@ -1,8 +1,10 @@
-export const createInput = (target = window) => {
-  const pressedKeys = new Set();
-  const newPresses = new Set();
+import type { InputState } from './types.ts';
 
-  const onKeyDown = (event) => {
+export const createInput = (target: Window = window) => {
+  const pressedKeys = new Set<string>();
+  const newPresses = new Set<string>();
+
+  const onKeyDown = (event: KeyboardEvent): void => {
     const code = event.code;
 
     if (!pressedKeys.has(code)) {
@@ -16,11 +18,11 @@ export const createInput = (target = window) => {
     }
   };
 
-  const onKeyUp = (event) => {
+  const onKeyUp = (event: KeyboardEvent): void => {
     pressedKeys.delete(event.code);
   };
 
-  const clearKeys = () => {
+  const clearKeys = (): void => {
     pressedKeys.clear();
     newPresses.clear();
   };
@@ -29,23 +31,23 @@ export const createInput = (target = window) => {
   target.addEventListener('keyup', onKeyUp);
   target.addEventListener('blur', clearKeys);
 
-  const isDown = (code) => pressedKeys.has(code);
+  const isDown = (code: string): boolean => pressedKeys.has(code);
 
-  const justPressed = (code) => {
+  const justPressed = (code: string): boolean => {
     if (!newPresses.has(code)) return false;
 
     newPresses.delete(code);
     return true;
   };
 
-  const getState = () => ({
+  const getState = (): InputState => ({
     left: isDown('KeyA') || isDown('ArrowLeft'),
     right: isDown('KeyD') || isDown('ArrowRight'),
     forward: isDown('KeyW') || isDown('ArrowUp'),
     brake: isDown('KeyS') || isDown('ArrowDown'),
   });
 
-  const destroy = () => {
+  const destroy = (): void => {
     target.removeEventListener('keydown', onKeyDown);
     target.removeEventListener('keyup', onKeyUp);
     target.removeEventListener('blur', clearKeys);
@@ -55,3 +57,4 @@ export const createInput = (target = window) => {
 
   return { isDown, justPressed, getState, destroy };
 };
+

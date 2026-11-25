@@ -1,4 +1,9 @@
-export const drawSwordThrust = (ctx, x, y, angle = 0) => {
+export const drawSwordThrust = (
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  angle = 0,
+): void => {
   ctx.save();
   ctx.translate(x, y);
   ctx.rotate(angle);
@@ -24,3 +29,4 @@ export const drawSwordThrust = (ctx, x, y, angle = 0) => {
 
   ctx.restore();
 };
+

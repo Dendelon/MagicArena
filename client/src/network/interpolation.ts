@@ -1,5 +1,16 @@
 import { wrap } from '@magicarena/shared';
-import { shortestWrappedDelta, shortestAngleDelta } from './math.js';
+
+import type {
+  Bounds,
+  EntityId,
+  EntitySnapshot,
+  GameEntity,
+  SnapshotMessage,
+  Tick,
+} from '@magicarena/shared';
+
+import type { RenderState } from '../types.ts';
+import { shortestWrappedDelta, shortestAngleDelta } from './math.ts';
 
 export const DEFAULT_INTERPOLATION_DELAY_MS = 100;
 export const MIN_INTERPOLATION_DELAY_MS = 50;
@@ -11,24 +22,43 @@ const CLOCK_SNAP_THRESHOLD_MS = 250;
 const CLOCK_SMOOTHING = 0.1;
 const TELEPORT_THRESHOLD_PX = 140;
 
-const clampDelay = (delayMs) =>
+interface BufferedSnapshot {
+  readonly tick: Tick;
+  readonly timeMs: number;
+
+  readonly entitiesById: ReadonlyMap<EntityId, EntitySnapshot>;
+}
+
+interface SnapshotPair {
+  readonly from: BufferedSnapshot;
+  readonly to: BufferedSnapshot;
+  readonly alpha: number;
+}
+
+const clampDelay = (delayMs: number): number =>
   Math.max(
     MIN_INTERPOLATION_DELAY_MS,
-    Math.min(MAX_INTERPOLATION_DELAY_MS, Number(delayMs) || DEFAULT_INTERPOLATION_DELAY_MS),
+    Math.min(
+      MAX_INTERPOLATION_DELAY_MS,
+      Number(delayMs) || DEFAULT_INTERPOLATION_DELAY_MS,
+    ),
   );
+
+const getThrust = (entity: EntitySnapshot | undefined): boolean | undefined =>
+  entity?.kind === 'sword' ? entity.thrust : undefined;
 
 export const createInterpolation = ({
   delayMs = DEFAULT_INTERPOLATION_DELAY_MS,
-} = {}) => {
-  const snapshots = [];
-  const lastThrustByEntityId = new Map();
+}: { delayMs?: number } = {}) => {
+  const snapshots: BufferedSnapshot[] = [];
+  const lastThrustByEntityId = new Map<EntityId, boolean>();
 
   let interpolationDelayMs = clampDelay(delayMs);
-  let lastTick = null;
-  let baseServerTimeMs = null;
-  let baseClientTimeMs = null;
+  let lastTick: Tick | null = null;
+  let baseServerTimeMs: number | null = null;
+  let baseClientTimeMs: number | null = null;
 
-  const reset = () => {
+  const reset = (): void => {
     snapshots.length = 0;
     lastThrustByEntityId.clear();
     lastTick = null;
@@ -36,12 +66,15 @@ export const createInterpolation = ({
     baseClientTimeMs = null;
   };
 
-  const setDelay = (nextDelayMs) => {
+  const setDelay = (nextDelayMs: number): void => {
     interpolationDelayMs = clampDelay(nextDelayMs);
   };
 
-  const pushSnapshot = (snapshot, receivedAt = performance.now()) => {
-    const tick = snapshot?.tick;
+  const pushSnapshot = (
+    snapshot: SnapshotMessage,
+    receivedAt = performance.now(),
+  ): boolean => {
+    const tick = snapshot.tick;
     if (typeof tick !== 'number') return false;
 
     if (lastTick !== null && tick <= lastTick) {
@@ -67,17 +100,15 @@ export const createInterpolation = ({
       }
     }
 
-    const entitiesById = new Map();
-    const activeIds = new Set();
+    const entitiesById = new Map<EntityId, EntitySnapshot>();
+    const activeIds = new Set<EntityId>();
 
-    for (const entity of snapshot.entities ?? []) {
-      if (entity && entity.id !== undefined && entity.id !== null) {
-        entitiesById.set(entity.id, entity);
-        activeIds.add(entity.id);
+    for (const entity of snapshot.entities) {
+      entitiesById.set(entity.id, entity);
+      activeIds.add(entity.id);
 
-        if (entity.kind === 'sword' && typeof entity.thrust === 'boolean') {
-          lastThrustByEntityId.set(entity.id, entity.thrust);
-        }
+      if (entity.kind === 'sword') {
+        lastThrustByEntityId.set(entity.id, entity.thrust);
       }
     }
 
@@ -100,14 +131,17 @@ export const createInterpolation = ({
     return true;
   };
 
-  const findBracketingSnapshots = (renderTimeMs) => {
-    if (snapshots.length === 0) return null;
+  const findBracketingSnapshots = (
+    renderTimeMs: number,
+  ): SnapshotPair | null => {
+    const first = snapshots[0];
+    const newest = snapshots.at(-1);
 
-    if (snapshots.length === 1 || renderTimeMs <= snapshots[0].timeMs) {
-      return { from: snapshots[0], to: snapshots[0], alpha: 0 };
+    if (!first || !newest) return null;
+
+    if (snapshots.length === 1 || renderTimeMs <= first.timeMs) {
+      return { from: first, to: first, alpha: 0 };
     }
-
-    const newest = snapshots[snapshots.length - 1];
 
     if (renderTimeMs >= newest.timeMs) {
       return { from: newest, to: newest, alpha: 1 };
@@ -116,6 +150,8 @@ export const createInterpolation = ({
     for (let i = 0; i < snapshots.length - 1; i++) {
       const from = snapshots[i];
       const to = snapshots[i + 1];
+
+      if (!from || !to) continue;
 
       if (renderTimeMs >= from.timeMs && renderTimeMs <= to.timeMs) {
         const span = to.timeMs - from.timeMs;
@@ -127,29 +163,43 @@ export const createInterpolation = ({
     return { from: newest, to: newest, alpha: 1 };
   };
 
-  const resolveDiscreteThrust = (a, b, alpha, entityId) => {
+  const resolveDiscreteThrust = (
+    a: EntitySnapshot | undefined,
+    b: EntitySnapshot | undefined,
+    alpha: number,
+    entityId: EntityId,
+  ): boolean => {
     const primary = alpha < 0.5 && a ? a : b;
+    const primaryThrust = getThrust(primary);
 
-    if (typeof primary?.thrust === 'boolean') {
-      return primary.thrust;
+    if (typeof primaryThrust === 'boolean') {
+      return primaryThrust;
     }
 
     const secondary = primary === a ? b : a;
+    const secondaryThrust = getThrust(secondary);
 
-    if (typeof secondary?.thrust === 'boolean') {
-      return secondary.thrust;
+    if (typeof secondaryThrust === 'boolean') {
+      return secondaryThrust;
     }
 
     return lastThrustByEntityId.get(entityId) ?? false;
   };
 
-  const interpolateEntity = (authEntity, pair, world) => {
+  const interpolateEntity = (
+    authEntity: GameEntity,
+    pair: SnapshotPair | null,
+    world: Bounds,
+  ): RenderState => {
+    const fallbackThrust =
+      authEntity.kind === 'sword' ? Boolean(authEntity.input.forward) : false;
+
     if (!pair) {
       return {
         x: authEntity.pos.x,
         y: authEntity.pos.y,
         angle: authEntity.angle,
-        thrust: lastThrustByEntityId.get(authEntity.id) ?? Boolean(authEntity.input?.forward),
+        thrust: lastThrustByEntityId.get(authEntity.id) ?? fallbackThrust,
       };
     }
 
@@ -161,7 +211,7 @@ export const createInterpolation = ({
         x: authEntity.pos.x,
         y: authEntity.pos.y,
         angle: authEntity.angle,
-        thrust: lastThrustByEntityId.get(authEntity.id) ?? Boolean(authEntity.input?.forward),
+        thrust: lastThrustByEntityId.get(authEntity.id) ?? fallbackThrust,
       };
     }
 
@@ -199,7 +249,7 @@ export const createInterpolation = ({
     };
   };
 
-  const resolveBracket = (now = performance.now()) => {
+  const resolveBracket = (now = performance.now()): SnapshotPair | null => {
     if (baseServerTimeMs === null || baseClientTimeMs === null) {
       return null;
     }
@@ -209,12 +259,16 @@ export const createInterpolation = ({
     return findBracketingSnapshots(renderTimeMs);
   };
 
-  const getInterpolatedEntity = (authEntity, world, now = performance.now()) => {
+  const getInterpolatedEntity = (
+    authEntity: GameEntity,
+    world: Bounds,
+    now = performance.now(),
+  ): RenderState => {
     const pair = resolveBracket(now);
     return interpolateEntity(authEntity, pair, world);
   };
 
-  const hasAtLeastTwoSnapshots = (entityId) => {
+  const hasAtLeastTwoSnapshots = (entityId: EntityId): boolean => {
     let count = 0;
 
     for (const snapshot of snapshots) {
@@ -227,7 +281,11 @@ export const createInterpolation = ({
     return false;
   };
 
-  const getInterpolatedPosition = (authEntity, world, now = performance.now()) => {
+  const getInterpolatedPosition = (
+    authEntity: GameEntity,
+    world: Bounds,
+    now = performance.now(),
+  ): RenderState | null => {
     const pair = resolveBracket(now);
 
     if (!pair) {
@@ -249,7 +307,7 @@ export const createInterpolation = ({
   };
 
   return {
-    get delayMs() {
+    get delayMs(): number {
       return interpolationDelayMs;
     },
     setDelay,
@@ -259,4 +317,6 @@ export const createInterpolation = ({
     reset,
   };
 };
+
+export type Interpolation = ReturnType<typeof createInterpolation>;
 

@@ -1,12 +1,34 @@
 import { integrate, wrap } from '@magicarena/shared';
-import { shortestWrappedDelta, shortestAngleDelta } from './math.js';
+
+import type {
+  EntityId,
+  PlayerId,
+  Tick,
+  Bounds,
+  InputMessage,
+  SnapshotMessage,
+} from '@magicarena/shared';
+
+import type { SwordSnapshot } from '@magicarena/shared/types';
+
+import type {
+  PendingInput,
+  PredictedSwordState,
+  RenderState,
+  ReconciliationResult,
+} from '../types.ts';
+
+import { shortestWrappedDelta, shortestAngleDelta } from './math.ts';
 
 const FIXED_DT = 1 / 30;
 const MAX_PENDING_INPUTS = 120;
 const SMOOTHING_DURATION_MS = 100;
 const SNAP_DISTANCE_THRESHOLD = 160;
 
-const createEmptyState = () => ({
+type SnapshotEntity = SnapshotMessage['entities'][number];
+type SnapshotSword = Extract<SnapshotEntity, { kind: 'sword' }>;
+
+const createEmptyState = (): PredictedSwordState => ({
   entityId: null,
   alive: false,
   x: 0,
@@ -17,7 +39,7 @@ const createEmptyState = () => ({
   thrust: false,
 });
 
-const stateFromSword = (sword) => ({
+const stateFromSword = (sword: SwordSnapshot): PredictedSwordState => ({
   entityId: sword.id,
   alive: Boolean(sword.alive),
   x: sword.pos.x,
@@ -29,23 +51,23 @@ const stateFromSword = (sword) => ({
 });
 
 export const createPrediction = () => {
-  const pendingInputs = [];
+  const pendingInputs: PendingInput[] = [];
 
   let predicted = createEmptyState();
-  let lastAuthoritative = null;
-  let lastSnapshotTick = null;
+  let lastAuthoritative: PredictedSwordState | null = null;
+  let lastSnapshotTick: Tick | null = null;
 
   let startOffset = { x: 0, y: 0, angle: 0 };
   let offset = { x: 0, y: 0, angle: 0 };
   let smoothingRemainingMs = 0;
 
-  const clearSmoothing = () => {
+  const clearSmoothing = (): void => {
     startOffset = { x: 0, y: 0, angle: 0 };
     offset = { x: 0, y: 0, angle: 0 };
     smoothingRemainingMs = 0;
   };
 
-  const reset = () => {
+  const reset = (): void => {
     pendingInputs.length = 0;
     predicted = createEmptyState();
     lastAuthoritative = null;
@@ -53,7 +75,7 @@ export const createPrediction = () => {
     clearSmoothing();
   };
 
-  const resyncToAuthoritative = () => {
+  const resyncToAuthoritative = (): void => {
     pendingInputs.length = 0;
     clearSmoothing();
 
@@ -64,12 +86,12 @@ export const createPrediction = () => {
     }
   };
 
-  const predictInput = (message, world) => {
+  const predictInput = (message: InputMessage, world: Bounds): boolean => {
     if (!predicted.alive || world.width <= 0 || world.height <= 0) {
       return false;
     }
 
-    const lastEntry = pendingInputs[pendingInputs.length - 1];
+    const lastEntry = pendingInputs.at(-1);
 
     if (lastEntry && message.seq <= lastEntry.seq) {
       return false;
@@ -108,14 +130,14 @@ export const createPrediction = () => {
     return true;
   };
 
-  const getRenderState = (world) => ({
+  const getRenderState = (world: Bounds): RenderState => ({
     x: wrap(predicted.x + offset.x, world.width),
     y: wrap(predicted.y + offset.y, world.height),
     angle: predicted.angle + offset.angle,
     thrust: predicted.thrust,
   });
 
-  const advanceSmoothing = (frameTimeMs) => {
+  const advanceSmoothing = (frameTimeMs: number): void => {
     if (smoothingRemainingMs <= 0) {
       if (offset.x !== 0 || offset.y !== 0 || offset.angle !== 0) {
         clearSmoothing();
@@ -140,7 +162,12 @@ export const createPrediction = () => {
     };
   };
 
-  const reconcile = (snapshot, playerId, entityId, world) => {
+  const reconcile = (
+    snapshot: SnapshotMessage,
+    playerId: PlayerId | null,
+    entityId: EntityId | null,
+    world: Bounds,
+  ): ReconciliationResult | null => {
     if (typeof snapshot.tick === 'number') {
       if (lastSnapshotTick !== null && snapshot.tick <= lastSnapshotTick) {
         return null;
@@ -151,14 +178,20 @@ export const createPrediction = () => {
 
     const ackSeq = snapshot.lastProcessedSeq ?? 0;
 
-    while (pendingInputs.length > 0 && pendingInputs[0].seq <= ackSeq) {
+    while (true) {
+      const first = pendingInputs[0];
+
+      if (!first || first.seq > ackSeq) {
+        break;
+      }
+
       pendingInputs.shift();
     }
 
-    const authSword = (snapshot.entities ?? []).find(
-      (entity) =>
+    const authSword = snapshot.entities.find(
+      (entity): entity is SnapshotSword =>
         entity.kind === 'sword' &&
-        (playerId !== null && entity.ownerId !== null && entity.ownerId !== undefined
+        (playerId !== null && entity.ownerId !== null
           ? entity.ownerId === playerId
           : entityId !== null && entity.id === entityId),
     );
@@ -177,7 +210,8 @@ export const createPrediction = () => {
       };
     }
 
-    const isSpawnOrSwitch = !predicted.alive || predicted.entityId !== authSword.id;
+    const isSpawnOrSwitch =
+      !predicted.alive || predicted.entityId !== authSword.id;
 
     lastAuthoritative = stateFromSword(authSword);
 
@@ -244,21 +278,23 @@ export const createPrediction = () => {
   };
 
   return {
-    get isAlive() {
+    get isAlive(): boolean {
       return predicted.alive;
     },
-    get entityId() {
+    get entityId(): EntityId | null {
       return predicted.entityId;
     },
-    get pendingCount() {
+    get pendingCount(): number {
       return pendingInputs.length;
     },
     predictInput,
     reconcile,
     advanceSmoothing,
     getRenderState,
-    getPredictedState: () => ({ ...predicted }),
+    getPredictedState: (): PredictedSwordState => ({ ...predicted }),
     reset,
   };
 };
+
+export type Prediction = ReturnType<typeof createPrediction>;
 
