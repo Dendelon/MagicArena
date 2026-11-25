@@ -4,10 +4,16 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test"
+    "test": "node --test",
+    "typecheck": "tsc --noEmit -p ."
   },
   "exports": {
     ".": "./src/index.js",
+    "./sim/vector": "./src/sim/vector.ts",
+    "./sim/vector.js": "./src/sim/vector.ts",
+    "./sim/random": "./src/sim/random.ts",
+    "./sim/random.js": "./src/sim/random.ts",
+    "./types": "./src/types.ts",
     "./sim/*": "./src/sim/*.js",
     "./sim/*.js": "./src/sim/*.js",
     "./entities/*": "./src/entities/*.js",
@@ -18,6 +24,8 @@
     "./codec": "./src/codec/index.js",
     "./codec/*": "./src/codec/*.js",
     "./codec/*.js": "./src/codec/*.js"
+  },
+  "dependencies": {
+    "zod": "^4.6.7"
   }
 }
-

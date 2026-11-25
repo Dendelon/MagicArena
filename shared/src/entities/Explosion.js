@@ -1,6 +1,6 @@
 import { Entity } from '../sim/entity.js';
-import { Vector2 } from '../sim/vector.js';
-import { mulberry32 } from '../sim/random.js';
+import { Vector2 } from '../sim/vector.ts';
+import { mulberry32 } from '../sim/random.ts';
 
 export class Explosion extends Entity {
   constructor({

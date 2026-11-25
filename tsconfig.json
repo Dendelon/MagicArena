@@ -1,0 +1,20 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "types": ["node"]
+  },
+  "include": [
+    "shared/src/**/*",
+    "client/src/**/*",
+    "server/src/**/*"
+  ],
+  "exclude": [
+    "**/node_modules",
+    "**/dist",
+    "**/logs"
+  ]
+}
+

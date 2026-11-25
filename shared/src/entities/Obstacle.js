@@ -1,5 +1,5 @@
 import { Entity } from '../sim/entity.js';
-import { Vector2 } from '../sim/vector.js';
+import { Vector2 } from '../sim/vector.ts';
 import { createHoming } from '../sim/behaviors/homing.js';
 
 export class Obstacle extends Entity {

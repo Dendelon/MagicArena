@@ -6,7 +6,7 @@ import { findSafeSpawn } from './arena.js';
 import { createHealingEffect } from './behaviors/healing.js';
 import { createHoming } from './behaviors/homing.js';
 import { Entity } from './entity.js';
-import { Vector2 } from './vector.js';
+import { Vector2 } from './vector.ts';
 import { World } from './world.js';
 import { createInputMessage } from '../protocol/messages.js';
 

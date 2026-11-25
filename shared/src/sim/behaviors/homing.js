@@ -1,4 +1,4 @@
-import { Vector2 } from '../vector.js';
+import { Vector2 } from '../vector.ts';
 
 const ASSIST_RADIUS = 180;
 const ASSIST_FULL_RADIUS = 90;

@@ -1,5 +1,5 @@
 import { Entity } from '../sim/entity.js';
-import { Vector2 } from '../sim/vector.js';
+import { Vector2 } from '../sim/vector.ts';
 import { wrap } from '../sim/arena.js';
 import { createHoming } from '../sim/behaviors/homing.js';
 

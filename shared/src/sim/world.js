@@ -1,5 +1,5 @@
 import { resolveCollisions } from './collision.js';
-import { mulberry32 } from './random.js';
+import { mulberry32 } from './random.ts';
 import { entityFromJSON } from '../entities/fromJSON.js';
 
 export class World {

@@ -1,5 +1,5 @@
 import { Entity } from '../sim/entity.js';
-import { Vector2 } from '../sim/vector.js';
+import { Vector2 } from '../sim/vector.ts';
 import { integrate } from '../sim/sword.js';
 import { wrap } from '../sim/arena.js';
 import { Bullet } from './Bullet.js';

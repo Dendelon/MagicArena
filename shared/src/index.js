@@ -7,7 +7,7 @@ export {
   resolveCollisions,
 } from './sim/collision.js';
 export { Entity } from './sim/entity.js';
-export { mulberry32 } from './sim/random.js';
+export { mulberry32 } from './sim/random.ts';
 export {
   DEFAULT_FIXED_DT,
   DEFAULT_SCENARIO_SEED,
@@ -16,7 +16,7 @@ export {
   runDeterministicScenario,
 } from './sim/scenario.js';
 export { integrate } from './sim/sword.js';
-export { Vector2 } from './sim/vector.js';
+export { Vector2 } from './sim/vector.ts';
 export { World } from './sim/world.js';
 
 export { Bullet } from './entities/Bullet.js';

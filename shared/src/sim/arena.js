@@ -1,4 +1,4 @@
-import { Vector2 } from './vector.js';
+import { Vector2 } from './vector.ts';
 
 export const wrap = (value, max) => {
   if (max <= 0) return 0;

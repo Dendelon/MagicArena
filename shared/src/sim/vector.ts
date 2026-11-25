@@ -1,26 +1,31 @@
-export class Vector2 {
+import type { Vec2Like } from '../types.ts';
+
+export class Vector2 implements Vec2Like {
+  readonly x: number;
+  readonly y: number;
+
   constructor(x = 0, y = 0) {
     this.x = x;
     this.y = y;
   }
 
-  add(vector) {
+  add(vector: Vec2Like): Vector2 {
     return new Vector2(this.x + vector.x, this.y + vector.y);
   }
 
-  sub(vector) {
+  sub(vector: Vec2Like): Vector2 {
     return new Vector2(this.x - vector.x, this.y - vector.y);
   }
 
-  scale(value) {
+  scale(value: number): Vector2 {
     return new Vector2(this.x * value, this.y * value);
   }
 
-  length() {
+  length(): number {
     return Math.hypot(this.x, this.y);
   }
 
-  normalize() {
+  normalize(): Vector2 {
     const len = this.length();
 
     if (len === 0) return new Vector2();
@@ -28,26 +33,32 @@ export class Vector2 {
     return this.scale(1 / len);
   }
 
-  rotate(angle) {
+  rotate(angle: number): Vector2 {
     const cos = Math.cos(angle);
     const sin = Math.sin(angle);
 
-    return new Vector2(this.x * cos - this.y * sin, this.x * sin + this.y * cos);
+    return new Vector2(
+      this.x * cos - this.y * sin,
+      this.x * sin + this.y * cos,
+    );
   }
 
-  dot(vector) {
+  dot(vector: Vec2Like): number {
     return this.x * vector.x + this.y * vector.y;
   }
 
-  toJSON() {
-    return { x: this.x, y: this.y };
+  toJSON(): Vec2Like {
+    return {
+      x: this.x,
+      y: this.y,
+    };
   }
 
-  static fromAngle(angle) {
+  static fromAngle(angle: number): Vector2 {
     return new Vector2(Math.cos(angle), Math.sin(angle));
   }
 
-  static fromJSON(data) {
+  static fromJSON(data?: Partial<Vec2Like> | null): Vector2 {
     if (data instanceof Vector2) {
       return new Vector2(data.x, data.y);
     }

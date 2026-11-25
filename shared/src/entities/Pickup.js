@@ -1,5 +1,5 @@
 import { Entity } from '../sim/entity.js';
-import { Vector2 } from '../sim/vector.js';
+import { Vector2 } from '../sim/vector.ts';
 import { createHealingEffect } from '../sim/behaviors/healing.js';
 
 export class Pickup extends Entity {
