@@ -80,7 +80,7 @@ export {
 export type {
   ChatMessage,
   ClientMessage,
-  Codec,
+  CodecMode,
   FireAckMessage,
   GameMessage,
   InputMessage,
@@ -105,5 +105,10 @@ export {
   decodeInput,
   encodeSnapshot,
   decodeSnapshot,
-} from './codec/index.js';
+  jsonCodec,
+  binaryCodec,
+  getCodec,
+} from './codec/index.ts';
+
+export type { Codec } from './codec/types.ts';
 

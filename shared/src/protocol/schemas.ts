@@ -308,7 +308,7 @@ export const GameMessageSchema = z.discriminatedUnion('type', [
   SnapshotMessageSchema,
 ]);
 
-export type Codec = z.infer<typeof CodecSchema>;
+export type CodecMode = z.infer<typeof CodecSchema>;
 
 export type InputMessage = z.infer<typeof InputMessageSchema>;
 

@@ -8,6 +8,9 @@ import {
   decodeInput,
   encodeSnapshot,
   decodeSnapshot,
+  jsonCodec,
+  binaryCodec,
+  getCodec,
 } from '@magicarena/shared';
 
 import { createCodecFixture } from '../scripts/codec-fixture.js';
@@ -149,5 +152,99 @@ test('Binary snapshots are smaller than JSON', () => {
   const binaryBytes = encodeSnapshot(snapshot).byteLength;
 
   assert.ok(binaryBytes < jsonBytes);
+});
+
+test('Both codecs implement the same API', () => {
+  const input = createInputMessage({
+    seq: 42,
+    tick: 100,
+    thrust: true,
+    turn: -1,
+    fire: true,
+    fireSeq: 42,
+  });
+
+  for (const codec of [jsonCodec, binaryCodec]) {
+    assert.deepEqual(codec.decode(codec.encode(input)), input);
+  }
+});
+
+test('Select codec by configured mode', () => {
+  assert.equal(getCodec('json'), jsonCodec);
+  assert.equal(getCodec('binary'), binaryCodec);
+});
+
+test('Binary codec returns ArrayBuffer', () => {
+  const input = createInputMessage();
+
+  assert.ok(binaryCodec.encode(input) instanceof ArrayBuffer);
+});
+
+test('Input wire format remains unchanged', () => {
+  const input = createInputMessage({
+    seq: 42,
+    tick: 100,
+    thrust: true,
+    turn: -1,
+    fire: true,
+    fireSeq: 42,
+  });
+
+  const expected = Buffer.from(
+    '01012a00000064000000000000000000f0bf152a000000',
+    'hex',
+  );
+
+  const actual = Buffer.from(encodeInput(input));
+
+  assert.deepEqual(actual, expected);
+  assert.equal(actual.byteLength, 23);
+});
+
+test('Empty snapshot wire format remains unchanged', () => {
+  const snapshot = createSnapshotMessage({
+    tick: 100,
+    lastProcessedSeq: 42,
+    entities: [],
+  });
+
+  const expected = Buffer.from('0201640000002a000000000000000000', 'hex');
+
+  const actual = Buffer.from(encodeSnapshot(snapshot));
+
+  assert.deepEqual(actual, expected);
+  assert.equal(actual.byteLength, 16);
+});
+
+test('Reject invalid binary input flags', () => {
+  const packet = encodeInput(createInputMessage());
+
+  packet[18] |= 128;
+
+  assert.throws(() => decodeInput(packet));
+});
+
+test('Reject trailing binary bytes', () => {
+  const packet = encodeInput(createInputMessage());
+
+  const padded = new Uint8Array(packet.byteLength + 1);
+
+  padded.set(packet);
+
+  assert.throws(() => decodeInput(padded));
+});
+
+test('Reject binary input outside turn range', () => {
+  const packet = encodeInput(createInputMessage());
+
+  const view = new DataView(
+    packet.buffer,
+    packet.byteOffset,
+    packet.byteLength,
+  );
+
+  view.setFloat64(10, 1000, true);
+
+  assert.throws(() => decodeInput(packet));
 });
 

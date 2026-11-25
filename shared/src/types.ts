@@ -1,5 +1,14 @@
 import { z } from 'zod';
 
+import type {
+  SwordSchema,
+  BulletSchema,
+  ObstacleSchema,
+  PickupSchema,
+  ExplosionSchema,
+  EntitySnapshotSchema,
+} from './protocol/schemas.ts';
+
 export interface Vec2Like {
   readonly x: number;
   readonly y: number;
@@ -107,42 +116,28 @@ export interface BaseEntitySnapshot<K extends EntityKind = EntityKind> {
   readonly alive: boolean;
 }
 
-export interface SwordSnapshot extends BaseEntitySnapshot<'sword'> {
-  readonly ownerId: PlayerId | null;
-  readonly hp: number;
-  readonly damageCooldown: number;
-  readonly thrust: boolean;
-}
+type Atomic = EntityId | Tick | Seq;
 
-export interface BulletSnapshot extends BaseEntitySnapshot<'bullet'> {
-  readonly ttl: number;
-  readonly ownerId: EntityId | null;
-  readonly ownerPlayerId: PlayerId | null;
-  readonly originSeq: Seq | null;
-  readonly damage: number;
-  readonly homing: HomingData | null;
-}
+type DeepReadonly<T> =
+  T extends Atomic
+    ? T
+    : T extends object
+      ? {
+          readonly [K in keyof T]: DeepReadonly<T[K]>;
+        }
+      : T;
 
-export interface ObstacleSnapshot extends BaseEntitySnapshot<'obstacle'> {
-  readonly hp: number;
-  readonly homing: HomingData | null;
-}
+export type SwordSnapshot = DeepReadonly<z.infer<typeof SwordSchema>>;
 
-export interface PickupSnapshot extends BaseEntitySnapshot<'pickup'> {
-  readonly effect: HealingData | null;
-}
+export type BulletSnapshot = DeepReadonly<z.infer<typeof BulletSchema>>;
 
-export interface ExplosionSnapshot extends BaseEntitySnapshot<'explosion'> {
-  readonly color: string;
-  readonly particles: readonly ParticleSnapshot[];
-}
+export type ObstacleSnapshot = DeepReadonly<z.infer<typeof ObstacleSchema>>;
 
-export type EntitySnapshot =
-  | SwordSnapshot
-  | BulletSnapshot
-  | ObstacleSnapshot
-  | PickupSnapshot
-  | ExplosionSnapshot;
+export type PickupSnapshot = DeepReadonly<z.infer<typeof PickupSchema>>;
+
+export type ExplosionSnapshot = DeepReadonly<z.infer<typeof ExplosionSchema>>;
+
+export type EntitySnapshot = DeepReadonly<z.infer<typeof EntitySnapshotSchema>>;
 
 export interface WorldSnapshot {
   readonly tick: Tick;

@@ -6,7 +6,7 @@ import {
   parseClientMessage,
 } from '@magicarena/shared';
 
-import type { ClientMessage, Codec } from '@magicarena/shared';
+import type { ClientMessage, CodecMode } from '@magicarena/shared';
 
 export const MAX_MESSAGE_SIZE = 4096;
 
@@ -44,7 +44,7 @@ const toBuffer = (data: RawData): Buffer => {
 export const parseMessage = (
   data: RawData,
   isBinary = false,
-  codec: Codec = 'json',
+  codec: CodecMode = 'json',
 ): ClientMessage => {
   if (getByteLength(data) > MAX_MESSAGE_SIZE) {
     throw new ProtocolError('Message too large', 1009);

@@ -17,9 +17,9 @@
     "./protocol": "./src/protocol/index.ts",
     "./protocol/*.js": "./src/protocol/*.ts",
     "./protocol/*": "./src/protocol/*.ts",
-    "./codec": "./src/codec/index.js",
-    "./codec/*": "./src/codec/*.js",
-    "./codec/*.js": "./src/codec/*.js"
+    "./codec": "./src/codec/index.ts",
+    "./codec/*": "./src/codec/*.ts",
+    "./codec/*.js": "./src/codec/*.ts"
   },
   "dependencies": {
     "zod": "^4.6.7"
