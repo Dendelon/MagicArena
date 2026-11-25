@@ -1,0 +1,23 @@
+{
+  "name": "@magicarena/shared",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test"
+  },
+  "exports": {
+    ".": "./src/index.js",
+    "./sim/*": "./src/sim/*.js",
+    "./sim/*.js": "./src/sim/*.js",
+    "./entities/*": "./src/entities/*.js",
+    "./entities/*.js": "./src/entities/*.js",
+    "./protocol": "./src/protocol/index.js",
+    "./protocol/*": "./src/protocol/*.js",
+    "./protocol/*.js": "./src/protocol/*.js",
+    "./codec": "./src/codec/index.js",
+    "./codec/*": "./src/codec/*.js",
+    "./codec/*.js": "./src/codec/*.js"
+  }
+}
+

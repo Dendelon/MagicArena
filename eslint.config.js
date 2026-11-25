@@ -31,4 +31,12 @@ export default [
       globals: globals.node,
     },
   },
+
+  {
+    files: ['shared/src/**/*.js'],
+    languageOptions: {
+      ecmaVersion: 'latest',
+      sourceType: 'module',
+    },
+  },
 ];

@@ -1,7 +1,15 @@
 import './style.css';
 import { createCanvas } from './render/canvas';
-import { createHoming } from './sim/behaviors/homing.js';
-import { createHealingEffect } from './sim/behaviors/healing.js';
+import {
+  createHoming,
+  createHealingEffect,
+  findSafeSpawn,
+  Vector2,
+  Sword,
+  World,
+  Obstacle,
+  Pickup,
+} from '@magicarena/shared';
 import { createGameAudio } from './audio/audio.js';
 import { drawBackground } from './render/background';
 import { drawSword } from './render/sword';
@@ -15,11 +23,6 @@ import { drawSwordThrust } from './render/swordThrust.js';
 import { createLoop } from './loop';
 import { createInput } from './input';
 import { bootGame } from './assets/boot.js';
-import { Vector2 } from './sim/vector.js';
-import { Sword } from './entities/Sword.js';
-import { World } from './sim/world.js';
-import { Obstacle } from './entities/Obstacle.js';
-import { Pickup } from './entities/Pickup.js';
 import { Lobby } from './lobby/Lobby.js';
 import { mountLobby } from './lobby/view.js';
 import { createConnection } from './network/connection.js';
@@ -82,41 +85,6 @@ const healingPickup = new Pickup({
 world.spawn(healingPickup);
 
 let respawnTimer = null;
-
-const findSafeSpawn = () => {
-  const obstacles = [...world.ofKind('obstacle')];
-
-  let bestPosition = new Vector2(size.width / 2, size.height / 2);
-
-  let bestClearance = -Infinity;
-
-  const padding = Math.min(60, size.width / 4, size.height / 4);
-
-  for (let i = 0; i < 40; i++) {
-    const pos = new Vector2(
-      padding + Math.random() * (size.width - padding * 2),
-      padding + Math.random() * (size.height - padding * 2),
-    );
-
-    const clearance =
-      obstacles.length === 0
-        ? Infinity
-        : Math.min(
-            ...obstacles.map(
-              (obstacle) => pos.sub(obstacle.pos).length() - obstacle.radius - 22,
-            ),
-          );
-
-    if (clearance > 55) return pos;
-
-    if (clearance > bestClearance) {
-      bestClearance = clearance;
-      bestPosition = pos;
-    }
-  }
-
-  return bestPosition;
-};
 
 const inputs = new Map();
 
@@ -184,7 +152,7 @@ const simulate = (dt) => {
     // Створення нового меча
     if (respawnTimer <= 0) {
       sword = new Sword({
-        pos: findSafeSpawn(),
+        pos: findSafeSpawn(world, world.rng),
       });
 
       world.spawn(sword);

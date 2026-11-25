@@ -7,14 +7,17 @@ const DRAG = 0.8;
 const BRAKE_FORCE = 5;
 
 export const integrate = (sword, input, dt, world) => {
-  const direction = Number(input.right) - Number(input.left);
+  const direction =
+    typeof input.turn === 'number'
+      ? Math.max(-1, Math.min(1, input.turn))
+      : Number(Boolean(input.right)) - Number(Boolean(input.left));
 
   const angle = sword.angle + direction * ROTATION_SPEED * dt;
 
   let vx = sword.vx;
   let vy = sword.vy;
 
-  if (input.forward) {
+  if (input.thrust ?? input.forward) {
     vx += Math.sin(angle) * ACCELERATION * dt;
     vy -= Math.cos(angle) * ACCELERATION * dt;
   }
@@ -46,3 +49,4 @@ export const integrate = (sword, input, dt, world) => {
     angle,
   };
 };
+

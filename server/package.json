@@ -7,6 +7,7 @@
     "start": "node src/index.js"
   },
   "dependencies": {
+    "@magicarena/shared": "*",
     "ws": "^8.23.0"
   }
 }

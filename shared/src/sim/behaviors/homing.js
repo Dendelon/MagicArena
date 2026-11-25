@@ -49,5 +49,11 @@ export const createHoming = ({ targetKind, turnRate = 3, speed = null }) => {
     entity.vel = Vector2.fromAngle(newAngle).scale(movementSpeed);
   };
 
-  return { update };
+  return {
+    targetKind,
+    turnRate,
+    speed,
+    update,
+  };
 };
+

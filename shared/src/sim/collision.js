@@ -30,6 +30,7 @@ const explode = (world, entity, { count = 20, color = '#b794f6' } = {}) => {
       pos: entity.pos,
       count,
       color,
+      random: world.rng,
     }),
   );
 
@@ -123,3 +124,4 @@ export const resolveCollisions = (world) => {
     }
   }
 };
+

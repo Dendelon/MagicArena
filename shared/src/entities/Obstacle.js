@@ -1,17 +1,31 @@
 import { Entity } from '../sim/entity.js';
 import { Vector2 } from '../sim/vector.js';
+import { createHoming } from '../sim/behaviors/homing.js';
 
 export class Obstacle extends Entity {
-  constructor({ pos = new Vector2(), vel = new Vector2(), radius = 26 } = {}) {
+  constructor({
+    id = null,
+    pos = new Vector2(),
+    vel = new Vector2(),
+    angle = 0,
+    radius = 26,
+    hp = 1,
+    alive = true,
+    homing = null,
+  } = {}) {
     super({
+      id,
       pos,
       vel,
+      angle,
       radius,
       kind: 'obstacle',
+      alive,
     });
 
-    this.previousPos = pos;
-    this.hp = 1;
+    this.previousPos = this.pos;
+    this.hp = hp;
+    this.homing = homing;
   }
 
   takeDamage(amount = 1) {
@@ -65,4 +79,32 @@ export class Obstacle extends Entity {
     this.pos = new Vector2(x, y);
     this.vel = new Vector2(vx, vy);
   }
+
+  toJSON() {
+    return {
+      ...super.toJSON(),
+      hp: this.hp,
+      homing: this.homing
+        ? {
+            targetKind: this.homing.targetKind,
+            turnRate: this.homing.turnRate,
+            speed: this.homing.speed ?? null,
+          }
+        : null,
+    };
+  }
+
+  static fromJSON(data) {
+    return new Obstacle({
+      id: data.id,
+      pos: data.pos,
+      vel: data.vel,
+      angle: data.angle,
+      radius: data.radius,
+      hp: data.hp,
+      alive: data.alive,
+      homing: data.homing ? createHoming(data.homing) : null,
+    });
+  }
 }
+

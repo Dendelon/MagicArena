@@ -7,5 +7,10 @@ export const createHealingEffect = (amount = 1) => {
     return entity.heal(amount);
   };
 
-  return { apply };
+  return {
+    kind: 'healing',
+    amount,
+    apply,
+  };
 };
+

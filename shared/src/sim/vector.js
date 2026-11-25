@@ -39,7 +39,20 @@ export class Vector2 {
     return this.x * vector.x + this.y * vector.y;
   }
 
+  toJSON() {
+    return { x: this.x, y: this.y };
+  }
+
   static fromAngle(angle) {
     return new Vector2(Math.cos(angle), Math.sin(angle));
   }
+
+  static fromJSON(data) {
+    if (data instanceof Vector2) {
+      return new Vector2(data.x, data.y);
+    }
+
+    return new Vector2(data?.x ?? 0, data?.y ?? 0);
+  }
 }
+

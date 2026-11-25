@@ -1,17 +1,22 @@
 import { Entity } from '../sim/entity.js';
 import { Vector2 } from '../sim/vector.js';
 import { integrate } from '../sim/sword.js';
+import { wrap } from '../sim/arena.js';
 import { Bullet } from './Bullet.js';
 
 const BULLET_SPEED = 550;
 const SWORD_TIP_OFFSET = 60;
 
 export class Sword extends Entity {
-  #hp = 3;
-  #damageCooldown = 0;
+  #hp;
+  #damageCooldown;
 
   get hp() {
     return this.#hp;
+  }
+
+  get damageCooldown() {
+    return this.#damageCooldown;
   }
 
   takeDamage(amount = 1) {
@@ -41,14 +46,29 @@ export class Sword extends Entity {
     return this.#hp > previousHp;
   }
 
-  constructor({ pos = new Vector2(), vel = new Vector2(), angle = 0 } = {}) {
+  constructor({
+    id = null,
+    pos = new Vector2(),
+    vel = new Vector2(),
+    angle = 0,
+    radius = 22,
+    alive = true,
+    hp = 3,
+    damageCooldown = 0,
+    input = null,
+  } = {}) {
     super({
+      id,
       pos,
       vel,
       angle,
-      radius: 22,
+      radius,
       kind: 'sword',
+      alive,
     });
+
+    this.#hp = hp;
+    this.#damageCooldown = damageCooldown;
 
     this.input = {
       left: false,
@@ -56,10 +76,21 @@ export class Sword extends Entity {
       forward: false,
       brake: false,
     };
+
+    if (input) {
+      this.setInput(input);
+    }
   }
 
-  setInput(input) {
-    this.input = { ...input };
+  setInput(input = {}) {
+    const turn = typeof input.turn === 'number' ? input.turn : null;
+
+    this.input = {
+      left: turn !== null ? turn < 0 : Boolean(input.left),
+      right: turn !== null ? turn > 0 : Boolean(input.right),
+      forward: Boolean(input.thrust ?? input.forward),
+      brake: Boolean(input.brake),
+    };
   }
 
   update(dt, world) {
@@ -88,10 +119,7 @@ export class Sword extends Entity {
     const vel = this.vel.add(direction.scale(BULLET_SPEED));
 
     const bullet = new Bullet({
-      pos: new Vector2(
-        ((pos.x % world.width) + world.width) % world.width,
-        ((pos.y % world.height) + world.height) % world.height,
-      ),
+      pos: new Vector2(wrap(pos.x, world.width), wrap(pos.y, world.height)),
       vel,
       ownerId: this.id,
     });
@@ -100,4 +128,26 @@ export class Sword extends Entity {
 
     return bullet;
   }
+
+  toJSON() {
+    return {
+      ...super.toJSON(),
+      hp: this.#hp,
+      damageCooldown: this.#damageCooldown,
+    };
+  }
+
+  static fromJSON(data) {
+    return new Sword({
+      id: data.id,
+      pos: data.pos,
+      vel: data.vel,
+      angle: data.angle,
+      radius: data.radius,
+      alive: data.alive,
+      hp: data.hp,
+      damageCooldown: data.damageCooldown,
+    });
+  }
 }
+
