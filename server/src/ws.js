@@ -1,6 +1,6 @@
 import WebSocket, { WebSocketServer } from 'ws';
 import { randomUUID } from 'node:crypto';
-import { encodeMessage } from '@magicarena/shared';
+import { encodeMessage, encodeSnapshot } from '@magicarena/shared';
 import { MAX_MESSAGE_SIZE, parseMessage } from './protocol.js';
 import { createLatencyController } from './network/latency.js';
 
@@ -13,7 +13,7 @@ const MAX_BUFFERED_AMOUNT = 256 * 1024;
 export const setupWebSocket = (
   server,
   roomManager,
-  { matchManager = null, delayMs = 0, jitterMs = 0, dropRate = 0 } = {},
+  { matchManager = null, delayMs = 0, jitterMs = 0, dropRate = 0, codec = 'binary' } = {},
 ) => {
   const wss = new WebSocketServer({
     noServer: true,
@@ -92,7 +92,18 @@ export const setupWebSocket = (
       }
 
       const snapshot = match.getSnapshotForPlayer(player.id);
-      const payload = encodeMessage(snapshot);
+
+      let payload;
+
+      try {
+        payload =
+          codec === 'binary' ? encodeSnapshot(snapshot) : encodeMessage(snapshot);
+      } catch (error) {
+        console.error(`Snapshot encoding failed for room ${room.id}:`, error);
+
+        player.socket.close(1011, 'Snapshot encoding failed');
+        continue;
+      }
 
       latency.schedule(
         () => {
@@ -196,7 +207,7 @@ export const setupWebSocket = (
 
         socket.tokens -= 1;
 
-        const message = parseMessage(data, isBinary);
+        const message = parseMessage(data, isBinary, codec);
 
         if (message.type === 'join') {
           if (currentRoom) {
@@ -242,6 +253,7 @@ export const setupWebSocket = (
               },
               entityId,
               bounds: match?.bounds ?? null,
+              codec,
               netSim: {
                 delayMs,
                 jitterMs,

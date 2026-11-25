@@ -97,6 +97,7 @@ export const mountNetgraph = (
   const snapshotAgeEl = createRow('Snapshot age');
   const downloadEl = createRow('Download');
   const uploadEl = createRow('Upload');
+  const codecEl = createRow('Codec');
   const pendingEl = createRow('Pending inputs');
   const correctionEl = createRow('Correction');
   correctionEl.textContent = '0.0 px';
@@ -207,11 +208,13 @@ export const mountNetgraph = (
     pendingPings.clear();
     rxSamples.length = 0;
     txSamples.length = 0;
+    codecEl.textContent = '—';
     render();
   };
 
   const onJoined = (event) => {
     reset();
+    codecEl.textContent = event.detail.codec === 'binary' ? 'Binary' : 'JSON';
     applyNetSim(event.detail?.netSim);
     sendPing();
   };

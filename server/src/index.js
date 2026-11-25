@@ -314,6 +314,7 @@ websocket = setupWebSocket(server, rooms, {
   delayMs: config.netDelayMs,
   jitterMs: config.netJitterMs,
   dropRate: config.netDropRate,
+  codec: config.netCodec,
 });
 
 server.on('error', (error) => {

@@ -1,4 +1,4 @@
-import { isInputMessage } from '@magicarena/shared';
+import { isInputMessage, decodeInput } from '@magicarena/shared';
 
 export const MAX_MESSAGE_SIZE = 4096;
 
@@ -10,13 +10,29 @@ const protocolError = (message, code = 1008) => {
   return error;
 };
 
-export const parseMessage = (data, isBinary = false) => {
-  if (isBinary) {
-    throw protocolError('Binary messages are not supported', 1003);
+export const parseMessage = (data, isBinary = false, codec = 'json') => {
+  if (data.byteLength > MAX_MESSAGE_SIZE) {
+    throw protocolError('Message too large', 1009);
   }
 
-  if (data.length > MAX_MESSAGE_SIZE) {
-    throw protocolError('Message too large', 1009);
+  if (isBinary) {
+    if (codec !== 'binary') {
+      throw protocolError('Binary messages are disabled', 1003);
+    }
+
+    let message;
+
+    try {
+      message = decodeInput(data);
+    } catch {
+      throw protocolError('Invalid binary input', 1007);
+    }
+
+    if (!isInputMessage(message)) {
+      throw protocolError('Invalid input message');
+    }
+
+    return message;
   }
 
   let message;
@@ -71,6 +87,10 @@ export const parseMessage = (data, isBinary = false) => {
   }
 
   if (message.type === 'input') {
+    if (codec !== 'json') {
+      throw protocolError('Binary input required', 1003);
+    }
+
     if (!isInputMessage(message)) {
       throw protocolError('Invalid input message');
     }

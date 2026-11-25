@@ -40,6 +40,12 @@ if (!Number.isFinite(netDropRate) || netDropRate < 0 || netDropRate > 1) {
   throw new Error('NET_DROP_RATE must be a finite number between 0 and 1');
 }
 
+const netCodec = process.env.NET_CODEC?.trim().toLowerCase() || 'binary';
+
+if (netCodec !== 'json' && netCodec !== 'binary') {
+  throw new Error('NET_CODEC must be json or binary');
+}
+
 export const config = {
   port,
   host,
@@ -47,4 +53,5 @@ export const config = {
   netDelayMs,
   netJitterMs,
   netDropRate,
+  netCodec,
 };

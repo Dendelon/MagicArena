@@ -1,6 +1,9 @@
+import { encodeInput, decodeSnapshot } from '@magicarena/shared';
+
 const textEncoder = new TextEncoder();
 
-const byteLength = (text) => textEncoder.encode(text).length;
+const byteLength = (data) =>
+  typeof data === 'string' ? textEncoder.encode(data).byteLength : data.byteLength;
 
 const TRANSIENT_TYPES = new Set(['input', 'ping']);
 
@@ -12,6 +15,7 @@ export const createConnection = ({ name, roomId }) => {
   let reconnectAttempts = 0;
   let joined = false;
   let stopped = false;
+  let codec = null;
 
   const queue = [];
 
@@ -50,7 +54,9 @@ export const createConnection = ({ name, roomId }) => {
     const url = `${scheme}//${window.location.host}/ws`;
 
     joined = false;
+    codec = null;
     const currentSocket = new WebSocket(url);
+    currentSocket.binaryType = 'arraybuffer';
     socket = currentSocket;
 
     emit('status', 'Connecting...');
@@ -76,18 +82,23 @@ export const createConnection = ({ name, roomId }) => {
       if (socket !== currentSocket) return;
 
       try {
-        const bytes =
-          typeof event.data === 'string'
-            ? byteLength(event.data)
-            : (event.data?.byteLength ?? 0);
+        const bytes = byteLength(event.data);
 
-        const message = JSON.parse(event.data);
+        const message =
+          typeof event.data === 'string'
+            ? JSON.parse(event.data)
+            : decodeSnapshot(event.data);
 
         if (!message || typeof message.type !== 'string' || message.v !== 1) {
           return;
         }
 
         if (message.type === 'joined') {
+          if (message.codec !== 'json' && message.codec !== 'binary') {
+            throw new Error('Unsupported network codec');
+          }
+
+          codec = message.codec;
           joined = true;
           reconnectAttempts = 0;
 
@@ -119,6 +130,7 @@ export const createConnection = ({ name, roomId }) => {
 
       socket = null;
       joined = false;
+      codec = null;
       queue.length = 0;
 
       emit('disconnected', {
@@ -150,38 +162,46 @@ export const createConnection = ({ name, roomId }) => {
   };
 
   const send = (message) => {
-    if (TRANSIENT_TYPES.has(message.type)) {
+    const packet = {
+      v: 1,
+      ...message,
+    };
+
+    if (
+      packet.type === 'input' &&
+      (!joined || codec === null || socket?.readyState !== WebSocket.OPEN)
+    ) {
+      return;
+    }
+
+    const data =
+      packet.type === 'input' && codec === 'binary'
+        ? encodeInput(packet)
+        : JSON.stringify(packet);
+
+    if (TRANSIENT_TYPES.has(packet.type)) {
       if (!joined || socket?.readyState !== WebSocket.OPEN) {
         return;
       }
 
-      const data = JSON.stringify({
-        v: 1,
-        ...message,
-      });
-
-      transmit(data, message.type);
+      transmit(data, packet.type);
       return;
     }
 
-    const data = JSON.stringify({
-      v: 1,
-      ...message,
-    });
-
     if (socket?.readyState === WebSocket.OPEN && joined) {
-      transmit(data, message.type);
+      transmit(data, packet.type);
       return;
     }
 
     if (!stopped && queue.length < 20) {
-      queue.push({ data, type: message.type });
+      queue.push({ data, type: packet.type });
     }
   };
 
   const close = () => {
     stopped = true;
     joined = false;
+    codec = null;
 
     clearRetryTimer();
     queue.length = 0;
