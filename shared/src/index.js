@@ -37,5 +37,12 @@ export {
   assertValidMessage,
 } from './protocol/index.js';
 
-export { encodeMessage, decodeMessage } from './codec/index.js';
+export {
+  encodeMessage,
+  decodeMessage,
+  encodeInput,
+  decodeInput,
+  encodeSnapshot,
+  decodeSnapshot,
+} from './codec/index.js';
 
