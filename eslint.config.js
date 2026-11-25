@@ -37,6 +37,10 @@ export default [
     languageOptions: {
       ecmaVersion: 'latest',
       sourceType: 'module',
+      globals: {
+        TextEncoder: 'readonly',
+        TextDecoder: 'readonly',
+      },
     },
   },
 ];

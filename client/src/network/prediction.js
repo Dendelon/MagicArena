@@ -1,23 +1,10 @@
 import { integrate, wrap } from '@magicarena/shared';
+import { shortestWrappedDelta, shortestAngleDelta } from './math.js';
 
 const FIXED_DT = 1 / 30;
 const MAX_PENDING_INPUTS = 120;
 const SMOOTHING_DURATION_MS = 100;
 const SNAP_DISTANCE_THRESHOLD = 160;
-
-const shortestWrappedDelta = (from, to, size) => {
-  if (size <= 0) return to - from;
-
-  let delta = to - from;
-
-  if (delta > size / 2) delta -= size;
-  if (delta < -size / 2) delta += size;
-
-  return delta;
-};
-
-const shortestAngleDelta = (from, to) =>
-  Math.atan2(Math.sin(to - from), Math.cos(to - from));
 
 const createEmptyState = () => ({
   entityId: null,

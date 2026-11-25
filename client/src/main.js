@@ -312,12 +312,11 @@ void bootGame({
     audio.subscribe(world, {
       shouldPlay: (event) => {
         const detail = event.detail ?? {};
-        const consumedLocal = projectiles.consumeLocalSound(detail.originSeq);
         const isOwnEvent =
           (myPlayerId !== null && detail.ownerPlayerId === myPlayerId) ||
           (myEntityId !== null && detail.ownerId === myEntityId);
 
-        return !consumedLocal && !isOwnEvent;
+        return !isOwnEvent;
       },
     });
 
@@ -416,7 +415,7 @@ void bootGame({
         world.applySnapshot(snapshot);
         respawnTimer = snapshot.respawnSeconds ?? null;
 
-        projectiles.onSnapshot(snapshot, world, myPlayerId, myEntityId);
+        projectiles.onSnapshot(snapshot, myPlayerId, myEntityId);
 
         const reconciliation = prediction.reconcile(
           snapshot,

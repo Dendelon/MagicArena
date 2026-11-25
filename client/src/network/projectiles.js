@@ -1,4 +1,5 @@
 import { Bullet, Sword, createHoming, wrap } from '@magicarena/shared';
+import { shortestWrappedDelta } from './math.js';
 
 const FIXED_DT = 1 / 30;
 const MAX_LOCAL_PROJECTILES = 32;
@@ -9,49 +10,21 @@ const RECONCILE_BLEND_RATE = 10;
 const MAX_CORRECTION_RATIO = 0.5;
 const MAX_RENDER_DT_SEC = 0.05;
 
-const shortestWrappedDelta = (from, to, size) => {
-  if (size <= 0) return to - from;
-
-  let delta = to - from;
-
-  if (delta > size / 2) delta -= size;
-  if (delta < -size / 2) delta += size;
-
-  return delta;
-};
-
 export const createProjectilePredictor = () => {
   const ownProjectiles = new Map();
   const pendingShots = new Map();
-  const playedLocalShotSeqs = new Set();
 
   const makeKey = (originSeq, isHoming) => `${originSeq}:${isHoming ? 'h' : 'n'}`;
 
   const reset = () => {
     ownProjectiles.clear();
     pendingShots.clear();
-    playedLocalShotSeqs.clear();
-  };
-
-  const rememberLocalSound = (originSeq) => {
-    playedLocalShotSeqs.add(originSeq);
-
-    if (playedLocalShotSeqs.size > 64) {
-      const oldest = playedLocalShotSeqs.values().next().value;
-      playedLocalShotSeqs.delete(oldest);
-    }
-  };
-
-  const consumeLocalSound = (originSeq) => {
-    if (originSeq === null || originSeq === undefined) return false;
-
-    return playedLocalShotSeqs.delete(originSeq);
   };
 
   const isOwnBullet = (bullet, myPlayerId, myEntityId) =>
     myPlayerId !== null &&
-    bullet.ownerPlayerId !== null &&
-    bullet.ownerPlayerId !== undefined
+      bullet.ownerPlayerId !== null &&
+      bullet.ownerPlayerId !== undefined
       ? bullet.ownerPlayerId === myPlayerId
       : myEntityId !== null && bullet.ownerId === myEntityId;
 
@@ -126,24 +99,21 @@ export const createProjectilePredictor = () => {
         id: -originSeq - (isHoming ? 0.5 : 0),
         pos,
         vel,
-        ttl: isHoming ? 3 : 1.5,
+        ttl: isHoming ? 1 : 1.5,
         ownerId,
         ownerPlayerId,
         originSeq,
         homing: isHoming
           ? createHoming({
-              targetKind: 'obstacle',
-              turnRate: 9,
-            })
+            targetKind: 'obstacle',
+            turnRate: 9,
+          })
           : null,
       });
 
       ownProjectiles.set(key, {
-        key,
         originSeq,
         isHoming,
-        ownerId,
-        ownerPlayerId,
         bullet,
         visualPos: { x: pos.x, y: pos.y },
         lastVisualAt: now,
@@ -162,7 +132,6 @@ export const createProjectilePredictor = () => {
     if (fire) addRecord(false);
     if (homingFire) addRecord(true);
 
-    rememberLocalSound(originSeq);
     return true;
   };
 
@@ -356,7 +325,7 @@ export const createProjectilePredictor = () => {
     }
   };
 
-  const onSnapshot = (snapshot, world, myPlayerId, myEntityId) => {
+  const onSnapshot = (snapshot, myPlayerId, myEntityId) => {
     const now = performance.now();
     const serverBullets = (snapshot.entities ?? []).filter(
       (entity) => entity.kind === 'bullet' && entity.alive,
@@ -401,9 +370,7 @@ export const createProjectilePredictor = () => {
     const claimedServerBulletIds = new Set();
     const serverBullets = [...world.ofKind('bullet')];
     const sampleHomingPosition = (bullet) =>
-      interpolation.getInterpolatedPosition
-        ? interpolation.getInterpolatedPosition(bullet, world, now)
-        : interpolation.getInterpolatedEntity(bullet, world, now);
+      interpolation.getInterpolatedPosition(bullet, world, now);
 
     for (const record of ownProjectiles.values()) {
       for (const bullet of serverBullets) {
@@ -466,7 +433,6 @@ export const createProjectilePredictor = () => {
     onFireAck,
     onSnapshot,
     getBulletsToRender,
-    consumeLocalSound,
     reset,
   };
 };

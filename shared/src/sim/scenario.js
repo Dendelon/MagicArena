@@ -127,7 +127,7 @@ export const runDeterministicScenario = ({
           targetKind: 'obstacle',
           turnRate: 9,
         });
-        bullet.ttl = 3;
+        bullet.ttl = 1;
       }
     }
 

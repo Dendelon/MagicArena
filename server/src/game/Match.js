@@ -398,7 +398,7 @@ export class Match {
                 targetKind: 'obstacle',
                 turnRate: 9,
               });
-              bullet.ttl = 3;
+              bullet.ttl = 1;
             }
 
             entityIds.push(bullet.id);

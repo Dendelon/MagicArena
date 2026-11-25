@@ -167,10 +167,12 @@ export const createConnection = ({ name, roomId }) => {
       ...message,
     };
 
-    if (
-      packet.type === 'input' &&
-      (!joined || codec === null || socket?.readyState !== WebSocket.OPEN)
-    ) {
+    const isReady = joined && socket?.readyState === WebSocket.OPEN;
+    const isTransient = TRANSIENT_TYPES.has(packet.type);
+
+    if (isTransient && !isReady) return;
+
+    if (packet.type === 'input' && codec === null) {
       return;
     }
 
@@ -179,22 +181,16 @@ export const createConnection = ({ name, roomId }) => {
         ? encodeInput(packet)
         : JSON.stringify(packet);
 
-    if (TRANSIENT_TYPES.has(packet.type)) {
-      if (!joined || socket?.readyState !== WebSocket.OPEN) {
-        return;
-      }
-
-      transmit(data, packet.type);
-      return;
-    }
-
-    if (socket?.readyState === WebSocket.OPEN && joined) {
+    if (isReady) {
       transmit(data, packet.type);
       return;
     }
 
     if (!stopped && queue.length < 20) {
-      queue.push({ data, type: packet.type });
+      queue.push({
+        data,
+        type: packet.type,
+      });
     }
   };
 

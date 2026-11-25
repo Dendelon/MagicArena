@@ -1,4 +1,5 @@
 import { wrap } from '@magicarena/shared';
+import { shortestWrappedDelta, shortestAngleDelta } from './math.js';
 
 export const DEFAULT_INTERPOLATION_DELAY_MS = 100;
 export const MIN_INTERPOLATION_DELAY_MS = 50;
@@ -9,20 +10,6 @@ const MAX_SNAPSHOT_BUFFER = 30;
 const CLOCK_SNAP_THRESHOLD_MS = 250;
 const CLOCK_SMOOTHING = 0.1;
 const TELEPORT_THRESHOLD_PX = 140;
-
-const shortestWrappedDelta = (from, to, size) => {
-  if (size <= 0) return to - from;
-
-  let delta = to - from;
-
-  if (delta > size / 2) delta -= size;
-  if (delta < -size / 2) delta += size;
-
-  return delta;
-};
-
-const shortestAngleDelta = (from, to) =>
-  Math.atan2(Math.sin(to - from), Math.cos(to - from));
 
 const clampDelay = (delayMs) =>
   Math.max(
@@ -258,14 +245,7 @@ export const createInterpolation = ({
       return null;
     }
 
-    const position = interpolateEntity(authEntity, pair, world);
-    const t = pair.alpha;
-
-    return {
-      ...position,
-      vx: a.vel.x + (b.vel.x - a.vel.x) * t,
-      vy: a.vel.y + (b.vel.y - a.vel.y) * t,
-    };
+    return interpolateEntity(authEntity, pair, world);
   };
 
   return {
