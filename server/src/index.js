@@ -9,6 +9,7 @@ import { RoomManager } from './rooms.js';
 import { setupWebSocket } from './ws.js';
 import { setupMatchLogs } from './log/matchlog.js';
 import { getReplayPath, listReplays } from './log/replay.js';
+import { startRssProfiler } from './log/rss.js';
 
 const distDir = resolve(fileURLToPath(new URL('../../client/dist/', import.meta.url)));
 
@@ -31,6 +32,13 @@ rooms.create({
 await mkdir(config.logDir, { recursive: true });
 
 const matchLogs = setupMatchLogs(rooms, config.logDir);
+
+const rssProfiler =
+  process.env.RSS_PROFILE === '1' ? await startRssProfiler(config.logDir) : null;
+
+if (rssProfiler) {
+  console.log(`RSS log: ${rssProfiler.filePath}`);
+}
 
 const mimeTypes = {
   '.html': 'text/html; charset=utf-8',
@@ -142,6 +150,26 @@ const handleRequest = async (req, res) => {
 
   if (pathname === '/health' && req.method === 'GET') {
     sendJson(res, 200, { status: 'ok' });
+    return;
+  }
+
+  // Лише для демонстрації Event Loop у ЛР №4
+  if (
+    pathname === '/api/slow' &&
+    req.method === 'GET' &&
+    process.env.ENABLE_SLOW_DEMO === '1'
+  ) {
+    const started = performance.now();
+
+    // Навмисне синхронне блокування на 300 мс
+    while (performance.now() - started < 300) {
+      // Busy loop
+    }
+
+    sendJson(res, 200, {
+      blockedMs: Math.round(performance.now() - started),
+    });
+
     return;
   }
 
@@ -306,6 +334,7 @@ const shutdown = () => {
 
     // Дозаписуємо NDJSON-файли
     await matchLogs.shutdown();
+    await rssProfiler?.stop();
 
     console.log('Server stopped gracefully');
     process.exitCode = 0;

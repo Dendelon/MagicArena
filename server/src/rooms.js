@@ -86,12 +86,19 @@ export class Room extends EventEmitter {
 }
 
 export class RoomManager extends EventEmitter {
-  constructor() {
+  constructor({ maxRooms = 20 } = {}) {
     super();
     this.rooms = new Map();
+    this.maxRooms = maxRooms;
   }
 
   create(options) {
+    if (this.rooms.size >= this.maxRooms) {
+      const error = new Error('Room limit reached');
+      error.status = 429;
+      throw error;
+    }
+
     const room = new Room(options);
 
     this.rooms.set(room.id, room);

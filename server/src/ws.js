@@ -2,6 +2,10 @@ import WebSocket, { WebSocketServer } from 'ws';
 import { randomUUID } from 'node:crypto';
 import { MAX_MESSAGE_SIZE, parseMessage } from './protocol.js';
 
+const RATE_PER_SECOND = 15;
+const BUCKET_CAPACITY = 15;
+const MAX_BUFFERED_AMOUNT = 256 * 1024;
+
 export const setupWebSocket = (server, roomManager) => {
   const wss = new WebSocketServer({
     noServer: true,
@@ -17,7 +21,7 @@ export const setupWebSocket = (server, roomManager) => {
     if (socket.readyState !== WebSocket.OPEN) return;
 
     // Не накопичуємо нескінченну чергу для повільного клієнта
-    if (socket.bufferedAmount > 256 * 1024) {
+    if (socket.bufferedAmount > MAX_BUFFERED_AMOUNT) {
       if (critical) {
         socket.close(4009, 'Slow client');
       }
@@ -99,8 +103,8 @@ export const setupWebSocket = (server, roomManager) => {
     let currentPlayer = null;
 
     socket.missedPongs = 0;
-    socket.messageCount = 0;
-    socket.lastMessageWindow = Date.now();
+    socket.tokens = BUCKET_CAPACITY;
+    socket.lastRefill = Date.now();
 
     // Гравець має приєднатися до кімнати за 5 секунд
     const joinTimeout = setTimeout(() => {
@@ -115,20 +119,23 @@ export const setupWebSocket = (server, roomManager) => {
 
     socket.on('message', (data, isBinary) => {
       try {
-        // Простий ліміт: 15 повідомлень за секунду
+        // Token Bucket: поступове відновлення токенів
         const now = Date.now();
+        const elapsedSeconds = Math.max(0, (now - socket.lastRefill) / 1000);
 
-        if (now - socket.lastMessageWindow >= 1000) {
-          socket.lastMessageWindow = now;
-          socket.messageCount = 0;
-        }
+        socket.tokens = Math.min(
+          BUCKET_CAPACITY,
+          socket.tokens + elapsedSeconds * RATE_PER_SECOND,
+        );
 
-        socket.messageCount++;
+        socket.lastRefill = now;
 
-        if (socket.messageCount > 15) {
+        if (socket.tokens < 1) {
           socket.close(4008, 'Rate limit exceeded');
           return;
         }
+
+        socket.tokens -= 1;
 
         const message = parseMessage(data, isBinary);
 
