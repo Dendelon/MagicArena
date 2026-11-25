@@ -1,4 +1,4 @@
-import { assertValidMessage } from '../protocol/messages.js';
+import { assertValidMessage } from '../protocol/messages.ts';
 
 const rawToString = (raw) => {
   if (typeof raw === 'string') {

@@ -8,9 +8,10 @@ import { createHoming } from './behaviors/homing.ts';
 import { Entity } from './entity.ts';
 import { Vector2 } from './vector.ts';
 import { World } from './world.ts';
-import { createInputMessage } from '../protocol/messages.js';
+import { createInputMessage } from '../protocol/messages.ts';
 import { toSeq, toTick } from '../types.ts';
 
+import type { InputMessage } from '../protocol/schemas.ts';
 import type {
   Bounds,
   EntityId,
@@ -25,21 +26,14 @@ export const DEFAULT_SCENARIO_STEPS = 1000;
 export const DEFAULT_FIXED_DT = 1 / 60;
 export const DEFAULT_SCENARIO_SEED = 1337;
 
-interface ScenarioInput extends SwordInput {
-  readonly seq: Seq;
-  readonly tick: Tick;
-  readonly fire: boolean;
-  readonly homingFire: boolean;
-}
-
 interface ScenarioOptions {
   seed?: number;
   steps?: number;
   dt?: number;
   bounds?: Bounds;
   inputSequence?:
-    | readonly ScenarioInput[]
-    | ((tick: Tick) => ScenarioInput)
+    | readonly InputMessage[]
+    | ((tick: Tick) => InputMessage)
     | null;
 }
 
@@ -53,43 +47,16 @@ interface ScenarioResult {
   readonly snapshot: WorldSnapshot;
 }
 
-const toScenarioInput = (
-  seq: Seq,
-  tick: Tick,
-  options: {
-    thrust?: boolean;
-    turn?: number;
-    brake?: boolean;
-    fire?: boolean;
-    homingFire?: boolean;
-  } = {},
-): ScenarioInput => {
-  const message = createInputMessage({
-    seq,
-    tick,
-    ...options,
-  });
-
-  return {
-    ...message,
-    seq,
-    tick,
-    thrust: Boolean(message.thrust),
-    turn: Number(message.turn),
-    brake: Boolean(message.brake),
-    fire: Boolean(message.fire),
-    homingFire: Boolean(message.homingFire),
-  };
-};
-
-export const createDefaultInputForTick = (tick: number): ScenarioInput => {
+export const createDefaultInputForTick = (tick: number): InputMessage => {
   const phase = tick % 180;
   let turn = 0;
 
   if (phase < 45) turn = 1;
   else if (phase >= 90 && phase < 135) turn = -1;
 
-  return toScenarioInput(toSeq(tick + 1), toTick(tick), {
+  return createInputMessage({
+    seq: tick + 1,
+    tick,
     thrust: phase < 120,
     turn,
     brake: phase >= 150 && phase < 165,
@@ -184,7 +151,7 @@ export const runDeterministicScenario = ({
       typeof inputSequence === 'function'
         ? inputSequence(toTick(tick))
         : Array.isArray(inputSequence)
-          ? (inputSequence[tick] ?? toScenarioInput(toSeq(tick + 1), toTick(tick)))
+          ? (inputSequence[tick] ?? createInputMessage({ seq: tick + 1, tick }))
           : createDefaultInputForTick(tick);
 
     if (sword.alive) {

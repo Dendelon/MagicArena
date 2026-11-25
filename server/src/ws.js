@@ -1,7 +1,7 @@
 import WebSocket, { WebSocketServer } from 'ws';
 import { randomUUID } from 'node:crypto';
 import { encodeMessage, encodeSnapshot } from '@magicarena/shared';
-import { MAX_MESSAGE_SIZE, parseMessage } from './protocol.js';
+import { MAX_MESSAGE_SIZE, parseMessage } from './protocol.ts';
 import { createLatencyController } from './network/latency.js';
 
 const RATE_PER_SECOND = 60;

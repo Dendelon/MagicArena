@@ -7,5 +7,9 @@ export {
   isSnapshotMessage,
   isValidMessage,
   assertValidMessage,
-} from './messages.js';
+  parseClientMessage,
+  parseServerMessage,
+} from './messages.ts';
+
+export * from './schemas.ts';
 

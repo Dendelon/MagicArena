@@ -1,4 +1,8 @@
-import { encodeInput, decodeSnapshot } from '@magicarena/shared';
+import {
+  encodeInput,
+  decodeSnapshot,
+  parseServerMessage,
+} from '@magicarena/shared';
 
 const textEncoder = new TextEncoder();
 
@@ -84,20 +88,21 @@ export const createConnection = ({ name, roomId }) => {
       try {
         const bytes = byteLength(event.data);
 
-        const message =
+        const rawMessage =
           typeof event.data === 'string'
             ? JSON.parse(event.data)
             : decodeSnapshot(event.data);
 
-        if (!message || typeof message.type !== 'string' || message.v !== 1) {
+        const parsed = parseServerMessage(rawMessage);
+
+        if (!parsed.success) {
+          console.warn('Invalid server message:', parsed.error.issues);
           return;
         }
 
-        if (message.type === 'joined') {
-          if (message.codec !== 'json' && message.codec !== 'binary') {
-            throw new Error('Unsupported network codec');
-          }
+        const message = parsed.data;
 
+        if (message.type === 'joined') {
           codec = message.codec;
           joined = true;
           reconnectAttempts = 0;

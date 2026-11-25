@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { RoomManager } from '../src/rooms.js';
-import { MAX_MESSAGE_SIZE, parseMessage } from '../src/protocol.js';
+import { MAX_MESSAGE_SIZE, parseMessage } from '../src/protocol.ts';
 
 test('RoomManager enforces room limit', () => {
   const manager = new RoomManager({ maxRooms: 1 });
@@ -40,7 +40,10 @@ test('Protocol rejects unknown message type', () => {
     }),
   );
 
-  assert.throws(() => parseMessage(data), /Unknown message type/);
+  assert.throws(
+    () => parseMessage(data),
+    (error) => error.closeCode === 1008,
+  );
 });
 
 test('Protocol rejects oversized message', () => {

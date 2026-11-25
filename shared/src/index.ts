@@ -69,7 +69,34 @@ export {
   isSnapshotMessage,
   isValidMessage,
   assertValidMessage,
-} from './protocol/index.js';
+  parseClientMessage,
+  parseServerMessage,
+  ClientMessageSchema,
+  ServerMessageSchema,
+  InputMessageSchema,
+  SnapshotMessageSchema,
+} from './protocol/index.ts';
+
+export type {
+  ChatMessage,
+  ClientMessage,
+  Codec,
+  FireAckMessage,
+  GameMessage,
+  InputMessage,
+  JoinMessage,
+  JoinedMessage,
+  NetSim,
+  NoticeMessage,
+  PingMessage,
+  PongMessage,
+  RoomInfo,
+  RosterMessage,
+  RosterPlayer,
+  ServerChatMessage,
+  ServerMessage,
+  SnapshotMessage,
+} from './protocol/index.ts';
 
 export {
   encodeMessage,

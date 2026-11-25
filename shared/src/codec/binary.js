@@ -1,4 +1,4 @@
-import { PROTOCOL_VERSION, assertValidMessage } from '../protocol/messages.js';
+import { PROTOCOL_VERSION, assertValidMessage } from '../protocol/messages.ts';
 
 const INPUT = 1;
 const SNAPSHOT = 2;

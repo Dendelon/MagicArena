@@ -14,9 +14,9 @@
     "./entities/*.js": "./src/entities/*.ts",
     "./entities/*": "./src/entities/*.ts",
     "./types": "./src/types.ts",
-    "./protocol": "./src/protocol/index.js",
-    "./protocol/*": "./src/protocol/*.js",
-    "./protocol/*.js": "./src/protocol/*.js",
+    "./protocol": "./src/protocol/index.ts",
+    "./protocol/*.js": "./src/protocol/*.ts",
+    "./protocol/*": "./src/protocol/*.ts",
     "./codec": "./src/codec/index.js",
     "./codec/*": "./src/codec/*.js",
     "./codec/*.js": "./src/codec/*.js"
