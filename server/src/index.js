@@ -7,6 +7,8 @@ import { pipeline } from 'node:stream/promises';
 import { config } from './config.js';
 import { RoomManager } from './rooms.js';
 import { setupWebSocket } from './ws.js';
+import { setupMatchLogs } from './log/matchlog.js';
+import { getReplayPath, listReplays } from './log/replay.js';
 
 const distDir = resolve(fileURLToPath(new URL('../../client/dist/', import.meta.url)));
 
@@ -25,6 +27,10 @@ rooms.create({
   obstacleCount: 2,
   maxPlayers: 4,
 });
+
+await mkdir(config.logDir, { recursive: true });
+
+const matchLogs = setupMatchLogs(rooms, config.logDir);
 
 const mimeTypes = {
   '.html': 'text/html; charset=utf-8',
@@ -174,6 +180,63 @@ const handleRequest = async (req, res) => {
     return;
   }
 
+  // Отримати список збережених матчів
+  if (pathname === '/api/replays' && req.method === 'GET') {
+    const replays = await listReplays(config.logDir);
+
+    sendJson(res, 200, { replays });
+    return;
+  }
+
+  // Завантажити NDJSON-файл потоком
+  if (pathname.startsWith('/api/replays/') && req.method === 'GET') {
+    const id = pathname.slice('/api/replays/'.length);
+    const filePath = getReplayPath(config.logDir, id);
+
+    if (!filePath) {
+      sendJson(res, 400, { error: 'Invalid replay ID' });
+      return;
+    }
+
+    let info;
+
+    try {
+      info = await stat(filePath);
+    } catch (error) {
+      if (error.code === 'ENOENT') {
+        sendJson(res, 404, { error: 'Replay not found' });
+        return;
+      }
+
+      throw error;
+    }
+
+    if (!info.isFile()) {
+      sendJson(res, 404, { error: 'Replay not found' });
+      return;
+    }
+
+    res.writeHead(200, {
+      'Content-Type': 'application/x-ndjson; charset=utf-8',
+      'Content-Length': info.size,
+      'Cache-Control': 'no-store',
+    });
+
+    if (info.size === 0) {
+      res.end();
+      return;
+    }
+
+    await pipeline(
+      createReadStream(filePath, {
+        end: info.size - 1,
+      }),
+      res,
+    );
+
+    return;
+  }
+
   if (pathname.startsWith('/api/')) {
     sendJson(res, 404, { error: 'Unknown API route' });
     return;
@@ -218,24 +281,42 @@ const shutdown = () => {
 
   console.log('Shutting down server...');
 
-  websocket.shutdown();
+  void (async () => {
+    const httpClosed = new Promise((resolve, reject) => {
+      server.close((error) => {
+        if (error) reject(error);
+        else resolve();
+      });
+    });
 
-  server.close((error) => {
-    process.exitCode = error ? 1 : 0;
-    if (error) console.error(error);
+    server.closeIdleConnections();
+
+    const websocketClosed = websocket.shutdown();
+
+    const forceCloseTimer = setTimeout(() => {
+      server.closeAllConnections();
+    }, 5000);
+
+    forceCloseTimer.unref();
+
+    // Очікуємо завершення HTTP та WebSocket
+    await Promise.all([httpClosed, websocketClosed]);
+
+    clearTimeout(forceCloseTimer);
+
+    // Дозаписуємо NDJSON-файли
+    await matchLogs.shutdown();
+
+    console.log('Server stopped gracefully');
+    process.exitCode = 0;
+  })().catch((error) => {
+    console.error('Shutdown error:', error);
+    process.exitCode = 1;
   });
-
-  server.closeIdleConnections();
-
-  setTimeout(() => {
-    server.closeAllConnections();
-  }, 5000).unref();
 };
 
 process.on('SIGINT', shutdown);
 process.on('SIGTERM', shutdown);
-
-await mkdir(config.logDir, { recursive: true });
 
 server.listen(config.port, config.host, () => {
   console.log(`Magic Arena server: http://${config.host}:${config.port}`);

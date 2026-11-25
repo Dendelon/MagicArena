@@ -182,6 +182,11 @@ export const setupWebSocket = (server, roomManager) => {
         }
 
         if (message.type === 'chat') {
+          if (currentRoom.logBackpressured) {
+            socket.close(4009, 'Log backpressure');
+            return;
+          }
+
           currentRoom.chat(currentPlayer, message.text);
         }
       } catch (error) {
@@ -221,22 +226,29 @@ export const setupWebSocket = (server, roomManager) => {
   heartbeat.unref();
 
   // Викликаємо перед завершенням HTTP-сервера
+
   const shutdown = () => {
     clearInterval(heartbeat);
+
     server.off('upgrade', handleUpgrade);
     roomManager.off('created', registerRoom);
 
+    // Повідомляємо всім гравцям про завершення
     for (const socket of wss.clients) {
       socket.close(1001, 'Server shutting down');
     }
 
-    wss.close();
+    return new Promise((resolve) => {
+      // Чекаємо закриття WebSocket-з'єднань
+      wss.close(() => resolve());
 
-    setTimeout(() => {
-      for (const socket of wss.clients) {
-        socket.terminate();
-      }
-    }, 1000).unref();
+      // Примусове закриття завислих сокетів
+      setTimeout(() => {
+        for (const socket of wss.clients) {
+          socket.terminate();
+        }
+      }, 1000).unref();
+    });
   };
 
   return { shutdown };
