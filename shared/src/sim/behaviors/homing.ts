@@ -1,5 +1,30 @@
 import { Vector2 } from '../vector.ts';
 
+import type {
+  EntityId,
+  EntityKind,
+  GameEntityKind,
+  HomingData,
+} from '../../types.ts';
+import type { World } from '../world.ts';
+
+export interface HomingTarget {
+  readonly id: EntityId;
+  readonly kind: EntityKind;
+  pos: Vector2;
+  vel: Vector2;
+}
+
+export interface HomingBehavior extends HomingData {
+  update(entity: HomingTarget, world: World, dt: number): void;
+}
+
+export interface HomingOptions {
+  targetKind: GameEntityKind;
+  turnRate?: number;
+  speed?: number | null;
+}
+
 const ASSIST_RADIUS = 180;
 const ASSIST_FULL_RADIUS = 90;
 
@@ -8,15 +33,21 @@ const ASSIST_FULL_ANGLE = Math.PI / 8;
 
 const ASSIST_MAX_TURN_RATE = 2.5;
 
-const clamp01 = (value) => Math.max(0, Math.min(1, value));
+const clamp01 = (value: number): number => Math.max(0, Math.min(1, value));
 
-const smoothstep = (value) => {
+const smoothstep = (value: number): number => {
   const t = clamp01(value);
 
   return t * t * (3 - 2 * t);
 };
 
-const updateBulletAssist = (entity, world, dt, turnRate, speed) => {
+const updateBulletAssist = (
+  entity: HomingTarget,
+  world: World,
+  dt: number,
+  turnRate: number,
+  speed: number | null,
+): void => {
   const currentSpeed = entity.vel.length();
 
   if (currentSpeed <= 0 || dt <= 0) return;
@@ -87,15 +118,19 @@ const updateBulletAssist = (entity, world, dt, turnRate, speed) => {
   entity.vel = Vector2.fromAngle(currentAngle + turn).scale(movementSpeed);
 };
 
-export const createHoming = ({ targetKind, turnRate = 3, speed = null }) => {
-  const update = (entity, world, dt) => {
+export const createHoming = ({
+  targetKind,
+  turnRate = 3,
+  speed = null,
+}: HomingOptions): HomingBehavior => {
+  const update = (entity: HomingTarget, world: World, dt: number): void => {
     if (entity.kind === 'bullet' && targetKind === 'obstacle') {
       updateBulletAssist(entity, world, dt, turnRate, speed);
 
       return;
     }
 
-    let target = null;
+    let target: HomingTarget | null = null;
     let nearestDistance = Infinity;
 
     // Шукаємо найближчу ціль

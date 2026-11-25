@@ -1,9 +1,36 @@
-import { Entity } from '../sim/entity.js';
+import { Entity, type EntityOptions } from '../sim/entity.ts';
 import { Vector2 } from '../sim/vector.ts';
-import { wrap } from '../sim/arena.js';
-import { createHoming } from '../sim/behaviors/homing.js';
+import { wrap } from '../sim/arena.ts';
+import { createHoming, type HomingBehavior } from '../sim/behaviors/homing.ts';
+
+import type {
+  BulletSnapshot,
+  EntityId,
+  PlayerId,
+  Seq,
+} from '../types.ts';
+import type { World } from '../sim/world.ts';
+
+export interface BulletOptions extends Omit<EntityOptions, 'kind'> {
+  ttl?: number;
+  ownerId?: EntityId | null;
+  ownerPlayerId?: PlayerId | null;
+  originSeq?: Seq | null;
+  damage?: number;
+  homing?: HomingBehavior | null;
+}
 
 export class Bullet extends Entity {
+  declare readonly kind: 'bullet';
+
+  ttl: number;
+  ownerId: EntityId | null;
+  ownerPlayerId: PlayerId | null;
+  originSeq: Seq | null;
+  damage: number;
+  homing: HomingBehavior | null;
+  previousPos: Vector2;
+
   constructor({
     id = null,
     pos = new Vector2(),
@@ -17,7 +44,7 @@ export class Bullet extends Entity {
     damage = 1,
     alive = true,
     homing = null,
-  } = {}) {
+  }: BulletOptions = {}) {
     super({
       id,
       pos,
@@ -38,14 +65,21 @@ export class Bullet extends Entity {
     this.previousPos = this.pos;
   }
 
-  update(dt, world) {
+  override update(dt: number, world?: World): void {
     this.previousPos = this.pos;
 
-    this.homing?.update(this, world, dt);
+    if (world) {
+      this.homing?.update(this, world, dt);
+    }
 
     super.update(dt);
 
-    this.pos = new Vector2(wrap(this.pos.x, world.width), wrap(this.pos.y, world.height));
+    if (world) {
+      this.pos = new Vector2(
+        wrap(this.pos.x, world.width),
+        wrap(this.pos.y, world.height),
+      );
+    }
 
     this.ttl -= dt;
 
@@ -54,9 +88,10 @@ export class Bullet extends Entity {
     }
   }
 
-  toJSON() {
+  override toJSON(): BulletSnapshot {
     return {
       ...super.toJSON(),
+      kind: this.kind,
       ttl: this.ttl,
       ownerId: this.ownerId,
       ownerPlayerId: this.ownerPlayerId,
@@ -72,7 +107,7 @@ export class Bullet extends Entity {
     };
   }
 
-  static fromJSON(data) {
+  static override fromJSON(data: BulletSnapshot): Bullet {
     return new Bullet({
       id: data.id,
       pos: data.pos,

@@ -1,6 +1,15 @@
-import { Explosion } from '../entities/Explosion.js';
+import { Explosion } from '../entities/Explosion.ts';
 
-export const circlesOverlap = (a, b) => {
+import type { World } from './world.ts';
+import type { GameEntity } from '../entities/types.ts';
+import type { Vec2Like } from '../types.ts';
+
+interface Circle {
+  readonly pos: Vec2Like;
+  readonly radius: number;
+}
+
+export const circlesOverlap = (a: Circle, b: Circle): boolean => {
   const dx = a.pos.x - b.pos.x;
   const dy = a.pos.y - b.pos.y;
 
@@ -9,13 +18,17 @@ export const circlesOverlap = (a, b) => {
   return dx * dx + dy * dy <= radiusSum * radiusSum;
 };
 
-export function* collisionPairs(world) {
+export function* collisionPairs(
+  world: World,
+): IterableIterator<[GameEntity, GameEntity]> {
   const entities = [...world].filter((entity) => entity.alive && entity.radius > 0);
 
   for (let i = 0; i < entities.length; i++) {
     for (let j = i + 1; j < entities.length; j++) {
       const a = entities[i];
       const b = entities[j];
+
+      if (!a || !b) continue;
 
       if (circlesOverlap(a, b)) {
         yield [a, b];
@@ -24,7 +37,17 @@ export function* collisionPairs(world) {
   }
 }
 
-const explode = (world, entity, { count = 20, color = '#b794f6' } = {}) => {
+const explode = (
+  world: World,
+  entity: GameEntity,
+  {
+    count = 20,
+    color = '#b794f6',
+  }: {
+    count?: number;
+    color?: string;
+  } = {},
+): void => {
   world.spawn(
     new Explosion({
       pos: entity.pos,
@@ -40,7 +63,7 @@ const explode = (world, entity, { count = 20, color = '#b794f6' } = {}) => {
   });
 };
 
-export const resolveCollisions = (world) => {
+export const resolveCollisions = (world: World): void => {
   for (const [a, b] of collisionPairs(world)) {
     if (!a.alive || !b.alive) continue;
 

@@ -1,4 +1,6 @@
-import { wrap } from './arena.js';
+import { wrap } from './arena.ts';
+
+import type { Bounds, SwordInput, SwordState } from '../types.ts';
 
 const ROTATION_SPEED = Math.PI;
 const ACCELERATION = 400;
@@ -6,7 +8,12 @@ const MAX_SPEED = 320;
 const DRAG = 0.8;
 const BRAKE_FORCE = 5;
 
-export const integrate = (sword, input, dt, world) => {
+export const integrate = <T extends SwordState>(
+  sword: T,
+  input: SwordInput,
+  dt: number,
+  world: Bounds,
+): T => {
   const direction =
     typeof input.turn === 'number'
       ? Math.max(-1, Math.min(1, input.turn))

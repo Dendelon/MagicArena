@@ -1,8 +1,35 @@
-import { Entity } from '../sim/entity.js';
+import { Entity, type EntityOptions } from '../sim/entity.ts';
 import { Vector2 } from '../sim/vector.ts';
 import { mulberry32 } from '../sim/random.ts';
 
+import type {
+  ExplosionSnapshot,
+  ParticleSnapshot,
+  RandomSource,
+} from '../types.ts';
+
+interface Particle {
+  pos: Vector2;
+  vel: Vector2;
+  lifetime: number;
+  remaining: number;
+  radius: number;
+}
+
+export interface ExplosionOptions
+  extends Omit<EntityOptions, 'kind' | 'radius'> {
+  count?: number;
+  color?: string;
+  particles?: readonly ParticleSnapshot[] | null;
+  random?: RandomSource | null;
+}
+
 export class Explosion extends Entity {
+  declare readonly kind: 'explosion';
+
+  color: string;
+  particles: Particle[];
+
   constructor({
     id = null,
     pos = new Vector2(),
@@ -13,7 +40,7 @@ export class Explosion extends Entity {
     alive = true,
     particles = null,
     random = null,
-  } = {}) {
+  }: ExplosionOptions = {}) {
     super({
       id,
       pos,
@@ -40,13 +67,13 @@ export class Explosion extends Entity {
     const nextRandom = random ?? mulberry32(1);
 
     this.particles = Array.from({ length: count }, () => {
-      const angle = nextRandom() * Math.PI * 2;
+      const particleAngle = nextRandom() * Math.PI * 2;
       const speed = 50 + nextRandom() * 150;
       const lifetime = 0.3 + nextRandom() * 0.5;
 
       return {
         pos: new Vector2(this.pos.x, this.pos.y),
-        vel: Vector2.fromAngle(angle).scale(speed),
+        vel: Vector2.fromAngle(particleAngle).scale(speed),
         lifetime,
         remaining: lifetime,
         radius: 2 + nextRandom() * 3,
@@ -54,7 +81,7 @@ export class Explosion extends Entity {
     });
   }
 
-  update(dt) {
+  override update(dt: number): void {
     for (const particle of this.particles) {
       particle.pos = particle.pos.add(particle.vel.scale(dt));
 
@@ -68,9 +95,10 @@ export class Explosion extends Entity {
     }
   }
 
-  toJSON() {
+  override toJSON(): ExplosionSnapshot {
     return {
       ...super.toJSON(),
+      kind: this.kind,
       color: this.color,
       particles: this.particles.map((particle) => ({
         pos: particle.pos.toJSON(),
@@ -82,7 +110,7 @@ export class Explosion extends Entity {
     };
   }
 
-  static fromJSON(data) {
+  static override fromJSON(data: ExplosionSnapshot): Explosion {
     return new Explosion({
       id: data.id,
       pos: data.pos,

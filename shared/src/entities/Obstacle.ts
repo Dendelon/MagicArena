@@ -1,8 +1,22 @@
-import { Entity } from '../sim/entity.js';
+import { Entity, type EntityOptions } from '../sim/entity.ts';
 import { Vector2 } from '../sim/vector.ts';
-import { createHoming } from '../sim/behaviors/homing.js';
+import { createHoming, type HomingBehavior } from '../sim/behaviors/homing.ts';
+
+import type { ObstacleSnapshot } from '../types.ts';
+import type { World } from '../sim/world.ts';
+
+export interface ObstacleOptions extends Omit<EntityOptions, 'kind'> {
+  hp?: number;
+  homing?: HomingBehavior | null;
+}
 
 export class Obstacle extends Entity {
+  declare readonly kind: 'obstacle';
+
+  previousPos: Vector2;
+  hp: number;
+  homing: HomingBehavior | null;
+
   constructor({
     id = null,
     pos = new Vector2(),
@@ -12,7 +26,7 @@ export class Obstacle extends Entity {
     hp = 1,
     alive = true,
     homing = null,
-  } = {}) {
+  }: ObstacleOptions = {}) {
     super({
       id,
       pos,
@@ -28,7 +42,7 @@ export class Obstacle extends Entity {
     this.homing = homing;
   }
 
-  takeDamage(amount = 1) {
+  takeDamage(amount = 1): void {
     if (!this.alive) return;
 
     this.hp = Math.max(0, this.hp - amount);
@@ -38,13 +52,17 @@ export class Obstacle extends Entity {
     }
   }
 
-  update(dt, world) {
+  override update(dt: number, world?: World): void {
     this.previousPos = this.pos;
 
-    this.homing?.update(this, world, dt);
+    if (world) {
+      this.homing?.update(this, world, dt);
+    }
 
     // Переміщення за допомогою Entity.update()
     super.update(dt);
+
+    if (!world) return;
 
     let x = this.pos.x;
     let y = this.pos.y;
@@ -80,9 +98,10 @@ export class Obstacle extends Entity {
     this.vel = new Vector2(vx, vy);
   }
 
-  toJSON() {
+  override toJSON(): ObstacleSnapshot {
     return {
       ...super.toJSON(),
+      kind: this.kind,
       hp: this.hp,
       homing: this.homing
         ? {
@@ -94,7 +113,7 @@ export class Obstacle extends Entity {
     };
   }
 
-  static fromJSON(data) {
+  static override fromJSON(data: ObstacleSnapshot): Obstacle {
     return new Obstacle({
       id: data.id,
       pos: data.pos,

@@ -1,12 +1,18 @@
 import { Vector2 } from './vector.ts';
 
-export const wrap = (value, max) => {
+import type { RandomSource } from '../types.ts';
+import type { World } from './world.ts';
+
+export const wrap = (value: number, max: number): number => {
   if (max <= 0) return 0;
 
   return ((value % max) + max) % max;
 };
 
-export const findSafeSpawn = (world, rng = world.rng) => {
+export const findSafeSpawn = (
+  world: World,
+  rng: RandomSource = world.rng,
+): Vector2 => {
   const obstacles = [...world.ofKind('obstacle')];
 
   let bestPosition = new Vector2(world.width / 2, world.height / 2);
@@ -24,10 +30,10 @@ export const findSafeSpawn = (world, rng = world.rng) => {
       obstacles.length === 0
         ? Infinity
         : Math.min(
-          ...obstacles.map(
-            (obstacle) => pos.sub(obstacle.pos).length() - obstacle.radius - 22,
-          ),
-        );
+            ...obstacles.map(
+              (obstacle) => pos.sub(obstacle.pos).length() - obstacle.radius - 22,
+            ),
+          );
 
     if (clearance > 55) return pos;
 

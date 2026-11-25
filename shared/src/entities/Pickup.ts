@@ -1,8 +1,23 @@
-import { Entity } from '../sim/entity.js';
+import { Entity, type EntityOptions } from '../sim/entity.ts';
 import { Vector2 } from '../sim/vector.ts';
-import { createHealingEffect } from '../sim/behaviors/healing.js';
+import {
+  createHealingEffect,
+  type HealingEffect,
+} from '../sim/behaviors/healing.ts';
+
+import type { PickupSnapshot } from '../types.ts';
+import type { Sword } from './Sword.ts';
+import type { World } from '../sim/world.ts';
+
+export interface PickupOptions extends Omit<EntityOptions, 'kind'> {
+  effect?: HealingEffect | null;
+}
 
 export class Pickup extends Entity {
+  declare readonly kind: 'pickup';
+
+  effect: HealingEffect | null;
+
   constructor({
     id = null,
     pos = new Vector2(),
@@ -11,7 +26,7 @@ export class Pickup extends Entity {
     radius = 18,
     alive = true,
     effect = null,
-  } = {}) {
+  }: PickupOptions = {}) {
     super({
       id,
       pos,
@@ -25,7 +40,7 @@ export class Pickup extends Entity {
     this.effect = effect;
   }
 
-  collect(entity, world) {
+  collect(entity: Sword, world: World): boolean {
     if (!this.alive || !entity.alive) {
       return false;
     }
@@ -39,9 +54,10 @@ export class Pickup extends Entity {
     return applied;
   }
 
-  toJSON() {
+  override toJSON(): PickupSnapshot {
     return {
       ...super.toJSON(),
+      kind: this.kind,
       effect: this.effect
         ? {
             kind: this.effect.kind ?? 'healing',
@@ -51,7 +67,7 @@ export class Pickup extends Entity {
     };
   }
 
-  static fromJSON(data) {
+  static override fromJSON(data: PickupSnapshot): Pickup {
     return new Pickup({
       id: data.id,
       pos: data.pos,

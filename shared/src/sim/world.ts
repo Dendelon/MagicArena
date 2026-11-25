@@ -1,23 +1,63 @@
-import { resolveCollisions } from './collision.js';
+import { resolveCollisions } from './collision.ts';
 import { mulberry32 } from './random.ts';
-import { entityFromJSON } from '../entities/fromJSON.js';
+import { entityFromJSON } from '../entities/fromJSON.ts';
+import { toSeq, toTick } from '../types.ts';
+
+import type { EntityOfKind, GameEntity } from '../entities/types.ts';
+import type {
+  Bounds,
+  EntityId,
+  GameEntityKind,
+  RandomSource,
+  Seq,
+  SnapshotWorldState,
+  SwordInput,
+  Tick,
+  WorldEvent,
+  WorldEventMap,
+  WorldEventName,
+  WorldSnapshot,
+  WorldState,
+} from '../types.ts';
+
+export interface WorldOptions {
+  seed?: number;
+  rng?: RandomSource | null;
+}
+
+export type WorldInputs =
+  | Map<EntityId, SwordInput>
+  | Readonly<Record<string, SwordInput | undefined>>;
+
+type WorldListener = (this: World, event: WorldEvent) => void;
 
 export class World {
-  #entities = new Map();
-  #listeners = new Map();
+  #entities = new Map<EntityId, GameEntity>();
+  #listeners = new Map<WorldEventName, Map<WorldListener, boolean>>();
 
-  constructor(bounds, { seed = 1, rng = null } = {}) {
+  bounds: Bounds;
+  readonly seed: number;
+  readonly rng: RandomSource;
+
+  tick: Tick;
+  score: number;
+
+  constructor(bounds: Bounds, { seed = 1, rng = null }: WorldOptions = {}) {
     this.bounds = {
       width: bounds.width,
       height: bounds.height,
     };
     this.seed = seed >>> 0;
     this.rng = rng ?? mulberry32(this.seed);
-    this.tick = 0;
+    this.tick = toTick(0);
     this.score = 0;
   }
 
-  addEventListener(type, listener, options = {}) {
+  addEventListener(
+    type: WorldEventName,
+    listener: WorldListener,
+    options: { once?: boolean } = {},
+  ): void {
     if (typeof listener !== 'function') return;
 
     let set = this.#listeners.get(type);
@@ -30,7 +70,7 @@ export class World {
     set.set(listener, Boolean(options?.once));
   }
 
-  removeEventListener(type, listener) {
+  removeEventListener(type: WorldEventName, listener: WorldListener): void {
     const set = this.#listeners.get(type);
 
     if (!set) return;
@@ -42,8 +82,8 @@ export class World {
     }
   }
 
-  dispatchEvent(event) {
-    const set = this.#listeners.get(event?.type);
+  dispatchEvent(event: WorldEvent): boolean {
+    const set = this.#listeners.get(event.type);
 
     if (!set) return true;
 
@@ -58,24 +98,27 @@ export class World {
     return true;
   }
 
-  emit(name, detail = {}) {
-    this.dispatchEvent({ type: name, detail });
+  emit<K extends WorldEventName>(name: K, detail: WorldEventMap[K]): void {
+    this.dispatchEvent({
+      type: name,
+      detail,
+    });
   }
 
-  get width() {
+  get width(): number {
     return this.bounds.width;
   }
 
-  get height() {
+  get height(): number {
     return this.bounds.height;
   }
 
-  get count() {
+  get count(): number {
     return this.#entities.size;
   }
 
   // Додавання сутності
-  spawn(entity) {
+  spawn<T extends GameEntity>(entity: T): T {
     if (this.#entities.has(entity.id)) {
       throw new Error(`Entity ${entity.id} already exists`);
     }
@@ -96,7 +139,7 @@ export class World {
   }
 
   // Позначення сутності для видалення
-  despawn(id) {
+  despawn(id: EntityId): boolean {
     const entity = this.#entities.get(id);
 
     if (!entity) return false;
@@ -106,27 +149,30 @@ export class World {
   }
 
   // Отримання сутності за ID
-  get(id) {
+  get(id: EntityId): GameEntity | undefined {
     return this.#entities.get(id);
   }
 
   // Перебір усіх сутностей
-  *[Symbol.iterator]() {
+  *[Symbol.iterator](): IterableIterator<GameEntity> {
     yield* this.#entities.values();
   }
 
   // Перебір сутностей певного типу
-  *ofKind(kind) {
+  *ofKind<K extends GameEntityKind>(kind: K): IterableIterator<EntityOfKind<K>> {
+    const matchesKind = (entity: GameEntity): entity is EntityOfKind<K> =>
+      entity.kind === kind;
+
     for (const entity of this) {
-      if (entity.alive && entity.kind === kind) {
+      if (entity.alive && matchesKind(entity)) {
         yield entity;
       }
     }
   }
 
   // Один крок симуляції
-  step(dt, inputs = new Map()) {
-    this.tick += 1;
+  step(dt: number, inputs: WorldInputs = new Map()): void {
+    this.tick = toTick(this.tick + 1);
 
     const entities = [...this.#entities.values()];
 
@@ -135,9 +181,9 @@ export class World {
       if (!entity.alive) continue;
 
       const entityInput =
-        inputs instanceof Map ? inputs.get(entity.id) : inputs?.[entity.id];
+        inputs instanceof Map ? inputs.get(entity.id) : inputs[String(entity.id)];
 
-      if (typeof entity.setInput === 'function' && entityInput) {
+      if (entity.kind === 'sword' && entityInput) {
         entity.setInput(entityInput);
       }
 
@@ -155,7 +201,7 @@ export class World {
     }
   }
 
-  toSnapshot(lastProcessedSeq = 0) {
+  toSnapshot(lastProcessedSeq: Seq = toSeq(0)): WorldSnapshot {
     return {
       tick: this.tick,
       lastProcessedSeq,
@@ -163,7 +209,7 @@ export class World {
     };
   }
 
-  applySnapshot(snapshot) {
+  applySnapshot(snapshot: SnapshotWorldState): void {
     this.#entities.clear();
 
     for (const entityData of snapshot.entities ?? []) {
@@ -172,7 +218,7 @@ export class World {
     }
 
     if (typeof snapshot.tick === 'number') {
-      this.tick = snapshot.tick;
+      this.tick = toTick(snapshot.tick);
     }
 
     if (typeof snapshot.score === 'number') {
@@ -188,12 +234,12 @@ export class World {
 
     for (const event of snapshot.events ?? []) {
       if (event && typeof event.type === 'string') {
-        this.emit(event.type, event.detail ?? event);
+        this.dispatchEvent(event);
       }
     }
   }
 
-  toJSON() {
+  toJSON(): WorldState {
     return {
       bounds: {
         width: this.bounds.width,
@@ -206,17 +252,21 @@ export class World {
     };
   }
 
-  static fromJSON(data, { rng = null } = {}) {
+  static fromJSON(
+    data: WorldState,
+    { rng = null }: WorldOptions = {},
+  ): World {
     const world = new World(data.bounds, {
       seed: data.seed ?? 1,
       rng,
     });
 
-    world.tick = data.tick ?? 0;
+    world.tick = toTick(data.tick ?? 0);
     world.score = data.score ?? 0;
 
     for (const entityData of data.entities ?? []) {
-      world.#entities.set(entityData.id, entityFromJSON(entityData));
+      const entity = entityFromJSON(entityData);
+      world.#entities.set(entity.id, entity);
     }
 
     return world;

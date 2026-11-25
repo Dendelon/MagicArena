@@ -1,29 +1,95 @@
-import { Bullet } from '../entities/Bullet.js';
-import { Obstacle } from '../entities/Obstacle.js';
-import { Pickup } from '../entities/Pickup.js';
-import { Sword } from '../entities/Sword.js';
-import { findSafeSpawn } from './arena.js';
-import { createHealingEffect } from './behaviors/healing.js';
-import { createHoming } from './behaviors/homing.js';
-import { Entity } from './entity.js';
+import { Bullet } from '../entities/Bullet.ts';
+import { Obstacle } from '../entities/Obstacle.ts';
+import { Pickup } from '../entities/Pickup.ts';
+import { Sword } from '../entities/Sword.ts';
+import { findSafeSpawn } from './arena.ts';
+import { createHealingEffect } from './behaviors/healing.ts';
+import { createHoming } from './behaviors/homing.ts';
+import { Entity } from './entity.ts';
 import { Vector2 } from './vector.ts';
-import { World } from './world.js';
+import { World } from './world.ts';
 import { createInputMessage } from '../protocol/messages.js';
+import { toSeq, toTick } from '../types.ts';
+
+import type {
+  Bounds,
+  EntityId,
+  Seq,
+  SwordInput,
+  Tick,
+  WorldEventName,
+  WorldSnapshot,
+} from '../types.ts';
 
 export const DEFAULT_SCENARIO_STEPS = 1000;
 export const DEFAULT_FIXED_DT = 1 / 60;
 export const DEFAULT_SCENARIO_SEED = 1337;
 
-export const createDefaultInputForTick = (tick) => {
+interface ScenarioInput extends SwordInput {
+  readonly seq: Seq;
+  readonly tick: Tick;
+  readonly fire: boolean;
+  readonly homingFire: boolean;
+}
+
+interface ScenarioOptions {
+  seed?: number;
+  steps?: number;
+  dt?: number;
+  bounds?: Bounds;
+  inputSequence?:
+    | readonly ScenarioInput[]
+    | ((tick: Tick) => ScenarioInput)
+    | null;
+}
+
+interface ScenarioResult {
+  readonly seed: number;
+  readonly steps: number;
+  readonly dt: number;
+  readonly tick: Tick;
+  readonly score: number;
+  readonly events: Record<WorldEventName, number>;
+  readonly snapshot: WorldSnapshot;
+}
+
+const toScenarioInput = (
+  seq: Seq,
+  tick: Tick,
+  options: {
+    thrust?: boolean;
+    turn?: number;
+    brake?: boolean;
+    fire?: boolean;
+    homingFire?: boolean;
+  } = {},
+): ScenarioInput => {
+  const message = createInputMessage({
+    seq,
+    tick,
+    ...options,
+  });
+
+  return {
+    ...message,
+    seq,
+    tick,
+    thrust: Boolean(message.thrust),
+    turn: Number(message.turn),
+    brake: Boolean(message.brake),
+    fire: Boolean(message.fire),
+    homingFire: Boolean(message.homingFire),
+  };
+};
+
+export const createDefaultInputForTick = (tick: number): ScenarioInput => {
   const phase = tick % 180;
   let turn = 0;
 
   if (phase < 45) turn = 1;
   else if (phase >= 90 && phase < 135) turn = -1;
 
-  return createInputMessage({
-    seq: tick + 1,
-    tick,
+  return toScenarioInput(toSeq(tick + 1), toTick(tick), {
     thrust: phase < 120,
     turn,
     brake: phase >= 150 && phase < 165,
@@ -38,12 +104,12 @@ export const runDeterministicScenario = ({
   dt = DEFAULT_FIXED_DT,
   bounds = { width: 1024, height: 768 },
   inputSequence = null,
-} = {}) => {
+}: ScenarioOptions = {}): ScenarioResult => {
   Entity.resetNextId(1);
 
   const world = new World(bounds, { seed });
 
-  const events = {
+  const events: Record<WorldEventName, number> = {
     fired: 0,
     hit: 0,
     exploded: 0,
@@ -51,7 +117,15 @@ export const runDeterministicScenario = ({
     scoreChanged: 0,
   };
 
-  for (const eventName of Object.keys(events)) {
+  const eventNames: readonly WorldEventName[] = [
+    'fired',
+    'hit',
+    'exploded',
+    'healed',
+    'scoreChanged',
+  ];
+
+  for (const eventName of eventNames) {
     world.addEventListener(eventName, () => {
       events[eventName] += 1;
     });
@@ -80,11 +154,15 @@ export const runDeterministicScenario = ({
     }),
   ];
 
-  obstacles[0].homing = createHoming({
-    targetKind: 'sword',
-    turnRate: 2.4,
-    speed: 70,
-  });
+  const homingObstacle = obstacles[0];
+
+  if (homingObstacle) {
+    homingObstacle.homing = createHoming({
+      targetKind: 'sword',
+      turnRate: 2.4,
+      speed: 70,
+    });
+  }
 
   for (const obstacle of obstacles) {
     world.spawn(obstacle);
@@ -97,21 +175,21 @@ export const runDeterministicScenario = ({
     }),
   );
 
-  const inputs = new Map();
-  let respawnTimer = null;
-  let lastProcessedSeq = 0;
+  const inputs = new Map<EntityId, SwordInput>();
+  let respawnTimer: number | null = null;
+  let lastProcessedSeq: Seq = toSeq(0);
 
   for (let tick = 0; tick < steps; tick++) {
     const command =
       typeof inputSequence === 'function'
-        ? inputSequence(tick)
+        ? inputSequence(toTick(tick))
         : Array.isArray(inputSequence)
-          ? (inputSequence[tick] ?? createInputMessage({ seq: tick + 1, tick }))
+          ? (inputSequence[tick] ?? toScenarioInput(toSeq(tick + 1), toTick(tick)))
           : createDefaultInputForTick(tick);
 
     if (sword.alive) {
       inputs.set(sword.id, command);
-      lastProcessedSeq = command.seq ?? tick + 1;
+      lastProcessedSeq = command.seq;
     }
 
     world.step(dt, inputs);

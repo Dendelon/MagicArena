@@ -20,7 +20,7 @@ import {
   entityFromJSON,
   mulberry32,
   runDeterministicScenario,
-} from '../src/index.js';
+} from '../src/index.ts';
 
 test('shared modules import cleanly without DOM globals', () => {
   assert.equal(typeof globalThis.window, 'undefined');

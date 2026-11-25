@@ -1,9 +1,34 @@
 import { Vector2 } from './vector.ts';
+import { toEntityId } from '../types.ts';
+
+import type {
+  BaseEntitySnapshot,
+  EntityId,
+  EntityKind,
+  Vec2Like,
+} from '../types.ts';
+
+export interface EntityOptions {
+  id?: EntityId | null;
+  pos?: Vec2Like;
+  vel?: Vec2Like;
+  angle?: number;
+  radius?: number;
+  kind?: EntityKind;
+  alive?: boolean;
+}
 
 export class Entity {
   static #nextId = 1;
 
-  #id;
+  #id: EntityId;
+
+  pos: Vector2;
+  vel: Vector2;
+  angle: number;
+  radius: number;
+  readonly kind: EntityKind;
+  alive: boolean;
 
   constructor({
     id = null,
@@ -13,14 +38,19 @@ export class Entity {
     radius = 16,
     kind = 'entity',
     alive = true,
-  } = {}) {
+  }: EntityOptions = {}) {
     if (id !== null && id !== undefined) {
       this.#id = id;
-      if (Number.isInteger(id) && id >= Entity.#nextId) {
+
+      if (
+        typeof id === 'number' &&
+        Number.isInteger(id) &&
+        id >= Entity.#nextId
+      ) {
         Entity.#nextId = id + 1;
       }
     } else {
-      this.#id = Entity.#nextId++;
+      this.#id = toEntityId(Entity.#nextId++);
     }
 
     this.pos = Vector2.fromJSON(pos);
@@ -31,23 +61,23 @@ export class Entity {
     this.alive = alive;
   }
 
-  static resetNextId(value = 1) {
+  static resetNextId(value = 1): void {
     Entity.#nextId = value;
   }
 
-  get id() {
+  get id(): EntityId {
     return this.#id;
   }
 
-  update(dt) {
+  update(dt: number): void {
     this.pos = this.pos.add(this.vel.scale(dt));
   }
 
-  destroy() {
+  destroy(): void {
     this.alive = false;
   }
 
-  toJSON() {
+  toJSON(): BaseEntitySnapshot {
     return {
       id: this.#id,
       kind: this.kind,
@@ -59,7 +89,7 @@ export class Entity {
     };
   }
 
-  static fromJSON(data) {
+  static fromJSON(data: BaseEntitySnapshot): Entity {
     return new Entity({
       id: data.id,
       pos: data.pos,

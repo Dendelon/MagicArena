@@ -1,25 +1,60 @@
-import { Entity } from '../sim/entity.js';
+import { Entity, type EntityOptions } from '../sim/entity.ts';
 import { Vector2 } from '../sim/vector.ts';
-import { integrate } from '../sim/sword.js';
-import { wrap } from '../sim/arena.js';
-import { Bullet } from './Bullet.js';
+import { integrate } from '../sim/sword.ts';
+import { wrap } from '../sim/arena.ts';
+import { Bullet } from './Bullet.ts';
+
+import type {
+  Bounds,
+  PlayerId,
+  Seq,
+  SwordControls,
+  SwordInput,
+  SwordSnapshot,
+  Vec2Like,
+} from '../types.ts';
+import type { World } from '../sim/world.ts';
 
 const BULLET_SPEED = 550;
 const SWORD_TIP_OFFSET = 60;
 
-export class Sword extends Entity {
-  #hp;
-  #damageCooldown;
+export interface SwordOptions extends Omit<EntityOptions, 'kind'> {
+  ownerId?: PlayerId | null;
+  hp?: number;
+  damageCooldown?: number;
+  input?: SwordInput | null;
+}
 
-  get hp() {
+interface BulletSpawnOptions {
+  pos: Vec2Like;
+  vel: Vec2Like;
+  angle: number;
+  world: Bounds;
+}
+
+interface BulletSpawn {
+  pos: Vector2;
+  vel: Vector2;
+}
+
+export class Sword extends Entity {
+  declare readonly kind: 'sword';
+
+  #hp: number;
+  #damageCooldown: number;
+
+  ownerId: PlayerId | null;
+  input: SwordControls;
+
+  get hp(): number {
     return this.#hp;
   }
 
-  get damageCooldown() {
+  get damageCooldown(): number {
     return this.#damageCooldown;
   }
 
-  takeDamage(amount = 1) {
+  takeDamage(amount = 1): boolean {
     if (!this.alive || this.#damageCooldown > 0) {
       return false;
     }
@@ -34,7 +69,7 @@ export class Sword extends Entity {
     return true;
   }
 
-  heal(amount = 1) {
+  heal(amount = 1): boolean {
     if (!this.alive || amount <= 0) {
       return false;
     }
@@ -57,7 +92,7 @@ export class Sword extends Entity {
     hp = 3,
     damageCooldown = 0,
     input = null,
-  } = {}) {
+  }: SwordOptions = {}) {
     super({
       id,
       pos,
@@ -84,7 +119,7 @@ export class Sword extends Entity {
     }
   }
 
-  setInput(input = {}) {
+  setInput(input: SwordInput = {}): void {
     const turn = typeof input.turn === 'number' ? input.turn : null;
 
     this.input = {
@@ -95,8 +130,10 @@ export class Sword extends Entity {
     };
   }
 
-  update(dt, world) {
+  override update(dt: number, world?: World): void {
     this.#damageCooldown = Math.max(0, this.#damageCooldown - dt);
+
+    if (!world) return;
 
     const state = {
       x: this.pos.x,
@@ -113,7 +150,12 @@ export class Sword extends Entity {
     this.angle = next.angle;
   }
 
-  static createBulletSpawn({ pos, vel, angle, world }) {
+  static createBulletSpawn({
+    pos,
+    vel,
+    angle,
+    world,
+  }: BulletSpawnOptions): BulletSpawn {
     const direction = Vector2.fromAngle(angle - Math.PI / 2);
     const spawnPos = Vector2.fromJSON(pos).add(direction.scale(SWORD_TIP_OFFSET));
     const spawnVel = Vector2.fromJSON(vel).add(direction.scale(BULLET_SPEED));
@@ -124,7 +166,10 @@ export class Sword extends Entity {
     };
   }
 
-  fire(world, { originSeq = null } = {}) {
+  fire(
+    world: World,
+    { originSeq = null }: { originSeq?: Seq | null } = {},
+  ): Bullet {
     const { pos, vel } = Sword.createBulletSpawn({
       pos: this.pos,
       vel: this.vel,
@@ -145,9 +190,10 @@ export class Sword extends Entity {
     return bullet;
   }
 
-  toJSON() {
+  override toJSON(): SwordSnapshot {
     return {
       ...super.toJSON(),
+      kind: this.kind,
       ownerId: this.ownerId,
       hp: this.#hp,
       damageCooldown: this.#damageCooldown,
@@ -155,7 +201,11 @@ export class Sword extends Entity {
     };
   }
 
-  static fromJSON(data) {
+  static override fromJSON(
+    data: SwordSnapshot & {
+      readonly input?: SwordInput | null;
+    },
+  ): Sword {
     return new Sword({
       id: data.id,
       ownerId: data.ownerId ?? null,
