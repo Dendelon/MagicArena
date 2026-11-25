@@ -1,15 +1,20 @@
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 
+interface RssSample {
+  readonly seconds: number;
+  readonly rss: number;
+}
+
 const input = process.argv[2];
 
 if (!input) {
-  throw new Error('Usage: node server/scripts/rss-chart.js <rss.csv>');
+  throw new Error('Usage: node server/scripts/rss-chart.ts <rss.csv>');
 }
 
 const raw = await readFile(resolve(input), 'utf8');
 
-const samples = raw
+const samples: RssSample[] = raw
   .trim()
   .split(/\r?\n/)
   .slice(1)
@@ -17,7 +22,13 @@ const samples = raw
     const [seconds, rss] = line.split(',').map(Number);
     return { seconds, rss };
   })
-  .filter((item) => Number.isFinite(item.seconds) && Number.isFinite(item.rss));
+  .filter(
+    (item): item is RssSample =>
+      item.seconds !== undefined &&
+      item.rss !== undefined &&
+      Number.isFinite(item.seconds) &&
+      Number.isFinite(item.rss),
+  );
 
 if (samples.length < 2) {
   throw new Error('At least two RSS samples are required');
@@ -40,9 +51,10 @@ const maxRss = Math.max(1, ...samples.map((item) => item.rss));
 
 const yMax = maxRss * 1.1;
 
-const getX = (seconds) => left + (seconds / maxSeconds) * plotWidth;
+const getX = (seconds: number): number => left + (seconds / maxSeconds) * plotWidth;
 
-const getY = (rss) => height - bottom - (rss / yMax) * plotHeight;
+const getY = (rss: number): number =>
+  height - bottom - (rss / yMax) * plotHeight;
 
 const grid = Array.from({ length: 5 }, (_, i) => {
   const rss = (yMax * i) / 4;
@@ -117,3 +129,4 @@ console.log(`Graph saved: ${output}`);
 console.log(`Samples: ${samples.length}`);
 console.log(`RSS min: ${minRss.toFixed(2)} MB`);
 console.log(`RSS max: ${maxRss.toFixed(2)} MB`);
+

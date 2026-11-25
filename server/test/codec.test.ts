@@ -13,11 +13,20 @@ import {
   getCodec,
 } from '@magicarena/shared';
 
-import { createCodecFixture } from '../scripts/codec-fixture.js';
+import { createCodecFixture } from '../scripts/codec-fixture.ts';
 
-const assertApproximatelyEqual = (actual, expected, path = 'root') => {
+const isPlainObject = (value: unknown): value is Record<string, unknown> =>
+  value !== null && typeof value === 'object' && !Array.isArray(value);
+
+const assertApproximatelyEqual = (
+  actual: unknown,
+  expected: unknown,
+  path = 'root',
+): void => {
   if (typeof expected === 'number') {
     assert.equal(typeof actual, 'number', path);
+
+    if (typeof actual !== 'number') return;
 
     let difference = Math.abs(actual - expected);
 
@@ -50,8 +59,8 @@ const assertApproximatelyEqual = (actual, expected, path = 'root') => {
     return;
   }
 
-  if (expected !== null && typeof expected === 'object') {
-    assert.ok(actual && typeof actual === 'object', path);
+  if (isPlainObject(expected)) {
+    assert.ok(isPlainObject(actual), path);
 
     assert.deepEqual(
       Object.keys(actual).sort(),
@@ -147,7 +156,8 @@ test('Decode Uint8Array with non-zero byteOffset', () => {
 test('Binary snapshots are smaller than JSON', () => {
   const { snapshot } = createCodecFixture();
 
-  const jsonBytes = new TextEncoder().encode(JSON.stringify(snapshot)).byteLength;
+  const jsonBytes = new TextEncoder().encode(JSON.stringify(snapshot))
+    .byteLength;
 
   const binaryBytes = encodeSnapshot(snapshot).byteLength;
 
@@ -219,7 +229,8 @@ test('Empty snapshot wire format remains unchanged', () => {
 test('Reject invalid binary input flags', () => {
   const packet = encodeInput(createInputMessage());
 
-  packet[18] |= 128;
+  assert.ok(packet[18] !== undefined);
+  packet[18] = (packet[18] ?? 0) | 128;
 
   assert.throws(() => decodeInput(packet));
 });

@@ -4,8 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test",
-    "typecheck": "tsc --noEmit -p ."
+    "test": "node --test test/*.test.ts",
+    "typecheck": "tsc --noEmit -p . && tsc --noEmit -p tsconfig.test.json"
   },
   "exports": {
     ".": "./src/index.ts",

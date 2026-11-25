@@ -1,21 +1,16 @@
 import js from '@eslint/js';
 import globals from 'globals';
+import tseslint from 'typescript-eslint';
 
-export default [
+export default tseslint.config(
   {
-    ignores: [
-      '**/dist/**',
-      '**/node_modules/**',
-      '**/logs/**',
-      '**/scripts/**',
-      '**/test/**',
-    ],
+    ignores: ['**/dist/**', '**/node_modules/**', '**/logs/**'],
   },
 
   js.configs.recommended,
 
   {
-    files: ['client/src/**/*.js'],
+    files: ['client/src/**/*.{js,ts}'],
     languageOptions: {
       ecmaVersion: 'latest',
       sourceType: 'module',
@@ -24,7 +19,7 @@ export default [
   },
 
   {
-    files: ['server/src/**/*.js'],
+    files: ['server/**/*.{js,ts}'],
     languageOptions: {
       ecmaVersion: 'latest',
       sourceType: 'module',
@@ -33,7 +28,7 @@ export default [
   },
 
   {
-    files: ['shared/src/**/*.js'],
+    files: ['shared/**/*.{js,ts}'],
     languageOptions: {
       ecmaVersion: 'latest',
       sourceType: 'module',
@@ -43,4 +38,43 @@ export default [
       },
     },
   },
-];
+
+  {
+    files: ['client/src/**/*.ts', 'server/**/*.ts', 'shared/**/*.ts'],
+
+    extends: [...tseslint.configs.recommended],
+
+    rules: {
+      '@typescript-eslint/no-explicit-any': 'error',
+
+      '@typescript-eslint/no-non-null-assertion': 'error',
+
+      '@typescript-eslint/ban-ts-comment': [
+        'error',
+        {
+          'ts-ignore': true,
+          'ts-nocheck': true,
+          'ts-expect-error': 'allow-with-description',
+          minimumDescriptionLength: 10,
+        },
+      ],
+
+      '@typescript-eslint/consistent-type-imports': [
+        'error',
+        {
+          prefer: 'type-imports',
+          fixStyle: 'separate-type-imports',
+        },
+      ],
+
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        {
+          argsIgnorePattern: '^_',
+          varsIgnorePattern: '^_',
+          caughtErrorsIgnorePattern: '^_',
+        },
+      ],
+    },
+  },
+);

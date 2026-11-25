@@ -10,14 +10,6 @@ interface SubscribeOptions {
   shouldPlay?: ((event: FiredEvent) => boolean) | null;
 }
 
-const isFiredDetail = (
-  detail: WorldEvent['detail'],
-): detail is WorldEventMap['fired'] =>
-  'entityId' in detail &&
-  'ownerId' in detail &&
-  'ownerPlayerId' in detail &&
-  'originSeq' in detail;
-
 // Web Audio is isolated from the simulation; it only subscribes to World events.
 export const createGameAudio = (
   context: AudioContext | null,
@@ -49,8 +41,8 @@ export const createGameAudio = (
     { shouldPlay = null }: SubscribeOptions = {},
   ): (() => void) => {
     const onFired = (event: WorldEvent): void => {
-      if (event.type !== 'fired' || !isFiredDetail(event.detail)) return;
-      if (shouldPlay && !shouldPlay({ type: 'fired', detail: event.detail })) {
+      if (event.type !== 'fired') return;
+      if (shouldPlay && !shouldPlay(event)) {
         return;
       }
       play('shoot', 0.2);

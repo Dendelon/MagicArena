@@ -107,7 +107,7 @@ export const FiredEventSchema = z.strictObject({
   detail: z.strictObject({
     entityId: EntityIdSchema,
     ownerId: EntityIdSchema.nullable(),
-    ownerPlayerId: EntityIdSchema.nullable(),
+    ownerPlayerId: PlayerIdSchema.nullable(),
     originSeq: SeqSchema.nullable(),
     pos: VectorSchema,
   }),

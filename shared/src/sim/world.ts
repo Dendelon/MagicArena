@@ -31,6 +31,10 @@ export type WorldInputs =
 
 type WorldListener = (this: World, event: WorldEvent) => void;
 
+type EmitArgs = {
+  [K in keyof WorldEventMap]: [name: K, detail: WorldEventMap[K]];
+}[keyof WorldEventMap];
+
 export class World {
   #entities = new Map<EntityId, GameEntity>();
   #listeners = new Map<WorldEventName, Map<WorldListener, boolean>>();
@@ -98,11 +102,36 @@ export class World {
     return true;
   }
 
-  emit<K extends WorldEventName>(name: K, detail: WorldEventMap[K]): void {
-    this.dispatchEvent({
-      type: name,
-      detail,
-    });
+  emit(...args: EmitArgs): void {
+    switch (args[0]) {
+      case 'fired':
+        this.dispatchEvent({ type: 'fired', detail: args[1] });
+        break;
+
+      case 'hit':
+        this.dispatchEvent({ type: 'hit', detail: args[1] });
+        break;
+
+      case 'exploded':
+        this.dispatchEvent({ type: 'exploded', detail: args[1] });
+        break;
+
+      case 'healed':
+        this.dispatchEvent({ type: 'healed', detail: args[1] });
+        break;
+
+      case 'scoreChanged':
+        this.dispatchEvent({ type: 'scoreChanged', detail: args[1] });
+        break;
+
+      default: {
+        const exhaustive: never = args;
+
+        throw new Error(
+          `Unhandled world event: ${JSON.stringify(exhaustive)}`,
+        );
+      }
+    }
   }
 
   get width(): number {

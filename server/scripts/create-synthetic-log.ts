@@ -40,7 +40,8 @@ try {
   console.log(
     `Created ${filePath}: ` + `${(bytesWritten / (1024 * 1024)).toFixed(1)} MB`,
   );
-} catch (error) {
+} catch (error: unknown) {
   stream.destroy();
   throw error;
 }
+

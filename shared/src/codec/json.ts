@@ -13,11 +13,18 @@ const rawToString = (raw: unknown): string => {
     return raw;
   }
 
-  if (
-    ArrayBuffer.isView(raw) ||
-    raw instanceof ArrayBuffer
-  ) {
+  if (raw instanceof ArrayBuffer) {
     return new TextDecoder().decode(raw);
+  }
+
+  if (ArrayBuffer.isView(raw)) {
+    const bytes = new Uint8Array(
+      raw.buffer,
+      raw.byteOffset,
+      raw.byteLength,
+    );
+
+    return new TextDecoder().decode(bytes);
   }
 
   throw new TypeError(

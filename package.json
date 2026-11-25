@@ -12,8 +12,11 @@
     "dev:client": "npm run dev -w client",
     "dev:server": "node --watch --env-file=server/.env server/src/index.ts",
     "build": "npm run build -w client",
-    "lint": "eslint client/src server/src shared/src",
+    "lint": "eslint client/src server/src shared/src server/test shared/test server/scripts",
     "typecheck": "tsc --noEmit -p . && npm run typecheck --workspaces",
+    "test": "node --test shared/test/*.test.ts server/test/*.test.ts",
+    "audit:types": "node scripts/audit-types.mjs",
+    "benchmark": "node server/scripts/codec-benchmark.ts",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },
@@ -24,6 +27,7 @@
     "eslint": "^10.15.0",
     "globals": "^17.14.0",
     "prettier": "^3.10.1",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.74.0"
   }
 }

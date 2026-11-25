@@ -251,7 +251,7 @@ class Reader implements TransferIO {
         data.byteLength,
       );
     } else {
-      fail('Expected binary data');
+      throw new Error('Binary codec: Expected binary data');
     }
 
     if (

@@ -27,7 +27,7 @@ test('Parse valid network configuration', () => {
 });
 
 test('Reject invalid environment values', () => {
-  const invalid = [
+  const invalid: unknown[] = [
     { PORT: '70000' },
     { NET_DELAY_MS: '-1' },
     { NET_JITTER_MS: '501' },

@@ -5,6 +5,7 @@ import {
   PROTOCOL_VERSION,
   createInputMessage,
   encodeInput,
+  parseClientMessage,
   parseServerMessage,
 } from '@magicarena/shared';
 
@@ -60,7 +61,8 @@ test('parseMessage rejects invalid join and chat payloads', () => {
 
   assert.throws(
     () => parseMessage(invalidJoin),
-    (error) => error instanceof ProtocolError && error.closeCode === 1008,
+    (error: unknown) =>
+      error instanceof ProtocolError && error.closeCode === 1008,
   );
 
   const oversizedChat = Buffer.from(
@@ -73,7 +75,8 @@ test('parseMessage rejects invalid join and chat payloads', () => {
 
   assert.throws(
     () => parseMessage(oversizedChat),
-    (error) => error instanceof ProtocolError && error.closeCode === 1008,
+    (error: unknown) =>
+      error instanceof ProtocolError && error.closeCode === 1008,
   );
 });
 
@@ -90,7 +93,8 @@ test('parseMessage rejects ping with extra keys or invalid numbers', () => {
 
   assert.throws(
     () => parseMessage(extraKeyPing),
-    (error) => error instanceof ProtocolError && error.closeCode === 1008,
+    (error: unknown) =>
+      error instanceof ProtocolError && error.closeCode === 1008,
   );
 });
 
@@ -111,34 +115,52 @@ test('parseMessage enforces codec rules for json and binary inputs', () => {
 
   assert.throws(
     () => parseMessage(jsonInput, false, 'binary'),
-    (error) => error instanceof ProtocolError && error.closeCode === 1003,
+    (error: unknown) =>
+      error instanceof ProtocolError && error.closeCode === 1003,
   );
 
   assert.throws(
     () => parseMessage(binaryInput, true, 'json'),
-    (error) => error instanceof ProtocolError && error.closeCode === 1003,
+    (error: unknown) =>
+      error instanceof ProtocolError && error.closeCode === 1003,
   );
 
   const parsedBinary = parseMessage(binaryInput, true, 'binary');
   assert.equal(parsedBinary.type, 'input');
-  assert.equal(parsedBinary.seq, 3);
-  assert.equal(parsedBinary.fireSeq, 3);
+  if (parsedBinary.type === 'input') {
+    assert.equal(parsedBinary.seq, 3);
+    assert.equal(parsedBinary.fireSeq, 3);
+  }
 });
 
 test('parseMessage rejects invalid JSON and oversized payloads', () => {
   assert.throws(
     () => parseMessage(Buffer.from('{invalid'), false, 'json'),
-    (error) => error instanceof ProtocolError && error.closeCode === 1007,
+    (error: unknown) =>
+      error instanceof ProtocolError && error.closeCode === 1007,
   );
 
   assert.throws(
     () => parseMessage(Buffer.alloc(MAX_MESSAGE_SIZE + 1), false, 'json'),
-    (error) => error instanceof ProtocolError && error.closeCode === 1009,
+    (error: unknown) =>
+      error instanceof ProtocolError && error.closeCode === 1009,
   );
 });
 
+test('parseClientMessage rejects malformed input payload', () => {
+  const invalidMessage: unknown = {
+    v: PROTOCOL_VERSION,
+    type: 'input',
+    seq: 'wrong',
+  };
+
+  const result = parseClientMessage(invalidMessage);
+
+  assert.equal(result.success, false);
+});
+
 test('parseServerMessage validates joined and rejects unsupported codec', () => {
-  const validJoined = {
+  const validJoined: unknown = {
     v: PROTOCOL_VERSION,
     type: 'joined',
     room: {
@@ -165,12 +187,31 @@ test('parseServerMessage validates joined and rejects unsupported codec', () => 
 
   assert.equal(parseServerMessage(validJoined).success, true);
 
-  assert.equal(
-    parseServerMessage({
-      ...validJoined,
-      codec: 'msgpack',
-    }).success,
-    false,
-  );
+  const invalidCodec: unknown = {
+    v: PROTOCOL_VERSION,
+    type: 'joined',
+    room: {
+      id: 'room-1',
+      name: 'Main Arena',
+      obstacleCount: 3,
+      maxPlayers: 4,
+      players: 1,
+    },
+    player: {
+      id: 'player-1',
+      name: 'Alice',
+      entityId: null,
+    },
+    entityId: null,
+    bounds: { width: 1600, height: 900 },
+    codec: 'msgpack',
+    netSim: {
+      delayMs: 0,
+      jitterMs: 0,
+      dropRate: 0,
+    },
+  };
+
+  assert.equal(parseServerMessage(invalidCodec).success, false);
 });
 

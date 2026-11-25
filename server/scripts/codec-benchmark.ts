@@ -9,7 +9,19 @@ import {
   decodeSnapshot,
 } from '@magicarena/shared';
 
-import { createCodecFixture } from './codec-fixture.js';
+import type { InputMessage, SnapshotMessage } from '@magicarena/shared';
+
+import { createCodecFixture } from './codec-fixture.ts';
+
+type WirePayload = string | ArrayBuffer | Uint8Array;
+
+interface BenchmarkCodec {
+  readonly name: string;
+  encodeInput: (message: InputMessage) => WirePayload;
+  decodeInput: (data: WirePayload) => unknown;
+  encodeSnapshot: (message: SnapshotMessage) => WirePayload;
+  decodeSnapshot: (data: WirePayload) => unknown;
+}
 
 const TICK_RATE = 30;
 const ITERATIONS = 10000;
@@ -19,12 +31,16 @@ const { input, snapshot } = createCodecFixture();
 
 const encoder = new TextEncoder();
 
-const sizeOf = (payload) =>
+const sizeOf = (payload: WirePayload): number =>
   typeof payload === 'string'
     ? encoder.encode(payload).byteLength
     : payload.byteLength;
 
-const measure = (encode, decode, message) => {
+const measure = <T, TWire>(
+  encode: (message: T) => TWire,
+  decode: (data: TWire) => unknown,
+  message: T,
+): number => {
   for (let i = 0; i < WARMUP; i++) {
     decode(encode(message));
   }
@@ -38,7 +54,7 @@ const measure = (encode, decode, message) => {
   return ((performance.now() - started) * 1000) / ITERATIONS;
 };
 
-const codecs = [
+const codecs: readonly BenchmarkCodec[] = [
   {
     name: 'JSON',
     encodeInput: encodeMessage,
@@ -82,6 +98,10 @@ console.log('Tick rate:', TICK_RATE);
 console.table(results);
 
 const [json, binary] = results;
+
+if (!json || !binary) {
+  throw new Error('Expected benchmark results for JSON and Binary codecs');
+}
 
 const reduction =
   (1 - binary['Bytes/snapshot'] / json['Bytes/snapshot']) * 100;

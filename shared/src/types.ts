@@ -183,10 +183,12 @@ export interface WorldEventMap {
 
 export type WorldEventName = keyof WorldEventMap;
 
-export interface WorldEvent {
-  readonly type: WorldEventName;
-  readonly detail: WorldEventMap[WorldEventName];
-}
+export type WorldEvent = {
+  [K in keyof WorldEventMap]: {
+    readonly type: K;
+    readonly detail: WorldEventMap[K];
+  };
+}[keyof WorldEventMap];
 
 export interface SnapshotWorldState extends WorldSnapshot {
   readonly score?: number;

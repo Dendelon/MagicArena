@@ -20,7 +20,11 @@ import {
   entityFromJSON,
   mulberry32,
   runDeterministicScenario,
+  toEntityId,
+  toSeq,
 } from '../src/index.ts';
+
+import { EntitySnapshotSchema } from '../src/protocol/index.ts';
 
 test('shared modules import cleanly without DOM globals', () => {
   assert.equal(typeof globalThis.window, 'undefined');
@@ -79,8 +83,9 @@ test('entities serialize to plain JSON data and restore preserving ID', () => {
   });
 
   for (const entity of [sword, bullet, obstacle, pickup, explosion]) {
-    const raw = JSON.parse(JSON.stringify(entity.toJSON()));
-    const restored = entityFromJSON(raw);
+    const raw: unknown = JSON.parse(JSON.stringify(entity.toJSON()));
+    const snapshot = EntitySnapshotSchema.parse(raw);
+    const restored = entityFromJSON(snapshot);
 
     assert.equal(restored.id, entity.id);
     assert.equal(restored.kind, entity.kind);
@@ -102,10 +107,10 @@ test('protocol and codec round-trip Input and Snapshot messages', () => {
   assert.deepEqual(decodeMessage(encodeMessage(input)), input);
 
   const world = new World({ width: 800, height: 600 }, { seed: 5 });
-  const sword = new Sword({ id: 7, pos: new Vector2(400, 300) });
+  const sword = new Sword({ id: toEntityId(7), pos: new Vector2(400, 300) });
   world.spawn(sword);
 
-  const snapshot = createSnapshotMessage(world.toSnapshot(12));
+  const snapshot = createSnapshotMessage(world.toSnapshot(toSeq(12)));
   assert.deepEqual(decodeMessage(encodeMessage(snapshot)), snapshot);
 });
 

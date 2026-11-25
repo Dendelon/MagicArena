@@ -5,6 +5,9 @@
     "types": [],
     "allowJs": false
   },
-  "include": ["src/**/*"]
+  "include": [
+    "src/**/*.ts",
+    "type-tests/**/*.ts"
+  ]
 }
 
