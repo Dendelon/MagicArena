@@ -1,4 +1,9 @@
 import './netgraph.css';
+import {
+  DEFAULT_INTERPOLATION_DELAY_MS,
+  MAX_INTERPOLATION_DELAY_MS,
+  MIN_INTERPOLATION_DELAY_MS,
+} from './interpolation.js';
 
 const MAX_PENDING_PINGS = 32;
 const TRAFFIC_WINDOW_MS = 1000;
@@ -13,7 +18,13 @@ const formatBytesPerSecond = (bytesPerSec) => {
   return `${Math.round(bytesPerSec)} B/s`;
 };
 
-export const mountNetgraph = (connection) => {
+export const mountNetgraph = (
+  connection,
+  {
+    initialInterpolationDelayMs = DEFAULT_INTERPOLATION_DELAY_MS,
+    onInterpolationDelayChange = null,
+  } = {},
+) => {
   const panel = document.createElement('aside');
   panel.className = 'magic-netgraph';
 
@@ -38,6 +49,48 @@ export const mountNetgraph = (connection) => {
     return value;
   };
 
+  const createSlider = ({ labelText, min, max, step, value, onInput }) => {
+    const container = document.createElement('div');
+    container.className = 'magic-netgraph-control';
+
+    const row = document.createElement('div');
+    row.className = 'magic-netgraph-row';
+
+    const label = document.createElement('span');
+    label.className = 'magic-netgraph-label';
+    label.textContent = labelText;
+
+    const valueEl = document.createElement('span');
+    valueEl.className = 'magic-netgraph-value';
+
+    const input = document.createElement('input');
+    input.type = 'range';
+    input.className = 'magic-netgraph-slider';
+    input.min = String(min);
+    input.max = String(max);
+    input.step = String(step);
+    input.value = String(value);
+
+    // Стрілки слайдера не повинні керувати мечем
+    input.addEventListener('keydown', (event) => {
+      event.stopPropagation();
+    });
+
+    input.addEventListener('input', () => {
+      onInput(Number(input.value));
+    });
+
+    input.addEventListener('change', () => {
+      input.blur();
+    });
+
+    row.append(label, valueEl);
+    container.append(row, input);
+    panel.append(container);
+
+    return { container, valueEl, input };
+  };
+
   panel.append(title);
 
   const rttEl = createRow('RTT');
@@ -47,6 +100,42 @@ export const mountNetgraph = (connection) => {
   const pendingEl = createRow('Pending inputs');
   const correctionEl = createRow('Correction');
   correctionEl.textContent = '0.0 px';
+
+  const divider = document.createElement('div');
+  divider.className = 'magic-netgraph-divider';
+  panel.append(divider);
+
+  let interpDelayMs = initialInterpolationDelayMs;
+
+  const interpControl = createSlider({
+    labelText: 'Interp delay',
+    min: MIN_INTERPOLATION_DELAY_MS,
+    max: MAX_INTERPOLATION_DELAY_MS,
+    step: 10,
+    value: interpDelayMs,
+    onInput: (nextDelay) => {
+      interpDelayMs = nextDelay;
+      interpControl.valueEl.textContent = `${interpDelayMs} ms`;
+      onInterpolationDelayChange?.(interpDelayMs);
+    },
+  });
+  interpControl.valueEl.textContent = `${interpDelayMs} ms`;
+
+  const netDebugDivider = document.createElement('div');
+  netDebugDivider.className = 'magic-netgraph-divider';
+  panel.append(netDebugDivider);
+
+  const delayEl = createRow('Delay');
+  const jitterEl = createRow('Jitter');
+  const dropRateEl = createRow('Drop rate');
+
+  const applyNetSim = (next) => {
+    if (!next) return;
+
+    delayEl.textContent = `${Math.round(next.delayMs ?? 0)} ms`;
+    jitterEl.textContent = `${Math.round(next.jitterMs ?? 0)} ms`;
+    dropRateEl.textContent = `${Math.round((next.dropRate ?? 0) * 100)}%`;
+  };
 
   document.body.append(panel);
 
@@ -91,7 +180,7 @@ export const mountNetgraph = (connection) => {
   };
 
   const sendPing = () => {
-    if (!connection.isOpen?.()) return;
+    if (!connection.isJoined?.()) return;
 
     const id = nextPingId++;
     const clientTime = performance.now();
@@ -121,8 +210,9 @@ export const mountNetgraph = (connection) => {
     render();
   };
 
-  const onJoined = () => {
+  const onJoined = (event) => {
     reset();
+    applyNetSim(event.detail?.netSim);
     sendPing();
   };
 
@@ -164,7 +254,12 @@ export const mountNetgraph = (connection) => {
     pruneTraffic(txSamples, now);
   };
 
+  const onDisconnected = () => {
+    reset();
+  };
+
   connection.addEventListener('joined', onJoined);
+  connection.addEventListener('disconnected', onDisconnected);
   connection.addEventListener('status', onStatus);
   connection.addEventListener('snapshot', onSnapshot);
   connection.addEventListener('pong', onPong);
@@ -195,6 +290,7 @@ export const mountNetgraph = (connection) => {
     clearInterval(renderTimer);
 
     connection.removeEventListener('joined', onJoined);
+    connection.removeEventListener('disconnected', onDisconnected);
     connection.removeEventListener('status', onStatus);
     connection.removeEventListener('snapshot', onSnapshot);
     connection.removeEventListener('pong', onPong);
@@ -205,6 +301,10 @@ export const mountNetgraph = (connection) => {
     panel.remove();
   };
 
-  return { setPendingCount, recordReconciliation, destroy };
+  return {
+    setPendingCount,
+    recordReconciliation,
+    getRttMs: () => rttMs ?? 0,
+    destroy,
+  };
 };
-

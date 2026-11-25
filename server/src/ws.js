@@ -13,7 +13,7 @@ const MAX_BUFFERED_AMOUNT = 256 * 1024;
 export const setupWebSocket = (
   server,
   roomManager,
-  { matchManager = null, delayMs = 0 } = {},
+  { matchManager = null, delayMs = 0, jitterMs = 0, dropRate = 0 } = {},
 ) => {
   const wss = new WebSocketServer({
     noServer: true,
@@ -21,7 +21,7 @@ export const setupWebSocket = (
     perMessageDeflate: false,
   });
 
-  const latency = createLatencyController({ delayMs });
+  const latency = createLatencyController({ delayMs, jitterMs, dropRate });
   let shuttingDown = false;
 
   wss.on('error', (error) => {
@@ -71,14 +71,37 @@ export const setupWebSocket = (
     for (const player of room.players.values()) {
       if (player.socket.readyState !== WebSocket.OPEN) continue;
 
+      const fireAcks = match.drainFireAcks(player.id);
+
+      for (const ack of fireAcks) {
+        latency.schedule(
+          () => {
+            if (shuttingDown || match.stopped || !room.players.has(player.id)) return;
+
+            send(
+              player.socket,
+              {
+                type: 'fireAck',
+                ...ack,
+              },
+              true,
+            );
+          },
+          { allowDrop: false },
+        );
+      }
+
       const snapshot = match.getSnapshotForPlayer(player.id);
       const payload = encodeMessage(snapshot);
 
-      latency.schedule(() => {
-        if (shuttingDown || match.stopped || !room.players.has(player.id)) return;
+      latency.schedule(
+        () => {
+          if (shuttingDown || match.stopped || !room.players.has(player.id)) return;
 
-        sendRaw(player.socket, payload, false);
-      });
+          sendRaw(player.socket, payload, false);
+        },
+        { allowDrop: true },
+      );
     }
   };
 
@@ -219,6 +242,11 @@ export const setupWebSocket = (
               },
               entityId,
               bounds: match?.bounds ?? null,
+              netSim: {
+                delayMs,
+                jitterMs,
+                dropRate,
+              },
             },
             true,
           );
@@ -235,20 +263,26 @@ export const setupWebSocket = (
           const room = currentRoom;
           const player = currentPlayer;
 
-          latency.schedule(() => {
-            if (shuttingDown || socket.readyState !== WebSocket.OPEN) return;
-            if (!room.players.has(player.id)) return;
+          latency.schedule(
+            () => {
+              if (shuttingDown || socket.readyState !== WebSocket.OPEN) return;
+              if (!room.players.has(player.id)) return;
 
-            latency.schedule(() => {
-              if (shuttingDown || !room.players.has(player.id)) return;
+              latency.schedule(
+                () => {
+                  if (shuttingDown || !room.players.has(player.id)) return;
 
-              send(socket, {
-                type: 'pong',
-                id: message.id,
-                clientTime: message.clientTime,
-              });
-            });
-          });
+                  send(socket, {
+                    type: 'pong',
+                    id: message.id,
+                    clientTime: message.clientTime,
+                  });
+                },
+                { allowDrop: false },
+              );
+            },
+            { allowDrop: false },
+          );
 
           return;
         }
@@ -260,13 +294,16 @@ export const setupWebSocket = (
 
           if (!match) return;
 
-          latency.schedule(() => {
-            if (shuttingDown || match.stopped) return;
-            if (socket.readyState !== WebSocket.OPEN) return;
-            if (!room.players.has(player.id)) return;
+          latency.schedule(
+            () => {
+              if (shuttingDown || match.stopped) return;
+              if (socket.readyState !== WebSocket.OPEN) return;
+              if (!room.players.has(player.id)) return;
 
-            match.applyInput(player.id, message);
-          });
+              match.applyInput(player.id, message);
+            },
+            { allowDrop: true },
+          );
 
           return;
         }
@@ -299,8 +336,14 @@ export const setupWebSocket = (
       }
     });
 
-    socket.on('close', () => {
+    socket.on('close', (code, reason) => {
       clearTimeout(joinTimeout);
+
+      console.info('[WS] Client closed:', {
+        playerId: currentPlayer?.id ?? null,
+        code,
+        reason: reason ? reason.toString('utf8') : '',
+      });
 
       if (currentRoom && currentPlayer) {
         currentRoom.leave(currentPlayer.id);

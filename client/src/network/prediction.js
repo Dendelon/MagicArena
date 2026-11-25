@@ -270,6 +270,7 @@ export const createPrediction = () => {
     reconcile,
     advanceSmoothing,
     getRenderState,
+    getPredictedState: () => ({ ...predicted }),
     reset,
   };
 };

@@ -16,8 +16,11 @@ export const createGameAudio = (context, buffers = {}) => {
     return context.resume();
   };
 
-  const subscribe = (world) => {
-    const onFired = () => play('shoot', 0.2);
+  const subscribe = (world, { shouldPlay = null } = {}) => {
+    const onFired = (event) => {
+      if (shouldPlay && !shouldPlay(event)) return;
+      play('shoot', 0.2);
+    };
     const onHit = () => play('hit', 0.15);
     const onExploded = () => play('explosion', 0.05);
     world.addEventListener('fired', onFired);

@@ -24,6 +24,11 @@ import { createConnection } from './network/connection.js';
 import { mountRoomChat } from './network/chat.js';
 import { mountNetgraph } from './network/netgraph.js';
 import { createPrediction } from './network/prediction.js';
+import {
+  DEFAULT_INTERPOLATION_DELAY_MS,
+  createInterpolation,
+} from './network/interpolation.js';
+import { createProjectilePredictor } from './network/projectiles.js';
 
 const INPUT_INTERVAL = 1 / 30;
 
@@ -35,6 +40,7 @@ const input = createInput();
 const world = new World({ width: 0, height: 0 });
 
 let loadedAssets = null;
+let gameAudio = null;
 
 let playerName = 'Mage';
 let roomName = 'Arcane Ruins';
@@ -45,25 +51,57 @@ let myPlayerId = null;
 let myEntityId = null;
 let respawnTimer = null;
 let lastAppliedSnapshotTick = null;
+let lastServerAckSeq = 0;
 
 const prediction = createPrediction();
+const interpolation = createInterpolation({ delayMs: DEFAULT_INTERPOLATION_DELAY_MS });
+const projectiles = createProjectilePredictor();
 
 let inputSeq = 0;
 let clientTick = 0;
 let inputAccumulator = 0;
 let pendingFire = false;
 let pendingHomingFire = false;
+let pendingShotSeq = null;
+
+const pollLocalShots = () => {
+  const firePressed = input.justPressed('Space');
+  const homingFirePressed = input.justPressed('KeyH');
+
+  if (!firePressed && !homingFirePressed) return;
+  if (!connection?.isJoined?.() || myPlayerId === null || !prediction.isAlive) return;
+
+  if (pendingShotSeq === null) {
+    pendingShotSeq = inputSeq + 1;
+  }
+
+  const spawnFire = firePressed && !pendingFire;
+  const spawnHoming = homingFirePressed && !pendingHomingFire;
+
+  if (firePressed) pendingFire = true;
+  if (homingFirePressed) pendingHomingFire = true;
+
+  if (!spawnFire && !spawnHoming) return;
+
+  const spawned = projectiles.spawnLocalShot({
+    originSeq: pendingShotSeq,
+    swordState: prediction.getPredictedState(),
+    fire: spawnFire,
+    homingFire: spawnHoming,
+    world,
+    ownerId: myEntityId,
+    ownerPlayerId: myPlayerId,
+  });
+
+  if (spawned) {
+    gameAudio?.play('shoot', 0.2);
+  }
+};
 
 const simulate = (dt) => {
-  if (input.justPressed('Space')) {
-    pendingFire = true;
-  }
+  pollLocalShots();
 
-  if (input.justPressed('KeyH')) {
-    pendingHomingFire = true;
-  }
-
-  if (!connection || myPlayerId === null) return;
+  if (!connection?.isJoined?.() || myPlayerId === null) return;
 
   inputAccumulator += dt;
 
@@ -77,30 +115,43 @@ const simulate = (dt) => {
   inputSeq += 1;
   clientTick += 1;
 
+  const wantsNewShot = pendingFire || pendingHomingFire;
+  const retryShot = !wantsNewShot ? projectiles.getRetryShot(lastServerAckSeq) : null;
+
   const message = createInputMessage({
     seq: inputSeq,
     tick: clientTick,
     thrust: controls.forward,
     turn,
     brake: controls.brake,
-    fire: pendingFire,
-    homingFire: pendingHomingFire,
+    fire: wantsNewShot ? pendingFire : Boolean(retryShot?.fire),
+    homingFire: wantsNewShot ? pendingHomingFire : Boolean(retryShot?.homingFire),
+    fireSeq: wantsNewShot
+      ? pendingShotSeq !== null && pendingShotSeq !== inputSeq
+        ? pendingShotSeq
+        : undefined
+      : retryShot?.fireSeq,
   });
 
   pendingFire = false;
   pendingHomingFire = false;
+  pendingShotSeq = null;
 
   connection.send(message);
   prediction.predictInput(message, world);
+  projectiles.step(INPUT_INTERVAL, world);
   netgraph?.setPendingCount(prediction.pendingCount);
 };
 
 const render = (_alpha, stats) => {
+  pollLocalShots();
   drawOuterBackground(ctx, size.width, size.height);
   prediction.advanceSmoothing(stats.frameTimeMs);
+  projectiles.advanceRenderTime(stats.frameTimeMs, world, netgraph?.getRttMs?.() ?? 0);
 
+  const now = performance.now();
   const sprites = loadedAssets?.sprites ?? {};
-  const frame = Math.floor(performance.now() / 150) % 4;
+  const frame = Math.floor(now / 150) % 4;
 
   if (world.width > 0 && world.height > 0) {
     const arenaPadding = 20;
@@ -143,12 +194,7 @@ const render = (_alpha, stats) => {
       drawPickup(ctx, pickup.pos.x, pickup.pos.y, pickup.radius);
     }
 
-    for (const bullet of world.ofKind('bullet')) {
-      const bulletX = bullet.pos.x;
-      const bulletY = bullet.pos.y;
-
-      const isHoming = Boolean(bullet.homing);
-
+    const drawBulletSprite = (bulletX, bulletY, radius, isHoming) => {
       const bulletSprite = isHoming ? sprites.bulletHoming : sprites.bullet;
 
       ctx.save();
@@ -158,14 +204,24 @@ const render = (_alpha, stats) => {
 
       const rendered = drawSheetSprite(ctx, bulletSprite, bulletX, bulletY, {
         frame,
-        scale: (bullet.radius / 6) * 0.75,
+        scale: (radius / 6) * 0.75,
       });
 
       ctx.restore();
 
       if (!rendered) {
-        drawBullet(ctx, bulletX, bulletY, bullet.radius, isHoming);
+        drawBullet(ctx, bulletX, bulletY, radius, isHoming);
       }
+    };
+
+    for (const bullet of projectiles.getBulletsToRender({
+      world,
+      interpolation,
+      myPlayerId,
+      myEntityId,
+      now,
+    })) {
+      drawBulletSprite(bullet.x, bullet.y, bullet.radius, bullet.isHoming);
     }
 
     for (const sword of world.ofKind('sword')) {
@@ -174,7 +230,11 @@ const render = (_alpha, stats) => {
           ? sword.ownerId === myPlayerId
           : myEntityId !== null && sword.id === myEntityId;
       const usePredicted = isOwnSword && prediction.isAlive;
-      const renderState = usePredicted ? prediction.getRenderState(world) : null;
+      const renderState = usePredicted
+        ? prediction.getRenderState(world)
+        : isOwnSword
+          ? null
+          : interpolation.getInterpolatedEntity(sword, world, now);
 
       const x = renderState ? renderState.x : sword.pos.x;
       const y = renderState ? renderState.y : sword.pos.y;
@@ -242,8 +302,19 @@ void bootGame({
 
     // Підключаємо звуки
     const audio = createGameAudio(audioContext, assets.audio);
+    gameAudio = audio;
 
-    audio.subscribe(world);
+    audio.subscribe(world, {
+      shouldPlay: (event) => {
+        const detail = event.detail ?? {};
+        const consumedLocal = projectiles.consumeLocalSound(detail.originSeq);
+        const isOwnEvent =
+          (myPlayerId !== null && detail.ownerPlayerId === myPlayerId) ||
+          (myEntityId !== null && detail.ownerId === myEntityId);
+
+        return !consumedLocal && !isOwnEvent;
+      },
+    });
 
     // Створюємо лобі
     const lobby = new Lobby({
@@ -267,18 +338,29 @@ void bootGame({
         roomId: room.id,
       });
 
-      connection.addEventListener('joined', (joinedEvent) => {
-        const detail = joinedEvent.detail;
-
-        myPlayerId = detail.player?.id ?? null;
-        myEntityId = detail.entityId ?? detail.player?.entityId ?? null;
+      const resetSessionState = () => {
+        myPlayerId = null;
+        myEntityId = null;
         lastAppliedSnapshotTick = null;
+        lastServerAckSeq = 0;
         inputSeq = 0;
         clientTick = 0;
         inputAccumulator = 0;
         pendingFire = false;
         pendingHomingFire = false;
+        pendingShotSeq = null;
+        respawnTimer = null;
         prediction.reset();
+        interpolation.reset();
+        projectiles.reset();
+      };
+
+      connection.addEventListener('joined', (joinedEvent) => {
+        const detail = joinedEvent.detail;
+
+        resetSessionState();
+        myPlayerId = detail.player?.id ?? null;
+        myEntityId = detail.entityId ?? detail.player?.entityId ?? null;
 
         if (detail.bounds) {
           world.bounds = {
@@ -288,17 +370,28 @@ void bootGame({
         }
       });
 
+      connection.addEventListener('disconnected', () => {
+        resetSessionState();
+      });
+
       connection.addEventListener('status', (statusEvent) => {
         if (
           statusEvent.detail === 'Connecting...' ||
           String(statusEvent.detail).startsWith('Reconnecting')
         ) {
-          lastAppliedSnapshotTick = null;
-          prediction.reset();
+          resetSessionState();
         }
       });
 
+      connection.addEventListener('fireAck', (ackEvent) => {
+        if (!connection?.isJoined?.() || myPlayerId === null) return;
+
+        projectiles.onFireAck(ackEvent.detail, world);
+      });
+
       connection.addEventListener('snapshot', (snapshotEvent) => {
+        if (!connection?.isJoined?.() || myPlayerId === null) return;
+
         const snapshot = snapshotEvent.detail;
 
         if (
@@ -313,8 +406,12 @@ void bootGame({
           lastAppliedSnapshotTick = snapshot.tick;
         }
 
+        lastServerAckSeq = snapshot.lastProcessedSeq ?? lastServerAckSeq;
+        interpolation.pushSnapshot(snapshot);
         world.applySnapshot(snapshot);
         respawnTimer = snapshot.respawnSeconds ?? null;
+
+        projectiles.onSnapshot(snapshot, world, myPlayerId, myEntityId);
 
         const reconciliation = prediction.reconcile(
           snapshot,
@@ -330,13 +427,18 @@ void bootGame({
       });
 
       const destroyChat = mountRoomChat(connection);
-      netgraph = mountNetgraph(connection);
+      netgraph = mountNetgraph(connection, {
+        initialInterpolationDelayMs: interpolation.delayMs,
+        onInterpolationDelayChange: (nextDelayMs) => {
+          interpolation.setDelay(nextDelayMs);
+        },
+      });
 
       window.addEventListener(
         'beforeunload',
         () => {
           loop.stop();
-          prediction.reset();
+          resetSessionState();
           netgraph?.destroy();
           destroyChat();
         },

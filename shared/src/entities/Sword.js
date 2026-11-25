@@ -113,17 +113,31 @@ export class Sword extends Entity {
     this.angle = next.angle;
   }
 
-  fire(world) {
-    const direction = Vector2.fromAngle(this.angle - Math.PI / 2);
+  static createBulletSpawn({ pos, vel, angle, world }) {
+    const direction = Vector2.fromAngle(angle - Math.PI / 2);
+    const spawnPos = Vector2.fromJSON(pos).add(direction.scale(SWORD_TIP_OFFSET));
+    const spawnVel = Vector2.fromJSON(vel).add(direction.scale(BULLET_SPEED));
 
-    const pos = this.pos.add(direction.scale(SWORD_TIP_OFFSET));
+    return {
+      pos: new Vector2(wrap(spawnPos.x, world.width), wrap(spawnPos.y, world.height)),
+      vel: spawnVel,
+    };
+  }
 
-    const vel = this.vel.add(direction.scale(BULLET_SPEED));
+  fire(world, { originSeq = null } = {}) {
+    const { pos, vel } = Sword.createBulletSpawn({
+      pos: this.pos,
+      vel: this.vel,
+      angle: this.angle,
+      world,
+    });
 
     const bullet = new Bullet({
-      pos: new Vector2(wrap(pos.x, world.width), wrap(pos.y, world.height)),
+      pos,
       vel,
       ownerId: this.id,
+      ownerPlayerId: this.ownerId,
+      originSeq,
     });
 
     world.spawn(bullet);

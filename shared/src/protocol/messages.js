@@ -19,17 +19,26 @@ export const createInputMessage = ({
   brake = false,
   fire = false,
   homingFire = false,
-} = {}) => ({
-  v: PROTOCOL_VERSION,
-  type: MESSAGE_TYPES.INPUT,
-  seq,
-  tick,
-  thrust: Boolean(thrust),
-  turn: Math.max(-1, Math.min(1, Number(turn) || 0)),
-  brake: Boolean(brake),
-  fire: Boolean(fire),
-  homingFire: Boolean(homingFire),
-});
+  fireSeq = undefined,
+} = {}) => {
+  const message = {
+    v: PROTOCOL_VERSION,
+    type: MESSAGE_TYPES.INPUT,
+    seq,
+    tick,
+    thrust: Boolean(thrust),
+    turn: Math.max(-1, Math.min(1, Number(turn) || 0)),
+    brake: Boolean(brake),
+    fire: Boolean(fire),
+    homingFire: Boolean(homingFire),
+  };
+
+  if (fireSeq !== undefined && fireSeq !== null) {
+    message.fireSeq = fireSeq;
+  }
+
+  return message;
+};
 
 const INPUT_KEYS = new Set([
   'v',
@@ -41,6 +50,7 @@ const INPUT_KEYS = new Set([
   'brake',
   'fire',
   'homingFire',
+  'fireSeq',
 ]);
 
 const hasOnlyKeys = (obj, allowedKeys) =>
@@ -89,7 +99,8 @@ export const isInputMessage = (message) =>
       message.turn <= 1 &&
       typeof message.brake === 'boolean' &&
       typeof message.fire === 'boolean' &&
-      typeof message.homingFire === 'boolean',
+      typeof message.homingFire === 'boolean' &&
+      (message.fireSeq === undefined || isNonNegativeInt(message.fireSeq)),
   );
 
 export const isSnapshotMessage = (message) =>

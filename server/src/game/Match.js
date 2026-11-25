@@ -19,6 +19,8 @@ const DEFAULT_ARENA_BOUNDS = {
 
 const RESPAWN_SECONDS = 2;
 const MAX_INPUT_QUEUE = 16;
+const MAX_HANDLED_SHOT_SEQS = 64;
+const IDLE_TIMEOUT_TICKS = 30;
 const IDLE_INPUT = Object.freeze({
   thrust: false,
   turn: 0,
@@ -50,6 +52,9 @@ const serializeEventDetail = (detail = {}) => {
 
   if (detail.kind !== undefined) out.kind = detail.kind;
   if (detail.entityId !== undefined) out.entityId = detail.entityId;
+  if (detail.ownerId !== undefined) out.ownerId = detail.ownerId;
+  if (detail.ownerPlayerId !== undefined) out.ownerPlayerId = detail.ownerPlayerId;
+  if (detail.originSeq !== undefined) out.originSeq = detail.originSeq;
   if (detail.hp !== undefined) out.hp = detail.hp;
   if (detail.score !== undefined) out.score = detail.score;
   if (detail.pos) {
@@ -209,6 +214,11 @@ export class Match {
       lastReceivedSeq: -1,
       lastProcessedSeq: 0,
       inputQueue: [],
+      handledShotSeqs: new Set(),
+      pendingFireAcks: [],
+      lastContinuousInput: { ...IDLE_INPUT },
+      lastKnownThrust: false,
+      idleTicks: 0,
       respawnTimer: null,
     };
 
@@ -219,6 +229,10 @@ export class Match {
   removePlayer(playerId) {
     const state = this.players.get(playerId);
     if (!state) return;
+
+    state.lastContinuousInput = { ...IDLE_INPUT };
+    state.lastKnownThrust = false;
+    state.inputQueue.length = 0;
 
     this.world.despawn(state.entityId);
     this.players.delete(playerId);
@@ -239,25 +253,58 @@ export class Match {
 
     state.lastReceivedSeq = input.seq;
 
-    let droppedFire = false;
-    let droppedHomingFire = false;
-
     if (state.inputQueue.length >= MAX_INPUT_QUEUE) {
       const dropped = state.inputQueue.shift();
-      droppedFire = Boolean(dropped?.fire);
-      droppedHomingFire = Boolean(dropped?.homingFire);
+
+      if (dropped && (dropped.fire || dropped.homingFire)) {
+        const droppedOriginSeq = dropped.fireSeq ?? dropped.seq;
+
+        if (this.#markShotHandled(state, droppedOriginSeq)) {
+          state.pendingFireAcks.push({
+            originSeq: droppedOriginSeq,
+            accepted: false,
+            entityId: null,
+            entityIds: [],
+          });
+        }
+      }
     }
 
     state.inputQueue.push({
       seq: input.seq,
+      fireSeq: input.fireSeq ?? null,
       thrust: Boolean(input.thrust),
       turn: input.turn,
       brake: Boolean(input.brake),
-      fire: Boolean(input.fire) || droppedFire,
-      homingFire: Boolean(input.homingFire) || droppedHomingFire,
+      fire: Boolean(input.fire),
+      homingFire: Boolean(input.homingFire),
     });
 
     return true;
+  }
+
+  #markShotHandled(state, originSeq) {
+    if (state.handledShotSeqs.has(originSeq)) {
+      return false;
+    }
+
+    state.handledShotSeqs.add(originSeq);
+
+    if (state.handledShotSeqs.size > MAX_HANDLED_SHOT_SEQS) {
+      const oldest = state.handledShotSeqs.values().next().value;
+      state.handledShotSeqs.delete(oldest);
+    }
+
+    return true;
+  }
+
+  drainFireAcks(playerId) {
+    const state = this.players.get(playerId);
+    if (!state || state.pendingFireAcks.length === 0) return [];
+
+    const acks = [...state.pendingFireAcks];
+    state.pendingFireAcks.length = 0;
+    return acks;
   }
 
   step(dt = FIXED_DT) {
@@ -273,19 +320,51 @@ export class Match {
         const command = state.inputQueue.shift() ?? null;
 
         if (command) {
-          tickCommands.set(state.playerId, command);
-          inputs.set(sword.id, {
+          state.lastContinuousInput = {
             thrust: command.thrust,
             turn: command.turn,
             brake: command.brake,
-          });
+          };
+          state.lastKnownThrust = Boolean(command.thrust);
+          state.idleTicks = 0;
+          tickCommands.set(state.playerId, command);
+          inputs.set(sword.id, state.lastContinuousInput);
         } else {
-          inputs.set(sword.id, IDLE_INPUT);
+          state.idleTicks += 1;
+
+          if (state.idleTicks > IDLE_TIMEOUT_TICKS) {
+            state.lastContinuousInput = { ...IDLE_INPUT };
+            state.lastKnownThrust = false;
+            inputs.set(sword.id, IDLE_INPUT);
+          } else {
+            state.lastKnownThrust = Boolean(state.lastContinuousInput.thrust);
+            inputs.set(sword.id, state.lastContinuousInput);
+          }
         }
-      } else if (state.inputQueue.length > 0) {
-        const latest = state.inputQueue[state.inputQueue.length - 1];
-        state.lastProcessedSeq = latest.seq;
-        state.inputQueue.length = 0;
+      } else {
+        state.lastContinuousInput = { ...IDLE_INPUT };
+        state.lastKnownThrust = false;
+        state.idleTicks = 0;
+
+        if (state.inputQueue.length > 0) {
+          for (const drained of state.inputQueue) {
+            if (drained.fire || drained.homingFire) {
+              const originSeq = drained.fireSeq ?? drained.seq;
+              if (this.#markShotHandled(state, originSeq)) {
+                state.pendingFireAcks.push({
+                  originSeq,
+                  accepted: false,
+                  entityId: null,
+                  entityIds: [],
+                });
+              }
+            }
+          }
+
+          const latest = state.inputQueue[state.inputQueue.length - 1];
+          state.lastProcessedSeq = latest.seq;
+          state.inputQueue.length = 0;
+        }
       }
     }
 
@@ -299,25 +378,53 @@ export class Match {
       }
 
       const sword = this.world.get(state.entityId);
+      const wantsShot = Boolean(command && (command.fire || command.homingFire));
+      const originSeq = wantsShot ? (command.fireSeq ?? command.seq) : null;
 
       if (sword && sword.alive) {
-        if (command?.fire) {
-          sword.fire(this.world);
-        }
+        if (wantsShot && this.#markShotHandled(state, originSeq)) {
+          const entityIds = [];
 
-        if (command?.homingFire) {
-          const bullet = sword.fire(this.world);
-
-          if (bullet instanceof Bullet) {
-            bullet.homing = createHoming({
-              targetKind: 'obstacle',
-              turnRate: 9,
-            });
-            bullet.ttl = 3;
+          if (command.fire) {
+            const bullet = sword.fire(this.world, { originSeq });
+            entityIds.push(bullet.id);
           }
+
+          if (command.homingFire) {
+            const bullet = sword.fire(this.world, { originSeq });
+
+            if (bullet instanceof Bullet) {
+              bullet.homing = createHoming({
+                targetKind: 'obstacle',
+                turnRate: 9,
+              });
+              bullet.ttl = 3;
+            }
+
+            entityIds.push(bullet.id);
+          }
+
+          state.pendingFireAcks.push({
+            originSeq,
+            accepted: true,
+            entityId: entityIds[entityIds.length - 1] ?? null,
+            entityIds,
+          });
         }
 
         continue;
+      }
+
+      state.lastContinuousInput = { ...IDLE_INPUT };
+      state.lastKnownThrust = false;
+
+      if (wantsShot && this.#markShotHandled(state, originSeq)) {
+        state.pendingFireAcks.push({
+          originSeq,
+          accepted: false,
+          entityId: null,
+          entityIds: [],
+        });
       }
 
       if (state.respawnTimer === null) {
@@ -336,17 +443,32 @@ export class Match {
         state.entityId = respawned.id;
         state.respawnTimer = null;
         state.inputQueue.length = 0;
+        state.lastContinuousInput = { ...IDLE_INPUT };
+        state.lastKnownThrust = false;
+        state.idleTicks = 0;
       }
     }
   }
 
   getSnapshotForPlayer(playerId) {
     const state = this.players.get(playerId);
+    const entities = [...this.world].map((entity) => {
+      const json = entity.toJSON();
+
+      if (json.kind === 'sword' && json.alive && json.ownerId) {
+        const ownerState = this.players.get(json.ownerId);
+        if (ownerState) {
+          json.thrust = ownerState.lastKnownThrust;
+        }
+      }
+
+      return json;
+    });
 
     return createSnapshotMessage({
       tick: this.world.tick,
       lastProcessedSeq: state?.lastProcessedSeq ?? 0,
-      entities: [...this.world],
+      entities,
       score: this.world.score,
       bounds: this.bounds,
       events: this.#tickEvents,

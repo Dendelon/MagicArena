@@ -2,12 +2,15 @@ const textEncoder = new TextEncoder();
 
 const byteLength = (text) => textEncoder.encode(text).length;
 
+const TRANSIENT_TYPES = new Set(['input', 'ping']);
+
 export const createConnection = ({ name, roomId }) => {
   const events = new EventTarget();
 
   let socket = null;
   let retryTimer = null;
   let reconnectAttempts = 0;
+  let joined = false;
   let stopped = false;
 
   const queue = [];
@@ -24,8 +27,17 @@ export const createConnection = ({ name, roomId }) => {
     });
   };
 
+  const clearRetryTimer = () => {
+    if (retryTimer !== null) {
+      clearTimeout(retryTimer);
+      retryTimer = null;
+    }
+  };
+
   const connect = () => {
     if (stopped) return;
+
+    clearRetryTimer();
 
     if (
       socket &&
@@ -35,17 +47,18 @@ export const createConnection = ({ name, roomId }) => {
     }
 
     const scheme = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-
     const url = `${scheme}//${window.location.host}/ws`;
 
-    socket = new WebSocket(url);
+    joined = false;
+    const currentSocket = new WebSocket(url);
+    socket = currentSocket;
 
     emit('status', 'Connecting...');
 
-    socket.addEventListener('open', () => {
-      reconnectAttempts = 0;
+    currentSocket.addEventListener('open', () => {
+      if (socket !== currentSocket || stopped) return;
 
-      // При кожному перепідключенні знову входимо в кімнату
+      // При кожному підключенні спочатку входимо в кімнату
       transmit(
         JSON.stringify({
           v: 1,
@@ -56,16 +69,12 @@ export const createConnection = ({ name, roomId }) => {
         'join',
       );
 
-      // Надсилаємо накопичені повідомлення
-      while (queue.length > 0) {
-        const item = queue.shift();
-        transmit(item.data, item.type);
-      }
-
       emit('status', 'Connected');
     });
 
-    socket.addEventListener('message', (event) => {
+    currentSocket.addEventListener('message', (event) => {
+      if (socket !== currentSocket) return;
+
       try {
         const bytes =
           typeof event.data === 'string'
@@ -76,6 +85,16 @@ export const createConnection = ({ name, roomId }) => {
 
         if (!message || typeof message.type !== 'string' || message.v !== 1) {
           return;
+        }
+
+        if (message.type === 'joined') {
+          joined = true;
+          reconnectAttempts = 0;
+
+          while (queue.length > 0) {
+            const item = queue.shift();
+            transmit(item.data, item.type);
+          }
         }
 
         emit('rx', {
@@ -89,46 +108,82 @@ export const createConnection = ({ name, roomId }) => {
       }
     });
 
-    socket.addEventListener('close', () => {
+    currentSocket.addEventListener('close', (event) => {
+      if (socket !== currentSocket) return;
+
+      console.info('[WS] Closed:', {
+        code: event.code,
+        reason: event.reason,
+        wasClean: event.wasClean,
+      });
+
       socket = null;
+      joined = false;
+      queue.length = 0;
+
+      emit('disconnected', {
+        code: event.code,
+        reason: event.reason,
+        wasClean: event.wasClean,
+      });
 
       if (stopped) return;
 
-      reconnectAttempts++;
+      reconnectAttempts += 1;
 
       const delay = Math.min(10000, 500 * 2 ** Math.min(reconnectAttempts, 5));
 
       emit('status', `Reconnecting in ${delay} ms...`);
 
-      retryTimer = setTimeout(connect, delay);
+      clearRetryTimer();
+      retryTimer = setTimeout(() => {
+        retryTimer = null;
+        connect();
+      }, delay);
     });
 
-    socket.addEventListener('error', () => {
+    currentSocket.addEventListener('error', () => {
+      if (socket !== currentSocket) return;
+
       emit('status', 'Connection error');
     });
   };
 
   const send = (message) => {
+    if (TRANSIENT_TYPES.has(message.type)) {
+      if (!joined || socket?.readyState !== WebSocket.OPEN) {
+        return;
+      }
+
+      const data = JSON.stringify({
+        v: 1,
+        ...message,
+      });
+
+      transmit(data, message.type);
+      return;
+    }
+
     const data = JSON.stringify({
       v: 1,
       ...message,
     });
 
-    if (socket?.readyState === WebSocket.OPEN) {
+    if (socket?.readyState === WebSocket.OPEN && joined) {
       transmit(data, message.type);
       return;
     }
 
-    if (queue.length < 50) {
+    if (!stopped && queue.length < 20) {
       queue.push({ data, type: message.type });
     }
   };
 
   const close = () => {
     stopped = true;
+    joined = false;
 
-    clearTimeout(retryTimer);
-
+    clearRetryTimer();
     queue.length = 0;
 
     socket?.close(1000, 'Leaving game');
@@ -139,6 +194,7 @@ export const createConnection = ({ name, roomId }) => {
     send,
     close,
     isOpen: () => socket?.readyState === WebSocket.OPEN,
+    isJoined: () => Boolean(socket?.readyState === WebSocket.OPEN && joined),
     addEventListener: (type, callback) => events.addEventListener(type, callback),
     removeEventListener: (type, callback) => events.removeEventListener(type, callback),
   };

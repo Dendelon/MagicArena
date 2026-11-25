@@ -4,7 +4,7 @@
   right: 16px;
   z-index: 19;
 
-  min-width: 230px;
+  min-width: 245px;
   padding: 10px 12px;
 
   color: #ddd6fe;
@@ -15,7 +15,7 @@
   font-family: monospace;
   font-size: 12px;
   line-height: 1.5;
-  pointer-events: none;
+  user-select: none;
 }
 
 .magic-netgraph-title {
@@ -40,3 +40,19 @@
   text-align: right;
 }
 
+.magic-netgraph-divider {
+  height: 1px;
+  margin: 6px 0;
+  background: rgba(165, 180, 252, 0.2);
+}
+
+.magic-netgraph-control {
+  margin-top: 4px;
+}
+
+.magic-netgraph-slider {
+  width: 100%;
+  margin: 2px 0 0;
+  accent-color: #a855f7;
+  cursor: pointer;
+}

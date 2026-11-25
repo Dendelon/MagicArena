@@ -85,6 +85,9 @@ export class World {
     if (entity.kind === 'bullet') {
       this.emit('fired', {
         entityId: entity.id,
+        ownerId: entity.ownerId ?? null,
+        ownerPlayerId: entity.ownerPlayerId ?? null,
+        originSeq: entity.originSeq ?? null,
         pos: entity.pos,
       });
     }

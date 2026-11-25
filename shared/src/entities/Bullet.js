@@ -12,6 +12,8 @@ export class Bullet extends Entity {
     ttl = 1.5,
     radius = 6,
     ownerId = null,
+    ownerPlayerId = null,
+    originSeq = null,
     damage = 1,
     alive = true,
     homing = null,
@@ -28,6 +30,8 @@ export class Bullet extends Entity {
 
     this.ttl = ttl;
     this.ownerId = ownerId;
+    this.ownerPlayerId = ownerPlayerId;
+    this.originSeq = originSeq;
     this.damage = damage;
     this.homing = homing;
 
@@ -55,6 +59,8 @@ export class Bullet extends Entity {
       ...super.toJSON(),
       ttl: this.ttl,
       ownerId: this.ownerId,
+      ownerPlayerId: this.ownerPlayerId,
+      originSeq: this.originSeq,
       damage: this.damage,
       homing: this.homing
         ? {
@@ -75,6 +81,8 @@ export class Bullet extends Entity {
       ttl: data.ttl,
       radius: data.radius,
       ownerId: data.ownerId,
+      ownerPlayerId: data.ownerPlayerId ?? null,
+      originSeq: data.originSeq ?? null,
       damage: data.damage,
       alive: data.alive,
       homing: data.homing ? createHoming(data.homing) : null,

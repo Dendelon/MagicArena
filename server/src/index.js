@@ -312,6 +312,8 @@ const matchManager = new MatchManager(rooms, {
 websocket = setupWebSocket(server, rooms, {
   matchManager,
   delayMs: config.netDelayMs,
+  jitterMs: config.netJitterMs,
+  dropRate: config.netDropRate,
 });
 
 server.on('error', (error) => {
