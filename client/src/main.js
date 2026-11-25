@@ -1,17 +1,12 @@
 import './style.css';
 import { createCanvas } from './render/canvas';
-import {
-  createHoming,
-  createHealingEffect,
-  findSafeSpawn,
-  Vector2,
-  Sword,
-  World,
-  Obstacle,
-  Pickup,
-} from '@magicarena/shared';
+import { World, createInputMessage } from '@magicarena/shared';
 import { createGameAudio } from './audio/audio.js';
-import { drawBackground } from './render/background';
+import {
+  drawArenaBorder,
+  drawBackground,
+  drawOuterBackground,
+} from './render/background';
 import { drawSword } from './render/sword';
 import { drawHud } from './render/hud';
 import { drawBullet } from './render/bullet.js';
@@ -27,239 +22,181 @@ import { Lobby } from './lobby/Lobby.js';
 import { mountLobby } from './lobby/view.js';
 import { createConnection } from './network/connection.js';
 import { mountRoomChat } from './network/chat.js';
+import { mountNetgraph } from './network/netgraph.js';
+
+const INPUT_INTERVAL = 1 / 30;
 
 const canvas = document.querySelector('#game');
 const { ctx, size } = createCanvas(canvas);
 
 const input = createInput();
 
-let sword = new Sword({
-  pos: new Vector2(size.width / 2, size.height / 2),
-});
-
-const world = new World(size);
+const world = new World({ width: 0, height: 0 });
 
 let loadedAssets = null;
-
-world.spawn(sword);
 
 let playerName = 'Mage';
 let roomName = 'Arcane Ruins';
 
-// Створюємо три рунічні камені
-const obstacles = [
-  new Obstacle({
-    pos: new Vector2(size.width * 0.2, size.height * 0.3),
-    vel: new Vector2(40, 25),
-    radius: 28,
-  }),
-
-  new Obstacle({
-    pos: new Vector2(size.width * 0.8, size.height * 0.65),
-    vel: new Vector2(-35, 30),
-    radius: 24,
-  }),
-
-  new Obstacle({
-    pos: new Vector2(size.width * 0.7, size.height * 0.2),
-    vel: new Vector2(-25, -40),
-    radius: 32,
-  }),
-];
-
-for (const obstacle of obstacles) {
-  world.spawn(obstacle);
-}
-
-obstacles[0].homing = createHoming({
-  targetKind: 'sword',
-  turnRate: 2.4,
-  speed: 70,
-});
-
-const healingPickup = new Pickup({
-  pos: new Vector2(size.width * 0.5, size.height * 0.78),
-  effect: createHealingEffect(1),
-});
-
-world.spawn(healingPickup);
-
+let connection = null;
+let netgraph = null;
+let myPlayerId = null;
+let myEntityId = null;
 let respawnTimer = null;
 
-const inputs = new Map();
-
-let previousSword = {
-  x: sword.pos.x,
-  y: sword.pos.y,
-  angle: sword.angle,
-};
-
-const interpolateWrapped = (from, to, alpha, size) => {
-  if (size <= 0) return 0;
-
-  let delta = to - from;
-
-  if (delta > size / 2) delta -= size;
-  if (delta < -size / 2) delta += size;
-
-  const value = from + delta * alpha;
-
-  return ((value % size) + size) % size;
-};
+let inputSeq = 0;
+let clientTick = 0;
+let inputAccumulator = 0;
+let pendingFire = false;
+let pendingHomingFire = false;
 
 const simulate = (dt) => {
+  if (input.justPressed('Space')) {
+    pendingFire = true;
+  }
+
+  if (input.justPressed('KeyH')) {
+    pendingHomingFire = true;
+  }
+
+  if (!connection || myPlayerId === null) return;
+
+  inputAccumulator += dt;
+
+  if (inputAccumulator < INPUT_INTERVAL) return;
+
+  inputAccumulator %= INPUT_INTERVAL;
+
   const controls = input.getState();
-  const firePressed = input.justPressed('Space');
-  const homingFirePressed = input.justPressed('KeyH');
+  const turn = Number(controls.right) - Number(controls.left);
 
-  if (sword.alive) {
-    previousSword = {
-      x: sword.pos.x,
-      y: sword.pos.y,
-      angle: sword.angle,
-    };
+  inputSeq += 1;
+  clientTick += 1;
 
-    inputs.set(sword.id, controls);
-  }
+  const message = createInputMessage({
+    seq: inputSeq,
+    tick: clientTick,
+    thrust: controls.forward,
+    turn,
+    brake: controls.brake,
+    fire: pendingFire,
+    homingFire: pendingHomingFire,
+  });
 
-  world.step(dt, inputs);
+  pendingFire = false;
+  pendingHomingFire = false;
 
-  if (sword.alive && firePressed) {
-    sword.fire(world);
-  }
-
-  if (sword.alive && homingFirePressed) {
-    const bullet = sword.fire(world);
-
-    bullet.homing = createHoming({
-      targetKind: 'obstacle',
-      turnRate: 9,
-    });
-
-    bullet.ttl = 3;
-  }
-
-  // Обробка знищеного меча
-  if (!sword.alive) {
-    inputs.delete(sword.id);
-
-    if (respawnTimer === null) {
-      respawnTimer = 2;
-    } else {
-      respawnTimer = Math.max(0, respawnTimer - dt);
-    }
-
-    // Створення нового меча
-    if (respawnTimer <= 0) {
-      sword = new Sword({
-        pos: findSafeSpawn(world, world.rng),
-      });
-
-      world.spawn(sword);
-
-      previousSword = {
-        x: sword.pos.x,
-        y: sword.pos.y,
-        angle: sword.angle,
-      };
-
-      respawnTimer = null;
-    }
-  }
+  netgraph?.trackInput(message.seq);
+  connection.send(message);
 };
 
-const render = (alpha, stats) => {
-  drawBackground(ctx, size.width, size.height);
+const render = (_alpha, stats) => {
+  drawOuterBackground(ctx, size.width, size.height);
 
   const sprites = loadedAssets?.sprites ?? {};
   const frame = Math.floor(performance.now() / 150) % 4;
 
-  // Малювання рунічних каменів
-  for (const obstacle of world.ofKind('obstacle')) {
-    const x = obstacle.previousPos.x + (obstacle.pos.x - obstacle.previousPos.x) * alpha;
-
-    const y = obstacle.previousPos.y + (obstacle.pos.y - obstacle.previousPos.y) * alpha;
-
-    if (
-      !drawSheetSprite(ctx, sprites.obstacle, x, y, {
-        frame,
-        scale: (obstacle.radius / 25) * 1.65,
-      })
-    ) {
-      drawObstacle(ctx, x, y, obstacle.radius);
-    }
-  }
-
-  for (const pickup of world.ofKind('pickup')) {
-    drawPickup(ctx, pickup.pos.x, pickup.pos.y, pickup.radius);
-  }
-
-  for (const bullet of world.ofKind('bullet')) {
-    const bulletX = interpolateWrapped(
-      bullet.previousPos.x,
-      bullet.pos.x,
-      alpha,
-      size.width,
+  if (world.width > 0 && world.height > 0) {
+    const arenaPadding = 20;
+    const availableWidth = Math.max(1, size.width - arenaPadding * 2);
+    const availableHeight = Math.max(1, size.height - arenaPadding * 2);
+    const worldScale = Math.min(
+      availableWidth / world.width,
+      availableHeight / world.height,
     );
-
-    const bulletY = interpolateWrapped(
-      bullet.previousPos.y,
-      bullet.pos.y,
-      alpha,
-      size.height,
-    );
-
-    const isHoming = Boolean(bullet.homing);
-
-    const bulletSprite = isHoming ? sprites.bulletHoming : sprites.bullet;
+    const scaledWidth = world.width * worldScale;
+    const scaledHeight = world.height * worldScale;
+    const offsetX = (size.width - scaledWidth) / 2;
+    const offsetY = (size.height - scaledHeight) / 2;
 
     ctx.save();
+    ctx.translate(offsetX, offsetY);
+    ctx.scale(worldScale, worldScale);
+    ctx.beginPath();
+    ctx.rect(0, 0, world.width, world.height);
+    ctx.clip();
 
-    ctx.shadowColor = isHoming ? '#22d3ee' : '#a855f7';
-    ctx.shadowBlur = 10;
+    drawBackground(ctx, world.width, world.height);
 
-    const rendered = drawSheetSprite(ctx, bulletSprite, bulletX, bulletY, {
-      frame,
-      scale: (bullet.radius / 6) * 0.75,
-    });
+    // Малювання рунічних каменів
+    for (const obstacle of world.ofKind('obstacle')) {
+      const x = obstacle.pos.x;
+      const y = obstacle.pos.y;
+
+      if (
+        !drawSheetSprite(ctx, sprites.obstacle, x, y, {
+          frame,
+          scale: (obstacle.radius / 25) * 1.65,
+        })
+      ) {
+        drawObstacle(ctx, x, y, obstacle.radius);
+      }
+    }
+
+    for (const pickup of world.ofKind('pickup')) {
+      drawPickup(ctx, pickup.pos.x, pickup.pos.y, pickup.radius);
+    }
+
+    for (const bullet of world.ofKind('bullet')) {
+      const bulletX = bullet.pos.x;
+      const bulletY = bullet.pos.y;
+
+      const isHoming = Boolean(bullet.homing);
+
+      const bulletSprite = isHoming ? sprites.bulletHoming : sprites.bullet;
+
+      ctx.save();
+
+      ctx.shadowColor = isHoming ? '#22d3ee' : '#a855f7';
+      ctx.shadowBlur = 10;
+
+      const rendered = drawSheetSprite(ctx, bulletSprite, bulletX, bulletY, {
+        frame,
+        scale: (bullet.radius / 6) * 0.75,
+      });
+
+      ctx.restore();
+
+      if (!rendered) {
+        drawBullet(ctx, bulletX, bulletY, bullet.radius, isHoming);
+      }
+    }
+
+    for (const sword of world.ofKind('sword')) {
+      const x = sword.pos.x;
+      const y = sword.pos.y;
+      const angle = sword.angle;
+
+      if (sword.input?.forward) {
+        drawSwordThrust(ctx, x, y, angle);
+      }
+
+      if (
+        !drawSheetSprite(ctx, sprites.sword, x, y, {
+          frame,
+          angle,
+          scale: 2.15,
+        })
+      ) {
+        drawSword(ctx, x, y, angle);
+      }
+    }
+
+    // Малювання вибухів
+    for (const explosion of world.ofKind('explosion')) {
+      drawExplosion(ctx, explosion);
+    }
 
     ctx.restore();
 
-    if (!rendered) {
-      drawBullet(ctx, bulletX, bulletY, bullet.radius, isHoming);
-    }
+    drawArenaBorder(ctx, offsetX, offsetY, scaledWidth, scaledHeight);
   }
 
-  if (sword.alive) {
-    const x = interpolateWrapped(previousSword.x, sword.pos.x, alpha, size.width);
-
-    const y = interpolateWrapped(previousSword.y, sword.pos.y, alpha, size.height);
-
-    const angle = previousSword.angle + (sword.angle - previousSword.angle) * alpha;
-
-    if (input.getState().forward) {
-      drawSwordThrust(ctx, x, y, angle);
-    }
-
-    if (
-      !drawSheetSprite(ctx, sprites.sword, x, y, {
-        frame,
-        angle,
-        scale: 2.15,
-      })
-    ) {
-      drawSword(ctx, x, y, angle);
-    }
-  }
-
-  // Малювання вибухів
-  for (const explosion of world.ofKind('explosion')) {
-    drawExplosion(ctx, explosion);
-  }
+  const mySword = myEntityId !== null ? world.get(myEntityId) : null;
 
   drawHud(ctx, {
     ...stats,
-    hp: sword.hp,
+    hp: mySword?.alive ? mySword.hp : 0,
     score: world.score,
     respawnSeconds: respawnTimer,
   });
@@ -308,25 +245,60 @@ void bootGame({
       playerName = name;
       roomName = room.name;
 
-      // Налаштовуємо кількість каменів
-      const obstacleCount = Math.max(
-        0,
-        Math.min(obstacles.length, room.obstacleCount ?? obstacles.length),
-      );
-
-      for (const obstacle of obstacles.slice(obstacleCount)) {
-        world.despawn(obstacle.id);
-      }
-
       // Прибираємо лобі та запускаємо гру
       destroyLobby();
 
-      const connection = createConnection({
+      connection = createConnection({
         name: playerName,
         roomId: room.id,
       });
 
-      mountRoomChat(connection);
+      connection.addEventListener('joined', (joinedEvent) => {
+        const detail = joinedEvent.detail;
+
+        myPlayerId = detail.player?.id ?? null;
+        myEntityId = detail.entityId ?? detail.player?.entityId ?? null;
+        inputSeq = 0;
+        clientTick = 0;
+        inputAccumulator = 0;
+        pendingFire = false;
+        pendingHomingFire = false;
+
+        if (detail.bounds) {
+          world.bounds = {
+            width: detail.bounds.width,
+            height: detail.bounds.height,
+          };
+        }
+      });
+
+      connection.addEventListener('snapshot', (snapshotEvent) => {
+        const snapshot = snapshotEvent.detail;
+
+        world.applySnapshot(snapshot);
+        respawnTimer = snapshot.respawnSeconds ?? null;
+
+        for (const entity of world.ofKind('sword')) {
+          if (entity.ownerId === myPlayerId) {
+            myEntityId = entity.id;
+            break;
+          }
+        }
+      });
+
+      const destroyChat = mountRoomChat(connection);
+      netgraph = mountNetgraph(connection);
+
+      window.addEventListener(
+        'beforeunload',
+        () => {
+          loop.stop();
+          netgraph?.destroy();
+          destroyChat();
+        },
+        { once: true },
+      );
+
       connection.connect();
 
       loop.start();

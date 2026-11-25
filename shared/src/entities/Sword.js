@@ -48,6 +48,7 @@ export class Sword extends Entity {
 
   constructor({
     id = null,
+    ownerId = null,
     pos = new Vector2(),
     vel = new Vector2(),
     angle = 0,
@@ -67,6 +68,7 @@ export class Sword extends Entity {
       alive,
     });
 
+    this.ownerId = ownerId;
     this.#hp = hp;
     this.#damageCooldown = damageCooldown;
 
@@ -132,14 +134,17 @@ export class Sword extends Entity {
   toJSON() {
     return {
       ...super.toJSON(),
+      ownerId: this.ownerId,
       hp: this.#hp,
       damageCooldown: this.#damageCooldown,
+      thrust: Boolean(this.input.forward),
     };
   }
 
   static fromJSON(data) {
     return new Sword({
       id: data.id,
+      ownerId: data.ownerId ?? null,
       pos: data.pos,
       vel: data.vel,
       angle: data.angle,
@@ -147,6 +152,10 @@ export class Sword extends Entity {
       alive: data.alive,
       hp: data.hp,
       damageCooldown: data.damageCooldown,
+      input:
+        data.thrust !== undefined
+          ? { forward: Boolean(data.thrust) }
+          : (data.input ?? null),
     });
   }
 }

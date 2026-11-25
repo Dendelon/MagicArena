@@ -160,6 +160,36 @@ export class World {
     };
   }
 
+  applySnapshot(snapshot) {
+    this.#entities.clear();
+
+    for (const entityData of snapshot.entities ?? []) {
+      const entity = entityFromJSON(entityData);
+      this.#entities.set(entity.id, entity);
+    }
+
+    if (typeof snapshot.tick === 'number') {
+      this.tick = snapshot.tick;
+    }
+
+    if (typeof snapshot.score === 'number') {
+      this.score = snapshot.score;
+    }
+
+    if (snapshot.bounds) {
+      this.bounds = {
+        width: snapshot.bounds.width,
+        height: snapshot.bounds.height,
+      };
+    }
+
+    for (const event of snapshot.events ?? []) {
+      if (event && typeof event.type === 'string') {
+        this.emit(event.type, event.detail ?? event);
+      }
+    }
+  }
+
   toJSON() {
     return {
       bounds: {

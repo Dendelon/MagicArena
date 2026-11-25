@@ -1,3 +1,7 @@
+const textEncoder = new TextEncoder();
+
+const byteLength = (text) => textEncoder.encode(text).length;
+
 export const createConnection = ({ name, roomId }) => {
   const events = new EventTarget();
 
@@ -10,6 +14,14 @@ export const createConnection = ({ name, roomId }) => {
 
   const emit = (type, detail) => {
     events.dispatchEvent(new CustomEvent(type, { detail }));
+  };
+
+  const transmit = (data, type) => {
+    socket.send(data);
+    emit('tx', {
+      bytes: byteLength(data),
+      type,
+    });
   };
 
   const connect = () => {
@@ -34,18 +46,20 @@ export const createConnection = ({ name, roomId }) => {
       reconnectAttempts = 0;
 
       // При кожному перепідключенні знову входимо в кімнату
-      socket.send(
+      transmit(
         JSON.stringify({
           v: 1,
           type: 'join',
           room: roomId,
           name,
         }),
+        'join',
       );
 
       // Надсилаємо накопичені повідомлення
       while (queue.length > 0) {
-        socket.send(queue.shift());
+        const item = queue.shift();
+        transmit(item.data, item.type);
       }
 
       emit('status', 'Connected');
@@ -53,11 +67,21 @@ export const createConnection = ({ name, roomId }) => {
 
     socket.addEventListener('message', (event) => {
       try {
+        const bytes =
+          typeof event.data === 'string'
+            ? byteLength(event.data)
+            : (event.data?.byteLength ?? 0);
+
         const message = JSON.parse(event.data);
 
         if (!message || typeof message.type !== 'string' || message.v !== 1) {
           return;
         }
+
+        emit('rx', {
+          bytes,
+          type: message.type,
+        });
 
         emit(message.type, message);
       } catch (error) {
@@ -91,12 +115,12 @@ export const createConnection = ({ name, roomId }) => {
     });
 
     if (socket?.readyState === WebSocket.OPEN) {
-      socket.send(data);
+      transmit(data, message.type);
       return;
     }
 
     if (queue.length < 50) {
-      queue.push(data);
+      queue.push({ data, type: message.type });
     }
   };
 
@@ -114,6 +138,7 @@ export const createConnection = ({ name, roomId }) => {
     connect,
     send,
     close,
+    isOpen: () => socket?.readyState === WebSocket.OPEN,
     addEventListener: (type, callback) => events.addEventListener(type, callback),
     removeEventListener: (type, callback) => events.removeEventListener(type, callback),
   };

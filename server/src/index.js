@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { pipeline } from 'node:stream/promises';
 import { config } from './config.js';
 import { RoomManager } from './rooms.js';
+import { MatchManager } from './game/MatchManager.js';
 import { setupWebSocket } from './ws.js';
 import { setupMatchLogs } from './log/matchlog.js';
 import { getReplayPath, listReplays } from './log/replay.js';
@@ -180,6 +181,13 @@ const handleRequest = async (req, res) => {
     return;
   }
 
+  if (pathname === '/api/stats' && req.method === 'GET') {
+    sendJson(res, 200, {
+      matches: matchManager.getStats(),
+    });
+    return;
+  }
+
   if (pathname === '/api/rooms' && req.method === 'POST') {
     const body = await readJsonBody(req);
 
@@ -293,7 +301,18 @@ const server = createServer((req, res) => {
   });
 });
 
-const websocket = setupWebSocket(server, rooms);
+let websocket = null;
+
+const matchManager = new MatchManager(rooms, {
+  onSnapshot: (match) => {
+    websocket?.broadcastSnapshot(match);
+  },
+});
+
+websocket = setupWebSocket(server, rooms, {
+  matchManager,
+  delayMs: config.netDelayMs,
+});
 
 server.on('error', (error) => {
   console.error('Server error:', error);
@@ -319,6 +338,7 @@ const shutdown = () => {
 
     server.closeIdleConnections();
 
+    matchManager.shutdown();
     const websocketClosed = websocket.shutdown();
 
     const forceCloseTimer = setTimeout(() => {

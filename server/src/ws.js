@@ -1,24 +1,35 @@
 import WebSocket, { WebSocketServer } from 'ws';
 import { randomUUID } from 'node:crypto';
+import { encodeMessage } from '@magicarena/shared';
 import { MAX_MESSAGE_SIZE, parseMessage } from './protocol.js';
+import { createLatencyController } from './network/latency.js';
 
-const RATE_PER_SECOND = 15;
-const BUCKET_CAPACITY = 15;
+const RATE_PER_SECOND = 60;
+const BUCKET_CAPACITY = 60;
+const CHAT_RATE_PER_SECOND = 5;
+const CHAT_BUCKET_CAPACITY = 10;
 const MAX_BUFFERED_AMOUNT = 256 * 1024;
 
-export const setupWebSocket = (server, roomManager) => {
+export const setupWebSocket = (
+  server,
+  roomManager,
+  { matchManager = null, delayMs = 0 } = {},
+) => {
   const wss = new WebSocketServer({
     noServer: true,
     maxPayload: MAX_MESSAGE_SIZE,
     perMessageDeflate: false,
   });
 
+  const latency = createLatencyController({ delayMs });
+  let shuttingDown = false;
+
   wss.on('error', (error) => {
     console.error('WebSocket server error:', error);
   });
 
-  const send = (socket, message, critical = false) => {
-    if (socket.readyState !== WebSocket.OPEN) return;
+  const sendRaw = (socket, payload, critical = false) => {
+    if (shuttingDown || socket.readyState !== WebSocket.OPEN) return;
 
     // Не накопичуємо нескінченну чергу для повільного клієнта
     if (socket.bufferedAmount > MAX_BUFFERED_AMOUNT) {
@@ -28,7 +39,11 @@ export const setupWebSocket = (server, roomManager) => {
       return;
     }
 
-    socket.send(JSON.stringify({ v: 1, ...message }));
+    socket.send(payload);
+  };
+
+  const send = (socket, message, critical = false) => {
+    sendRaw(socket, JSON.stringify({ v: 1, ...message }), critical);
   };
 
   const broadcast = (room, message, critical = false) => {
@@ -46,6 +61,25 @@ export const setupWebSocket = (server, roomManager) => {
       },
       true,
     );
+  };
+
+  const broadcastSnapshot = (match) => {
+    if (shuttingDown || match.stopped) return;
+
+    const room = match.room;
+
+    for (const player of room.players.values()) {
+      if (player.socket.readyState !== WebSocket.OPEN) continue;
+
+      const snapshot = match.getSnapshotForPlayer(player.id);
+      const payload = encodeMessage(snapshot);
+
+      latency.schedule(() => {
+        if (shuttingDown || match.stopped || !room.players.has(player.id)) return;
+
+        sendRaw(player.socket, payload, false);
+      });
+    }
   };
 
   const registerRoom = (room) => {
@@ -105,6 +139,8 @@ export const setupWebSocket = (server, roomManager) => {
     socket.missedPongs = 0;
     socket.tokens = BUCKET_CAPACITY;
     socket.lastRefill = Date.now();
+    socket.chatTokens = CHAT_BUCKET_CAPACITY;
+    socket.lastChatRefill = Date.now();
 
     // Гравець має приєднатися до кімнати за 5 секунд
     const joinTimeout = setTimeout(() => {
@@ -167,6 +203,10 @@ export const setupWebSocket = (server, roomManager) => {
           currentPlayer = player;
           clearTimeout(joinTimeout);
 
+          const match = matchManager?.getMatch(room.id) ?? null;
+          const playerState = match?.getPlayer(player.id) ?? null;
+          const entityId = playerState?.entityId ?? null;
+
           send(
             socket,
             {
@@ -175,7 +215,10 @@ export const setupWebSocket = (server, roomManager) => {
               player: {
                 id: player.id,
                 name: player.name,
+                entityId,
               },
+              entityId,
+              bounds: match?.bounds ?? null,
             },
             true,
           );
@@ -188,7 +231,61 @@ export const setupWebSocket = (server, roomManager) => {
           return;
         }
 
+        if (message.type === 'ping') {
+          const room = currentRoom;
+          const player = currentPlayer;
+
+          latency.schedule(() => {
+            if (shuttingDown || socket.readyState !== WebSocket.OPEN) return;
+            if (!room.players.has(player.id)) return;
+
+            latency.schedule(() => {
+              if (shuttingDown || !room.players.has(player.id)) return;
+
+              send(socket, {
+                type: 'pong',
+                id: message.id,
+                clientTime: message.clientTime,
+              });
+            });
+          });
+
+          return;
+        }
+
+        if (message.type === 'input') {
+          const room = currentRoom;
+          const player = currentPlayer;
+          const match = matchManager?.getMatch(room.id);
+
+          if (!match) return;
+
+          latency.schedule(() => {
+            if (shuttingDown || match.stopped) return;
+            if (socket.readyState !== WebSocket.OPEN) return;
+            if (!room.players.has(player.id)) return;
+
+            match.applyInput(player.id, message);
+          });
+
+          return;
+        }
+
         if (message.type === 'chat') {
+          const chatElapsed = Math.max(0, (now - socket.lastChatRefill) / 1000);
+          socket.chatTokens = Math.min(
+            CHAT_BUCKET_CAPACITY,
+            socket.chatTokens + chatElapsed * CHAT_RATE_PER_SECOND,
+          );
+          socket.lastChatRefill = now;
+
+          if (socket.chatTokens < 1) {
+            socket.close(4008, 'Chat rate limit exceeded');
+            return;
+          }
+
+          socket.chatTokens -= 1;
+
           if (currentRoom.logBackpressured) {
             socket.close(4009, 'Log backpressure');
             return;
@@ -235,6 +332,8 @@ export const setupWebSocket = (server, roomManager) => {
   // Викликаємо перед завершенням HTTP-сервера
 
   const shutdown = () => {
+    shuttingDown = true;
+    latency.clear();
     clearInterval(heartbeat);
 
     server.off('upgrade', handleUpgrade);
@@ -258,5 +357,5 @@ export const setupWebSocket = (server, roomManager) => {
     });
   };
 
-  return { shutdown };
+  return { broadcastSnapshot, shutdown };
 };

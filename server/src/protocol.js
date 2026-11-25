@@ -1,4 +1,8 @@
+import { isInputMessage } from '@magicarena/shared';
+
 export const MAX_MESSAGE_SIZE = 4096;
+
+const PING_KEYS = new Set(['v', 'type', 'id', 'clientTime']);
 
 const protocolError = (message, code = 1008) => {
   const error = new Error(message);
@@ -63,6 +67,34 @@ export const parseMessage = (data, isBinary = false) => {
     return {
       type: 'chat',
       text: message.text.trim(),
+    };
+  }
+
+  if (message.type === 'input') {
+    if (!isInputMessage(message)) {
+      throw protocolError('Invalid input message');
+    }
+
+    return message;
+  }
+
+  if (message.type === 'ping') {
+    const keys = Object.keys(message);
+
+    if (
+      !keys.every((key) => PING_KEYS.has(key)) ||
+      !Number.isInteger(message.id) ||
+      message.id < 0 ||
+      typeof message.clientTime !== 'number' ||
+      !Number.isFinite(message.clientTime)
+    ) {
+      throw protocolError('Invalid ping message');
+    }
+
+    return {
+      type: 'ping',
+      id: message.id,
+      clientTime: message.clientTime,
     };
   }
 

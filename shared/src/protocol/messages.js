@@ -31,25 +31,54 @@ export const createInputMessage = ({
   homingFire: Boolean(homingFire),
 });
 
+const INPUT_KEYS = new Set([
+  'v',
+  'type',
+  'seq',
+  'tick',
+  'thrust',
+  'turn',
+  'brake',
+  'fire',
+  'homingFire',
+]);
+
+const hasOnlyKeys = (obj, allowedKeys) =>
+  Object.keys(obj).every((key) => allowedKeys.has(key));
+
 export const createSnapshotMessage = ({
   tick = 0,
   lastProcessedSeq = 0,
   entities = [],
-} = {}) => ({
-  v: PROTOCOL_VERSION,
-  type: MESSAGE_TYPES.SNAPSHOT,
-  tick,
-  lastProcessedSeq,
-  entities: entities.map((entity) =>
-    typeof entity?.toJSON === 'function' ? entity.toJSON() : entity,
-  ),
-});
+  score = undefined,
+  bounds = undefined,
+  events = undefined,
+  respawnSeconds = undefined,
+} = {}) => {
+  const snapshot = {
+    v: PROTOCOL_VERSION,
+    type: MESSAGE_TYPES.SNAPSHOT,
+    tick,
+    lastProcessedSeq,
+    entities: entities.map((entity) =>
+      typeof entity?.toJSON === 'function' ? entity.toJSON() : entity,
+    ),
+  };
+
+  if (score !== undefined) snapshot.score = score;
+  if (bounds !== undefined) snapshot.bounds = bounds;
+  if (events !== undefined) snapshot.events = events;
+  if (respawnSeconds !== undefined) snapshot.respawnSeconds = respawnSeconds;
+
+  return snapshot;
+};
 
 export const isInputMessage = (message) =>
   Boolean(
     message &&
       typeof message === 'object' &&
       !Array.isArray(message) &&
+      hasOnlyKeys(message, INPUT_KEYS) &&
       message.v === PROTOCOL_VERSION &&
       message.type === MESSAGE_TYPES.INPUT &&
       isNonNegativeInt(message.seq) &&
