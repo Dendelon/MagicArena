@@ -11,6 +11,7 @@ import { drawObstacle } from './render/obstacle.js';
 import { drawExplosion } from './render/explosion.js';
 import { drawPickup } from './render/pickup.js';
 import { drawSheetSprite } from './render/sprites.js';
+import { drawSwordThrust } from './render/swordThrust.js';
 import { createLoop } from './loop';
 import { createInput } from './input';
 import { bootGame } from './assets/boot.js';
@@ -238,23 +239,25 @@ const render = (alpha, stats) => {
       size.height,
     );
 
+    const isHoming = Boolean(bullet.homing);
+
+    const bulletSprite = isHoming ? sprites.bulletHoming : sprites.bullet;
+
     ctx.save();
 
-    // Самонавідний снаряд буде блакитним
-    if (bullet.homing) {
-      ctx.filter = 'hue-rotate(90deg) saturate(1.5)';
-    }
+    ctx.shadowColor = isHoming ? '#22d3ee' : '#a855f7';
+    ctx.shadowBlur = 10;
 
-    if (
-      !drawSheetSprite(ctx, sprites.bullet, bulletX, bulletY, {
-        frame,
-        scale: (bullet.radius / 6) * 0.9,
-      })
-    ) {
-      drawBullet(ctx, bulletX, bulletY, bullet.radius, Boolean(bullet.homing));
-    }
+    const rendered = drawSheetSprite(ctx, bulletSprite, bulletX, bulletY, {
+      frame,
+      scale: (bullet.radius / 6) * 0.75,
+    });
 
     ctx.restore();
+
+    if (!rendered) {
+      drawBullet(ctx, bulletX, bulletY, bullet.radius, isHoming);
+    }
   }
 
   if (sword.alive) {
@@ -264,6 +267,10 @@ const render = (alpha, stats) => {
 
     const angle = previousSword.angle + (sword.angle - previousSword.angle) * alpha;
 
+    if (input.getState().forward) {
+      drawSwordThrust(ctx, x, y, angle);
+    }
+
     if (
       !drawSheetSprite(ctx, sprites.sword, x, y, {
         frame,
@@ -271,7 +278,7 @@ const render = (alpha, stats) => {
         scale: 2.15,
       })
     ) {
-      drawSword(ctx, x, y, angle, input.getState().forward);
+      drawSword(ctx, x, y, angle);
     }
   }
 

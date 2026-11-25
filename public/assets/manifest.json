@@ -9,6 +9,10 @@
       "url": "/assets/sprites/bullet.png"
     },
     {
+      "id": "bulletHoming",
+      "url": "/assets/sprites/bullet_homing.png"
+    },
+    {
       "id": "obstacle",
       "url": "/assets/sprites/obstacle.png"
     }
