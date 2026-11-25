@@ -1,12 +1,13 @@
 import { Bullet, Sword, createHoming, wrap } from '@magicarena/shared';
 
 const FIXED_DT = 1 / 30;
-const FIXED_STEP_MS = FIXED_DT * 1000;
 const MAX_LOCAL_PROJECTILES = 32;
 const MAX_UNCONFIRMED_AGE_MS = 2500;
 const RETRY_INTERVAL_MS = 180;
 const MAX_SHOT_RETRIES = 5;
-const RECONCILE_BLEND_RATE = 16;
+const RECONCILE_BLEND_RATE = 10;
+const MAX_CORRECTION_RATIO = 0.5;
+const MAX_RENDER_DT_SEC = 0.05;
 
 const shortestWrappedDelta = (from, to, size) => {
   if (size <= 0) return to - from;
@@ -145,7 +146,7 @@ export const createProjectilePredictor = () => {
         ownerPlayerId,
         bullet,
         visualPos: { x: pos.x, y: pos.y },
-        subTickMs: 0,
+        lastVisualAt: now,
         accepted: null,
         serverEntityId: null,
         serverEntityIds: null,
@@ -198,67 +199,111 @@ export const createProjectilePredictor = () => {
     const now = performance.now();
 
     for (const [key, record] of ownProjectiles) {
-      record.bullet.update(dt, world);
-      record.subTickMs = 0;
+      if (record.seenOnServer) continue;
 
-      if (record.lastServerPos === null) {
-        record.visualPos = {
-          x: record.bullet.pos.x,
-          y: record.bullet.pos.y,
-        };
-      }
+      record.bullet.update(dt, world);
 
       if (
         !record.bullet.alive ||
-        (!record.seenOnServer && now - record.createdAt > MAX_UNCONFIRMED_AGE_MS)
+        now - record.createdAt > MAX_UNCONFIRMED_AGE_MS
       ) {
         ownProjectiles.delete(key);
       }
     }
   };
 
-  const advanceRenderTime = (frameTimeMs, world, rttMs = 0) => {
+  const advanceRenderTime = (
+    world,
+    rttMs = 0,
+    now = performance.now(),
+  ) => {
     if (world.width <= 0 || world.height <= 0) return;
 
-    const now = performance.now();
-    const stepMs = Math.max(0, Number(frameTimeMs) || 0);
-    const dtSec = stepMs / 1000;
-    const halfRttSec = Math.max(0, Math.min(0.25, (Number(rttMs) || 0) / 2000));
+    const halfRttSec = Math.max(
+      0,
+      Math.min(0.25, (Number(rttMs) || 0) / 2000),
+    );
 
     for (const record of ownProjectiles.values()) {
-      record.subTickMs = Math.min(FIXED_STEP_MS, record.subTickMs + stepMs);
+      const dt = Math.min(
+        MAX_RENDER_DT_SEC,
+        Math.max(0, (now - record.lastVisualAt) / 1000),
+      );
 
-      if (record.lastServerPos !== null && record.lastServerVel !== null) {
-        const vx = record.lastServerVel.x;
-        const vy = record.lastServerVel.y;
+      record.lastVisualAt = now;
 
-        const predictedX = wrap(record.visualPos.x + vx * dtSec, world.width);
-        const predictedY = wrap(record.visualPos.y + vy * dtSec, world.height);
+      if (dt === 0) continue;
 
-        const ageSec = Math.max(
+      let vel = record.bullet.vel;
+      let target = null;
+
+      if (
+        record.seenOnServer &&
+        record.lastServerPos &&
+        record.lastServerVel
+      ) {
+        vel = record.lastServerVel;
+
+        const age = Math.max(
           0,
-          Math.min(0.2, (now - record.lastSnapshotReceivedAt) / 1000),
+          (now - record.lastSnapshotReceivedAt) / 1000,
         );
-        const leadSec = ageSec + halfRttSec;
 
-        const targetX = wrap(record.lastServerPos.x + vx * leadSec, world.width);
-        const targetY = wrap(record.lastServerPos.y + vy * leadSec, world.height);
+        const lead = Math.min(
+          record.isHoming ? 0.1 : 0.25,
+          age + halfRttSec,
+        );
 
-        const dx = shortestWrappedDelta(predictedX, targetX, world.width);
-        const dy = shortestWrappedDelta(predictedY, targetY, world.height);
-        const blend = 1 - Math.exp(-RECONCILE_BLEND_RATE * dtSec);
-
-        record.visualPos = {
-          x: wrap(predictedX + dx * blend, world.width),
-          y: wrap(predictedY + dy * blend, world.height),
-        };
-      } else {
-        const subDtSec = Math.min(FIXED_DT, record.subTickMs / 1000);
-        record.visualPos = {
-          x: wrap(record.bullet.pos.x + record.bullet.vel.x * subDtSec, world.width),
-          y: wrap(record.bullet.pos.y + record.bullet.vel.y * subDtSec, world.height),
+        target = {
+          x: wrap(
+            record.lastServerPos.x + vel.x * lead,
+            world.width,
+          ),
+          y: wrap(
+            record.lastServerPos.y + vel.y * lead,
+            world.height,
+          ),
         };
       }
+
+      // Безперервний рух у кожному кадрі.
+      const x = wrap(
+        record.visualPos.x + vel.x * dt,
+        world.width,
+      );
+
+      const y = wrap(
+        record.visualPos.y + vel.y * dt,
+        world.height,
+      );
+
+      let correctionX = 0;
+      let correctionY = 0;
+
+      if (target) {
+        const blend = 1 - Math.exp(-RECONCILE_BLEND_RATE * dt);
+
+        correctionX =
+          shortestWrappedDelta(x, target.x, world.width) * blend;
+
+        correctionY =
+          shortestWrappedDelta(y, target.y, world.height) * blend;
+
+        const length = Math.hypot(correctionX, correctionY);
+
+        const limit =
+          Math.hypot(vel.x, vel.y) * dt * MAX_CORRECTION_RATIO;
+
+        if (length > limit && length > 0) {
+          correctionX *= limit / length;
+          correctionY *= limit / length;
+        }
+      }
+
+      record.visualPos = {
+        x: wrap(x + correctionX, world.width),
+        y: wrap(y + correctionY, world.height),
+      };
     }
   };
 
@@ -266,14 +311,26 @@ export const createProjectilePredictor = () => {
     record.serverEntityId = serverEntity.id;
     record.accepted = true;
     record.seenOnServer = true;
-    record.lastServerPos = { x: serverEntity.pos.x, y: serverEntity.pos.y };
-    record.lastServerVel = { x: serverEntity.vel.x, y: serverEntity.vel.y };
+
+    record.lastServerPos = {
+      x: serverEntity.pos.x,
+      y: serverEntity.pos.y,
+    };
+
+    record.lastServerVel = {
+      x: serverEntity.vel.x,
+      y: serverEntity.vel.y,
+    };
+
     record.lastSnapshotReceivedAt = receivedAt;
-    record.bullet.vel.x = serverEntity.vel.x;
-    record.bullet.vel.y = serverEntity.vel.y;
   };
 
-  const onFireAck = ({ originSeq, accepted, entityId = null, entityIds = null }, world) => {
+  const onFireAck = ({
+    originSeq,
+    accepted,
+    entityId = null,
+    entityIds = null,
+  }) => {
     pendingShots.delete(originSeq);
 
     const ids = Array.isArray(entityIds)
@@ -281,7 +338,6 @@ export const createProjectilePredictor = () => {
       : entityId !== null && entityId !== undefined
         ? [entityId]
         : [];
-    const now = performance.now();
 
     for (const [key, record] of ownProjectiles) {
       if (record.originSeq !== originSeq) continue;
@@ -292,23 +348,6 @@ export const createProjectilePredictor = () => {
       }
 
       record.accepted = true;
-
-      for (const candidateId of ids) {
-        const serverEntity = world.get(candidateId);
-
-        if (
-          serverEntity &&
-          serverEntity.kind === 'bullet' &&
-          Boolean(serverEntity.homing) === record.isHoming
-        ) {
-          if (serverEntity.alive) {
-            bindServerEntityToRecord(record, serverEntity, now);
-          } else {
-            ownProjectiles.delete(key);
-          }
-          break;
-        }
-      }
 
       if (record.serverEntityId === null) {
         record.serverEntityId = ids.length === 1 ? ids[0] : null;
@@ -330,7 +369,9 @@ export const createProjectilePredictor = () => {
 
       if (matched) {
         pendingShots.delete(record.originSeq);
+
         bindServerEntityToRecord(record, matched, now);
+
         continue;
       }
 
@@ -359,15 +400,15 @@ export const createProjectilePredictor = () => {
     const renderList = [];
     const claimedServerBulletIds = new Set();
     const serverBullets = [...world.ofKind('bullet')];
+    const sampleHomingPosition = (bullet) =>
+      interpolation.getInterpolatedPosition
+        ? interpolation.getInterpolatedPosition(bullet, world, now)
+        : interpolation.getInterpolatedEntity(bullet, world, now);
 
     for (const record of ownProjectiles.values()) {
-      if (record.serverEntityId !== null) {
-        claimedServerBulletIds.add(record.serverEntityId);
-      } else {
-        for (const bullet of serverBullets) {
-          if (isMatchedByServer(record, bullet, myPlayerId, myEntityId)) {
-            claimedServerBulletIds.add(bullet.id);
-          }
+      for (const bullet of serverBullets) {
+        if (isMatchedByServer(record, bullet, myPlayerId, myEntityId)) {
+          claimedServerBulletIds.add(bullet.id);
         }
       }
 
@@ -386,22 +427,32 @@ export const createProjectilePredictor = () => {
 
       const isHoming = Boolean(bullet.homing);
 
-      if (isOwnBullet(bullet, myPlayerId, myEntityId)) {
-        renderList.push({
-          x: bullet.pos.x,
-          y: bullet.pos.y,
-          radius: bullet.radius,
-          isHoming,
-        });
-      } else {
-        const interp = interpolation.getInterpolatedEntity(bullet, world, now);
-        renderList.push({
-          x: interp.x,
-          y: interp.y,
-          radius: bullet.radius,
-          isHoming,
-        });
+      if (isHoming) {
+        // Чужий homing (або невідслідкований серверний homing): інтерпольована позиція з буфера snapshots
+        const interp = sampleHomingPosition(bullet);
+
+        if (interp) {
+          renderList.push({
+            x: interp.x,
+            y: interp.y,
+            radius: bullet.radius,
+            isHoming: true,
+          });
+        }
+        continue;
       }
+
+      // Звичайні кулі без змін
+      const pos = isOwnBullet(bullet, myPlayerId, myEntityId)
+        ? bullet.pos
+        : interpolation.getInterpolatedEntity(bullet, world, now);
+
+      renderList.push({
+        x: pos.x,
+        y: pos.y,
+        radius: bullet.radius,
+        isHoming: false,
+      });
     }
 
     return renderList;

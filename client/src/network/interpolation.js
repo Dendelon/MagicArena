@@ -212,16 +212,60 @@ export const createInterpolation = ({
     };
   };
 
-  const getInterpolatedEntity = (authEntity, world, now = performance.now()) => {
+  const resolveBracket = (now = performance.now()) => {
     if (baseServerTimeMs === null || baseClientTimeMs === null) {
-      return interpolateEntity(authEntity, null, world);
+      return null;
     }
 
     const estimatedServerTimeMs = baseServerTimeMs + (now - baseClientTimeMs);
     const renderTimeMs = estimatedServerTimeMs - interpolationDelayMs;
-    const pair = findBracketingSnapshots(renderTimeMs);
+    return findBracketingSnapshots(renderTimeMs);
+  };
 
+  const getInterpolatedEntity = (authEntity, world, now = performance.now()) => {
+    const pair = resolveBracket(now);
     return interpolateEntity(authEntity, pair, world);
+  };
+
+  const hasAtLeastTwoSnapshots = (entityId) => {
+    let count = 0;
+
+    for (const snapshot of snapshots) {
+      if (snapshot.entitiesById.has(entityId)) {
+        count += 1;
+        if (count >= 2) return true;
+      }
+    }
+
+    return false;
+  };
+
+  const getInterpolatedPosition = (authEntity, world, now = performance.now()) => {
+    const pair = resolveBracket(now);
+
+    if (!pair) {
+      return null;
+    }
+
+    const a = pair.from.entitiesById.get(authEntity.id);
+    const b = pair.to.entitiesById.get(authEntity.id);
+
+    if (!a || !b) {
+      return null;
+    }
+
+    if (pair.from === pair.to && !hasAtLeastTwoSnapshots(authEntity.id)) {
+      return null;
+    }
+
+    const position = interpolateEntity(authEntity, pair, world);
+    const t = pair.alpha;
+
+    return {
+      ...position,
+      vx: a.vel.x + (b.vel.x - a.vel.x) * t,
+      vy: a.vel.y + (b.vel.y - a.vel.y) * t,
+    };
   };
 
   return {
@@ -231,6 +275,7 @@ export const createInterpolation = ({
     setDelay,
     pushSnapshot,
     getInterpolatedEntity,
+    getInterpolatedPosition,
     reset,
   };
 };

@@ -147,9 +147,14 @@ const render = (_alpha, stats) => {
   pollLocalShots();
   drawOuterBackground(ctx, size.width, size.height);
   prediction.advanceSmoothing(stats.frameTimeMs);
-  projectiles.advanceRenderTime(stats.frameTimeMs, world, netgraph?.getRttMs?.() ?? 0);
 
   const now = performance.now();
+
+  projectiles.advanceRenderTime(
+    world,
+    netgraph?.getRttMs?.() ?? 0,
+    now,
+  );
   const sprites = loadedAssets?.sprites ?? {};
   const frame = Math.floor(now / 150) % 4;
 
@@ -386,7 +391,7 @@ void bootGame({
       connection.addEventListener('fireAck', (ackEvent) => {
         if (!connection?.isJoined?.() || myPlayerId === null) return;
 
-        projectiles.onFireAck(ackEvent.detail, world);
+        projectiles.onFireAck(ackEvent.detail);
       });
 
       connection.addEventListener('snapshot', (snapshotEvent) => {
