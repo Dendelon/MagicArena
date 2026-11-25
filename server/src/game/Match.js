@@ -18,6 +18,12 @@ const DEFAULT_ARENA_BOUNDS = {
 };
 
 const RESPAWN_SECONDS = 2;
+const MAX_INPUT_QUEUE = 16;
+const IDLE_INPUT = Object.freeze({
+  thrust: false,
+  turn: 0,
+  brake: false,
+});
 
 const OBSTACLE_PRESETS = [
   { xFactor: 0.2, yFactor: 0.3, vx: 40, vy: 25, radius: 28, homing: true },
@@ -201,15 +207,8 @@ export class Match {
       playerId: player.id,
       entityId: sword.id,
       lastReceivedSeq: -1,
-      pendingSeq: null,
       lastProcessedSeq: 0,
-      lastInput: {
-        thrust: false,
-        turn: 0,
-        brake: false,
-      },
-      pendingFire: false,
-      pendingHomingFire: false,
+      inputQueue: [],
       respawnTimer: null,
     };
 
@@ -239,20 +238,24 @@ export class Match {
     }
 
     state.lastReceivedSeq = input.seq;
-    state.pendingSeq = input.seq;
-    state.lastInput = {
-      thrust: input.thrust,
+
+    let droppedFire = false;
+    let droppedHomingFire = false;
+
+    if (state.inputQueue.length >= MAX_INPUT_QUEUE) {
+      const dropped = state.inputQueue.shift();
+      droppedFire = Boolean(dropped?.fire);
+      droppedHomingFire = Boolean(dropped?.homingFire);
+    }
+
+    state.inputQueue.push({
+      seq: input.seq,
+      thrust: Boolean(input.thrust),
       turn: input.turn,
-      brake: input.brake,
-    };
-
-    if (input.fire) {
-      state.pendingFire = true;
-    }
-
-    if (input.homingFire) {
-      state.pendingHomingFire = true;
-    }
+      brake: Boolean(input.brake),
+      fire: Boolean(input.fire) || droppedFire,
+      homingFire: Boolean(input.homingFire) || droppedHomingFire,
+    });
 
     return true;
   }
@@ -261,31 +264,48 @@ export class Match {
     this.#tickEvents = [];
 
     const inputs = new Map();
+    const tickCommands = new Map();
 
     for (const state of this.players.values()) {
       const sword = this.world.get(state.entityId);
 
       if (sword && sword.alive) {
-        inputs.set(sword.id, state.lastInput);
+        const command = state.inputQueue.shift() ?? null;
+
+        if (command) {
+          tickCommands.set(state.playerId, command);
+          inputs.set(sword.id, {
+            thrust: command.thrust,
+            turn: command.turn,
+            brake: command.brake,
+          });
+        } else {
+          inputs.set(sword.id, IDLE_INPUT);
+        }
+      } else if (state.inputQueue.length > 0) {
+        const latest = state.inputQueue[state.inputQueue.length - 1];
+        state.lastProcessedSeq = latest.seq;
+        state.inputQueue.length = 0;
       }
     }
 
     this.world.step(dt, inputs);
 
     for (const state of this.players.values()) {
-      if (state.pendingSeq !== null) {
-        state.lastProcessedSeq = state.pendingSeq;
-        state.pendingSeq = null;
+      const command = tickCommands.get(state.playerId);
+
+      if (command) {
+        state.lastProcessedSeq = command.seq;
       }
 
       const sword = this.world.get(state.entityId);
 
       if (sword && sword.alive) {
-        if (state.pendingFire) {
+        if (command?.fire) {
           sword.fire(this.world);
         }
 
-        if (state.pendingHomingFire) {
+        if (command?.homingFire) {
           const bullet = sword.fire(this.world);
 
           if (bullet instanceof Bullet) {
@@ -297,13 +317,8 @@ export class Match {
           }
         }
 
-        state.pendingFire = false;
-        state.pendingHomingFire = false;
         continue;
       }
-
-      state.pendingFire = false;
-      state.pendingHomingFire = false;
 
       if (state.respawnTimer === null) {
         state.respawnTimer = RESPAWN_SECONDS;
@@ -320,6 +335,7 @@ export class Match {
         this.world.spawn(respawned);
         state.entityId = respawned.id;
         state.respawnTimer = null;
+        state.inputQueue.length = 0;
       }
     }
   }

@@ -1,6 +1,5 @@
 import './netgraph.css';
 
-const MAX_PENDING_INPUTS = 256;
 const MAX_PENDING_PINGS = 32;
 const TRAFFIC_WINDOW_MS = 1000;
 const PING_INTERVAL_MS = 1000;
@@ -47,15 +46,16 @@ export const mountNetgraph = (connection) => {
   const uploadEl = createRow('Upload');
   const pendingEl = createRow('Pending inputs');
   const correctionEl = createRow('Correction');
-  correctionEl.textContent = '0 px (inactive)';
+  correctionEl.textContent = '0.0 px';
 
   document.body.append(panel);
 
   let rttMs = null;
   let lastSnapshotAt = null;
   let nextPingId = 1;
+  let pendingCount = 0;
+  let correctionPx = 0;
 
-  const pendingInputs = [];
   const pendingPings = new Map();
   const rxSamples = [];
   const txSamples = [];
@@ -86,7 +86,8 @@ export const mountNetgraph = (connection) => {
       lastSnapshotAt === null ? '—' : `${Math.max(0, Math.round(now - lastSnapshotAt))} ms`;
     downloadEl.textContent = formatBytesPerSecond(sumTraffic(rxSamples, now));
     uploadEl.textContent = formatBytesPerSecond(sumTraffic(txSamples, now));
-    pendingEl.textContent = String(pendingInputs.length);
+    pendingEl.textContent = String(pendingCount);
+    correctionEl.textContent = `${correctionPx.toFixed(1)} px`;
   };
 
   const sendPing = () => {
@@ -112,7 +113,8 @@ export const mountNetgraph = (connection) => {
   const reset = () => {
     rttMs = null;
     lastSnapshotAt = null;
-    pendingInputs.length = 0;
+    pendingCount = 0;
+    correctionPx = 0;
     pendingPings.clear();
     rxSamples.length = 0;
     txSamples.length = 0;
@@ -133,15 +135,8 @@ export const mountNetgraph = (connection) => {
     }
   };
 
-  const onSnapshot = (event) => {
+  const onSnapshot = () => {
     lastSnapshotAt = performance.now();
-
-    const ackSeq = event.detail.lastProcessedSeq ?? 0;
-
-    while (pendingInputs.length > 0 && pendingInputs[0].seq <= ackSeq) {
-      pendingInputs.shift();
-    }
-
     render();
   };
 
@@ -181,15 +176,18 @@ export const mountNetgraph = (connection) => {
 
   render();
 
-  const trackInput = (seq) => {
-    if (pendingInputs.length >= MAX_PENDING_INPUTS) {
-      pendingInputs.shift();
-    }
+  const setPendingCount = (count) => {
+    pendingCount = count;
+    pendingEl.textContent = String(pendingCount);
+  };
 
-    pendingInputs.push({
-      seq,
-      sentAt: performance.now(),
-    });
+  const recordReconciliation = ({
+    pendingCount: nextPendingCount = 0,
+    correctionPx: nextCorrectionPx = 0,
+  } = {}) => {
+    pendingCount = nextPendingCount;
+    correctionPx = nextCorrectionPx;
+    render();
   };
 
   const destroy = () => {
@@ -207,6 +205,6 @@ export const mountNetgraph = (connection) => {
     panel.remove();
   };
 
-  return { trackInput, destroy };
+  return { setPendingCount, recordReconciliation, destroy };
 };
 

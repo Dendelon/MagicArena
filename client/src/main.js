@@ -23,6 +23,7 @@ import { mountLobby } from './lobby/view.js';
 import { createConnection } from './network/connection.js';
 import { mountRoomChat } from './network/chat.js';
 import { mountNetgraph } from './network/netgraph.js';
+import { createPrediction } from './network/prediction.js';
 
 const INPUT_INTERVAL = 1 / 30;
 
@@ -43,6 +44,9 @@ let netgraph = null;
 let myPlayerId = null;
 let myEntityId = null;
 let respawnTimer = null;
+let lastAppliedSnapshotTick = null;
+
+const prediction = createPrediction();
 
 let inputSeq = 0;
 let clientTick = 0;
@@ -65,7 +69,7 @@ const simulate = (dt) => {
 
   if (inputAccumulator < INPUT_INTERVAL) return;
 
-  inputAccumulator %= INPUT_INTERVAL;
+  inputAccumulator -= INPUT_INTERVAL;
 
   const controls = input.getState();
   const turn = Number(controls.right) - Number(controls.left);
@@ -86,12 +90,14 @@ const simulate = (dt) => {
   pendingFire = false;
   pendingHomingFire = false;
 
-  netgraph?.trackInput(message.seq);
   connection.send(message);
+  prediction.predictInput(message, world);
+  netgraph?.setPendingCount(prediction.pendingCount);
 };
 
 const render = (_alpha, stats) => {
   drawOuterBackground(ctx, size.width, size.height);
+  prediction.advanceSmoothing(stats.frameTimeMs);
 
   const sprites = loadedAssets?.sprites ?? {};
   const frame = Math.floor(performance.now() / 150) % 4;
@@ -163,11 +169,19 @@ const render = (_alpha, stats) => {
     }
 
     for (const sword of world.ofKind('sword')) {
-      const x = sword.pos.x;
-      const y = sword.pos.y;
-      const angle = sword.angle;
+      const isOwnSword =
+        myPlayerId !== null && sword.ownerId !== null && sword.ownerId !== undefined
+          ? sword.ownerId === myPlayerId
+          : myEntityId !== null && sword.id === myEntityId;
+      const usePredicted = isOwnSword && prediction.isAlive;
+      const renderState = usePredicted ? prediction.getRenderState(world) : null;
 
-      if (sword.input?.forward) {
+      const x = renderState ? renderState.x : sword.pos.x;
+      const y = renderState ? renderState.y : sword.pos.y;
+      const angle = renderState ? renderState.angle : sword.angle;
+      const thrusting = renderState ? renderState.thrust : Boolean(sword.input?.forward);
+
+      if (thrusting) {
         drawSwordThrust(ctx, x, y, angle);
       }
 
@@ -258,11 +272,13 @@ void bootGame({
 
         myPlayerId = detail.player?.id ?? null;
         myEntityId = detail.entityId ?? detail.player?.entityId ?? null;
+        lastAppliedSnapshotTick = null;
         inputSeq = 0;
         clientTick = 0;
         inputAccumulator = 0;
         pendingFire = false;
         pendingHomingFire = false;
+        prediction.reset();
 
         if (detail.bounds) {
           world.bounds = {
@@ -272,17 +288,44 @@ void bootGame({
         }
       });
 
+      connection.addEventListener('status', (statusEvent) => {
+        if (
+          statusEvent.detail === 'Connecting...' ||
+          String(statusEvent.detail).startsWith('Reconnecting')
+        ) {
+          lastAppliedSnapshotTick = null;
+          prediction.reset();
+        }
+      });
+
       connection.addEventListener('snapshot', (snapshotEvent) => {
         const snapshot = snapshotEvent.detail;
+
+        if (
+          typeof snapshot.tick === 'number' &&
+          lastAppliedSnapshotTick !== null &&
+          snapshot.tick <= lastAppliedSnapshotTick
+        ) {
+          return;
+        }
+
+        if (typeof snapshot.tick === 'number') {
+          lastAppliedSnapshotTick = snapshot.tick;
+        }
 
         world.applySnapshot(snapshot);
         respawnTimer = snapshot.respawnSeconds ?? null;
 
-        for (const entity of world.ofKind('sword')) {
-          if (entity.ownerId === myPlayerId) {
-            myEntityId = entity.id;
-            break;
-          }
+        const reconciliation = prediction.reconcile(
+          snapshot,
+          myPlayerId,
+          myEntityId,
+          world,
+        );
+
+        if (reconciliation) {
+          myEntityId = reconciliation.entityId;
+          netgraph?.recordReconciliation(reconciliation);
         }
       });
 
@@ -293,6 +336,7 @@ void bootGame({
         'beforeunload',
         () => {
           loop.stop();
+          prediction.reset();
           netgraph?.destroy();
           destroyChat();
         },
