@@ -2,7 +2,7 @@ import { createWriteStream } from 'node:fs';
 import { mkdir } from 'node:fs/promises';
 import { once } from 'node:events';
 import { join } from 'node:path';
-import { config } from '../src/config.js';
+import { config } from '../src/config.ts';
 
 const TARGET_SIZE = 200 * 1024 * 1024;
 const FILE_NAME = 'm4-synthetic-200mb.ndjson';

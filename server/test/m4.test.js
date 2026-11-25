@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { RoomManager } from '../src/rooms.js';
+import { RoomManager } from '../src/rooms.ts';
 import { MAX_MESSAGE_SIZE, parseMessage } from '../src/protocol.ts';
 
 test('RoomManager enforces room limit', () => {

@@ -1,18 +1,25 @@
 import { createServer } from 'node:http';
+import type { IncomingMessage, ServerResponse } from 'node:http';
 import { createReadStream } from 'node:fs';
 import { mkdir, stat } from 'node:fs/promises';
+import type { Stats } from 'node:fs';
 import { extname, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { pipeline } from 'node:stream/promises';
-import { config } from './config.js';
-import { RoomManager } from './rooms.js';
-import { MatchManager } from './game/MatchManager.js';
-import { setupWebSocket } from './ws.js';
-import { setupMatchLogs } from './log/matchlog.js';
-import { getReplayPath, listReplays } from './log/replay.js';
-import { startRssProfiler } from './log/rss.js';
+import { z } from 'zod';
 
-const distDir = resolve(fileURLToPath(new URL('../../client/dist/', import.meta.url)));
+import { config } from './config.ts';
+import { HttpError, hasErrorCode } from './errors.ts';
+import { RoomManager } from './rooms.ts';
+import { MatchManager } from './game/MatchManager.ts';
+import { setupWebSocket } from './ws.ts';
+import { setupMatchLogs } from './log/matchlog.ts';
+import { getReplayPath, listReplays } from './log/replay.ts';
+import { startRssProfiler } from './log/rss.ts';
+
+const distDir = resolve(
+  fileURLToPath(new URL('../../client/dist/', import.meta.url)),
+);
 
 const rooms = new RoomManager();
 
@@ -34,14 +41,15 @@ await mkdir(config.logDir, { recursive: true });
 
 const matchLogs = setupMatchLogs(rooms, config.logDir);
 
-const rssProfiler =
-  process.env.RSS_PROFILE === '1' ? await startRssProfiler(config.logDir) : null;
+const rssProfiler = config.rssProfile
+  ? await startRssProfiler(config.logDir)
+  : null;
 
 if (rssProfiler) {
   console.log(`RSS log: ${rssProfiler.filePath}`);
 }
 
-const mimeTypes = {
+const mimeTypes: Readonly<Record<string, string>> = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
@@ -55,7 +63,11 @@ const mimeTypes = {
   '.ico': 'image/x-icon',
 };
 
-const sendJson = (res, status, data) => {
+const sendJson = (
+  res: ServerResponse,
+  status: number,
+  data: unknown,
+): void => {
   res.writeHead(status, {
     'Content-Type': 'application/json; charset=utf-8',
     'Cache-Control': 'no-store',
@@ -64,32 +76,49 @@ const sendJson = (res, status, data) => {
   res.end(JSON.stringify(data));
 };
 
-const readJsonBody = async (req) => {
-  const chunks = [];
+const readJsonBody = async (req: IncomingMessage): Promise<unknown> => {
+  const chunks: Buffer[] = [];
   let total = 0;
 
-  for await (const chunk of req) {
-    total += chunk.length;
+  for await (const raw of req) {
+    const chunk: unknown = raw;
 
-    if (total > 16 * 1024) {
-      const error = new Error('Request body too large');
-      error.status = 413;
-      throw error;
+    if (!Buffer.isBuffer(chunk) && typeof chunk !== 'string') {
+      throw new HttpError('Invalid request body', 400);
     }
 
-    chunks.push(chunk);
+    const buffer = typeof chunk === 'string' ? Buffer.from(chunk) : chunk;
+
+    total += buffer.byteLength;
+
+    if (total > 16 * 1024) {
+      throw new HttpError('Request body too large', 413);
+    }
+
+    chunks.push(buffer);
   }
 
   try {
-    return JSON.parse(Buffer.concat(chunks).toString('utf8'));
+    const parsed: unknown = JSON.parse(
+      Buffer.concat(chunks).toString('utf8'),
+    );
+
+    return parsed;
   } catch {
-    const error = new Error('Invalid JSON');
-    error.status = 400;
-    throw error;
+    throw new HttpError('Invalid JSON', 400);
   }
 };
 
-const serveStatic = async (pathname, req, res) => {
+const CreateRoomSchema = z.object({
+  name: z.string().trim().min(2).max(40),
+  obstacleCount: z.number().int().min(0).max(3),
+});
+
+const serveStatic = async (
+  pathname: string,
+  req: IncomingMessage,
+  res: ServerResponse,
+): Promise<void> => {
   const relativePath = pathname === '/' ? 'index.html' : pathname.slice(1);
 
   const filePath = resolve(distDir, relativePath);
@@ -100,7 +129,7 @@ const serveStatic = async (pathname, req, res) => {
     return;
   }
 
-  let info;
+  let info: Stats;
 
   try {
     info = await stat(filePath);
@@ -126,10 +155,13 @@ const serveStatic = async (pathname, req, res) => {
   await pipeline(createReadStream(filePath), res);
 };
 
-const handleRequest = async (req, res) => {
-  const rawPath = (req.url ?? '/').split('?')[0];
+const handleRequest = async (
+  req: IncomingMessage,
+  res: ServerResponse,
+): Promise<void> => {
+  const rawPath = (req.url ?? '/').split('?')[0] ?? '/';
 
-  let decodedPath;
+  let decodedPath: string;
 
   try {
     decodedPath = decodeURIComponent(rawPath);
@@ -158,7 +190,7 @@ const handleRequest = async (req, res) => {
   if (
     pathname === '/api/slow' &&
     req.method === 'GET' &&
-    process.env.ENABLE_SLOW_DEMO === '1'
+    config.enableSlowDemo
   ) {
     const started = performance.now();
 
@@ -191,15 +223,9 @@ const handleRequest = async (req, res) => {
   if (pathname === '/api/rooms' && req.method === 'POST') {
     const body = await readJsonBody(req);
 
-    if (
-      !body ||
-      typeof body.name !== 'string' ||
-      body.name.trim().length < 2 ||
-      body.name.trim().length > 40 ||
-      !Number.isInteger(body.obstacleCount) ||
-      body.obstacleCount < 0 ||
-      body.obstacleCount > 3
-    ) {
+    const result = CreateRoomSchema.safeParse(body);
+
+    if (!result.success) {
       sendJson(res, 400, {
         error: 'Invalid room data',
       });
@@ -207,8 +233,8 @@ const handleRequest = async (req, res) => {
     }
 
     const room = rooms.create({
-      name: body.name.trim(),
-      obstacleCount: body.obstacleCount,
+      name: result.data.name,
+      obstacleCount: result.data.obstacleCount,
       maxPlayers: 4,
     });
 
@@ -234,12 +260,12 @@ const handleRequest = async (req, res) => {
       return;
     }
 
-    let info;
+    let info: Stats;
 
     try {
       info = await stat(filePath);
-    } catch (error) {
-      if (error.code === 'ENOENT') {
+    } catch (error: unknown) {
+      if (hasErrorCode(error, 'ENOENT')) {
         sendJson(res, 404, { error: 'Replay not found' });
         return;
       }
@@ -287,7 +313,7 @@ const handleRequest = async (req, res) => {
 };
 
 const server = createServer((req, res) => {
-  void handleRequest(req, res).catch((error) => {
+  void handleRequest(req, res).catch((error: unknown) => {
     console.error('HTTP error:', error);
 
     if (res.destroyed || res.headersSent) {
@@ -295,13 +321,16 @@ const server = createServer((req, res) => {
       return;
     }
 
-    sendJson(res, error.status ?? 500, {
-      error: error.status ? error.message : 'Internal server error',
+    const status = error instanceof HttpError ? error.status : 500;
+
+    sendJson(res, status, {
+      error:
+        error instanceof HttpError ? error.message : 'Internal server error',
     });
   });
 });
 
-let websocket = null;
+let websocket: ReturnType<typeof setupWebSocket> | null = null;
 
 const matchManager = new MatchManager(rooms, {
   onSnapshot: (match) => {
@@ -317,7 +346,7 @@ websocket = setupWebSocket(server, rooms, {
   codec: config.netCodec,
 });
 
-server.on('error', (error) => {
+server.on('error', (error: Error) => {
   console.error('Server error:', error);
   process.exitCode = 1;
 });
@@ -325,14 +354,14 @@ server.on('error', (error) => {
 // Завершення без різкого обриву HTTP-запитів
 let stopping = false;
 
-const shutdown = () => {
+const shutdown = (): void => {
   if (stopping) return;
   stopping = true;
 
   console.log('Shutting down server...');
 
   void (async () => {
-    const httpClosed = new Promise((resolve, reject) => {
+    const httpClosed = new Promise<void>((resolve, reject) => {
       server.close((error) => {
         if (error) reject(error);
         else resolve();
@@ -342,7 +371,9 @@ const shutdown = () => {
     server.closeIdleConnections();
 
     matchManager.shutdown();
-    const websocketClosed = websocket.shutdown();
+    const websocketClosed = websocket
+      ? websocket.shutdown()
+      : Promise.resolve();
 
     const forceCloseTimer = setTimeout(() => {
       server.closeAllConnections();
@@ -361,7 +392,7 @@ const shutdown = () => {
 
     console.log('Server stopped gracefully');
     process.exitCode = 0;
-  })().catch((error) => {
+  })().catch((error: unknown) => {
     console.error('Shutdown error:', error);
     process.exitCode = 1;
   });
@@ -373,3 +404,4 @@ process.on('SIGTERM', shutdown);
 server.listen(config.port, config.host, () => {
   console.log(`Magic Arena server: http://${config.host}:${config.port}`);
 });
+

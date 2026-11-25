@@ -1,0 +1,95 @@
+import { resolve } from 'node:path';
+import { z } from 'zod';
+
+import { CodecSchema } from '@magicarena/shared/protocol';
+
+const envNumber = (defaultValue: number, schema: z.ZodNumber) =>
+  z.preprocess((value) => {
+    if (
+      value === undefined ||
+      (typeof value === 'string' && value.trim() === '')
+    ) {
+      return defaultValue;
+    }
+
+    if (typeof value === 'string') {
+      return Number(value.trim());
+    }
+
+    return value;
+  }, schema);
+
+const envText = (defaultValue: string) =>
+  z.preprocess(
+    (value) =>
+      typeof value === 'string'
+        ? value.trim() || defaultValue
+        : (value ?? defaultValue),
+    z.string(),
+  );
+
+export const EnvSchema = z.object({
+  PORT: z.preprocess(
+    (value) =>
+      typeof value === 'string' ? Number(value) : (value ?? 3000),
+    z.number().int().min(1).max(65535),
+  ),
+
+  HOST: envText('127.0.0.1').refine(
+    (value) => value.length > 0 && !/[\s/\\]/.test(value),
+    'Invalid HOST',
+  ),
+
+  LOG_DIR: envText('server/logs').refine(
+    (value) => value.length > 0 && !value.includes('\0'),
+    'Invalid LOG_DIR',
+  ),
+
+  NET_DELAY_MS: envNumber(0, z.number().min(0).max(1000)),
+
+  NET_JITTER_MS: envNumber(0, z.number().min(0).max(500)),
+
+  NET_DROP_RATE: envNumber(0, z.number().min(0).max(1)),
+
+  NET_CODEC: z.preprocess(
+    (value) =>
+      typeof value === 'string'
+        ? value.trim().toLowerCase() || 'binary'
+        : (value ?? 'binary'),
+    CodecSchema,
+  ),
+
+  RSS_PROFILE: z
+    .string()
+    .optional()
+    .transform((value) => value === '1'),
+
+  ENABLE_SLOW_DEMO: z
+    .string()
+    .optional()
+    .transform((value) => value === '1'),
+});
+
+export const readConfig = (env: unknown) => {
+  const data = EnvSchema.parse(env);
+
+  return {
+    port: data.PORT,
+    host: data.HOST,
+    logDir: resolve(data.LOG_DIR),
+
+    netDelayMs: data.NET_DELAY_MS,
+    netJitterMs: data.NET_JITTER_MS,
+    netDropRate: data.NET_DROP_RATE,
+
+    netCodec: data.NET_CODEC,
+
+    rssProfile: data.RSS_PROFILE,
+    enableSlowDemo: data.ENABLE_SLOW_DEMO,
+  };
+};
+
+export type ServerConfig = ReturnType<typeof readConfig>;
+
+export const config = readConfig(process.env);
+

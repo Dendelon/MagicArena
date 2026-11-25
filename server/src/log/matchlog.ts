@@ -1,9 +1,14 @@
 import { createWriteStream } from 'node:fs';
 import { join } from 'node:path';
 import { PassThrough, Transform } from 'node:stream';
+import type { TransformCallback } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 
-export const createMatchLog = (room, logDir) => {
+import { getErrorMessage } from '../errors.ts';
+import type { Room, RoomManager } from '../rooms.ts';
+import type { RoomLogEvent } from '../types.ts';
+
+export const createMatchLog = (room: Room, logDir: string) => {
   const id = `${room.id}-${Date.now()}`;
   const filePath = join(logDir, `${id}.ndjson`);
 
@@ -17,11 +22,17 @@ export const createMatchLog = (room, logDir) => {
   const toNdjson = new Transform({
     writableObjectMode: true,
 
-    transform(event, _encoding, callback) {
+    transform(
+      event: unknown,
+      _encoding: BufferEncoding,
+      callback: TransformCallback,
+    ): void {
       try {
         callback(null, `${JSON.stringify(event)}\n`);
-      } catch (error) {
-        callback(error);
+      } catch (error: unknown) {
+        callback(
+          error instanceof Error ? error : new Error(getErrorMessage(error)),
+        );
       }
     },
   });
@@ -31,7 +42,7 @@ export const createMatchLog = (room, logDir) => {
   let closed = false;
   room.logBackpressured = false;
 
-  const onEvent = (event) => {
+  const onEvent = (event: RoomLogEvent): void => {
     if (closed) return;
 
     if (!source.write(event)) {
@@ -43,7 +54,7 @@ export const createMatchLog = (room, logDir) => {
     room.logBackpressured = false;
   });
 
-  const close = () => {
+  const close = (): void => {
     if (closed) return;
 
     closed = true;
@@ -56,7 +67,7 @@ export const createMatchLog = (room, logDir) => {
 
   // Обробка помилки без unhandled rejection
   void done
-    .catch((error) => {
+    .catch((error: unknown) => {
       console.error(`Log error (${id}):`, error);
       room.emit('error', error);
     })
@@ -68,10 +79,10 @@ export const createMatchLog = (room, logDir) => {
   return { id, filePath, close, done };
 };
 
-export const setupMatchLogs = (roomManager, logDir) => {
-  const active = new Map();
+export const setupMatchLogs = (roomManager: RoomManager, logDir: string) => {
+  const active = new Map<string, ReturnType<typeof createMatchLog>>();
 
-  const register = (room) => {
+  const register = (room: Room): void => {
     const log = createMatchLog(room, logDir);
     active.set(room.id, log);
 
@@ -89,7 +100,7 @@ export const setupMatchLogs = (roomManager, logDir) => {
   // Нові кімнати, створені через POST /api/rooms
   roomManager.on('created', register);
 
-  const shutdown = async () => {
+  const shutdown = async (): Promise<void> => {
     roomManager.off('created', register);
 
     const logs = [...active.values()];
@@ -104,3 +115,4 @@ export const setupMatchLogs = (roomManager, logDir) => {
 
   return { shutdown };
 };
+

@@ -1,18 +1,60 @@
 import { EventEmitter } from 'node:events';
 import { randomUUID } from 'node:crypto';
 
-export class Room extends EventEmitter {
-  constructor({ id = randomUUID(), name, obstacleCount = 3, maxPlayers = 4 }) {
+import { HttpError } from './errors.ts';
+
+import type {
+  Player,
+  RoomOptions,
+  ChatEvent,
+  RoomLogEvent,
+} from './types.ts';
+
+import type {
+  PlayerId,
+  RoomInfo,
+  RosterPlayer,
+} from '@magicarena/shared';
+
+interface RoomEvents {
+  join: [player: Player];
+  leave: [player: Player];
+  chat: [message: ChatEvent];
+  event: [event: RoomLogEvent];
+  empty: [];
+  error: [error: unknown];
+}
+
+interface RoomManagerEvents {
+  created: [room: Room];
+  removed: [room: Room];
+}
+
+export class Room extends EventEmitter<RoomEvents> {
+  readonly id: string;
+  readonly name: string;
+  readonly obstacleCount: number;
+  readonly maxPlayers: number;
+
+  readonly players = new Map<PlayerId, Player>();
+
+  logBackpressured = false;
+
+  constructor({
+    id = randomUUID(),
+    name,
+    obstacleCount = 3,
+    maxPlayers = 4,
+  }: RoomOptions) {
     super();
 
     this.id = id;
     this.name = name;
     this.obstacleCount = obstacleCount;
     this.maxPlayers = maxPlayers;
-    this.players = new Map();
   }
 
-  getInfo() {
+  getInfo(): RoomInfo {
     return {
       id: this.id,
       name: this.name,
@@ -22,14 +64,14 @@ export class Room extends EventEmitter {
     };
   }
 
-  getRoster() {
+  getRoster(): RosterPlayer[] {
     return [...this.players.values()].map((player) => ({
       id: player.id,
       name: player.name,
     }));
   }
 
-  join(player) {
+  join(player: Player): boolean {
     if (this.players.size >= this.maxPlayers) {
       return false;
     }
@@ -48,7 +90,7 @@ export class Room extends EventEmitter {
     return true;
   }
 
-  leave(playerId) {
+  leave(playerId: PlayerId): void {
     const player = this.players.get(playerId);
     if (!player) return;
 
@@ -68,8 +110,8 @@ export class Room extends EventEmitter {
     }
   }
 
-  chat(player, text) {
-    const message = {
+  chat(player: Player, text: string): void {
+    const message: ChatEvent = {
       playerId: player.id,
       name: player.name,
       text,
@@ -85,18 +127,20 @@ export class Room extends EventEmitter {
   }
 }
 
-export class RoomManager extends EventEmitter {
-  constructor({ maxRooms = 20 } = {}) {
+export class RoomManager extends EventEmitter<RoomManagerEvents> {
+  readonly rooms = new Map<string, Room>();
+
+  readonly maxRooms: number;
+
+  constructor({ maxRooms = 20 }: { maxRooms?: number } = {}) {
     super();
-    this.rooms = new Map();
+
     this.maxRooms = maxRooms;
   }
 
-  create(options) {
+  create(options: RoomOptions): Room {
     if (this.rooms.size >= this.maxRooms) {
-      const error = new Error('Room limit reached');
-      error.status = 429;
-      throw error;
+      throw new HttpError('Room limit reached', 429);
     }
 
     const room = new Room(options);
@@ -117,11 +161,12 @@ export class RoomManager extends EventEmitter {
     return room;
   }
 
-  get(id) {
+  get(id: string): Room | undefined {
     return this.rooms.get(id);
   }
 
-  list() {
+  list(): RoomInfo[] {
     return [...this.rooms.values()].map((room) => room.getInfo());
   }
 }
+

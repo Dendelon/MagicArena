@@ -4,11 +4,12 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "start": "node src/index.js",
+    "start": "node src/index.ts",
     "typecheck": "tsc --noEmit -p ."
   },
   "dependencies": {
     "@magicarena/shared": "*",
-    "ws": "^8.23.0"
+    "ws": "^8.23.0",
+    "zod": "^4.6.7"
   }
 }

@@ -4,7 +4,7 @@ import { join } from 'node:path';
 
 const VALID_ID = /^[a-zA-Z0-9_-]{1,100}$/;
 
-export const getReplayPath = (logDir, id) => {
+export const getReplayPath = (logDir: string, id: string): string | null => {
   if (!VALID_ID.test(id)) {
     return null;
   }
@@ -12,7 +12,7 @@ export const getReplayPath = (logDir, id) => {
   return join(logDir, `${id}.ndjson`);
 };
 
-export const listReplays = async (logDir) => {
+export const listReplays = async (logDir: string): Promise<string[]> => {
   const files = await readdir(logDir, {
     withFileTypes: true,
   });
@@ -24,7 +24,9 @@ export const listReplays = async (logDir) => {
 };
 
 // Асинхронний генератор для читання подій
-export async function* readReplayEvents(filePath) {
+export async function* readReplayEvents(
+  filePath: string,
+): AsyncGenerator<unknown> {
   const stream = createReadStream(filePath, {
     encoding: 'utf8',
   });
@@ -32,7 +34,7 @@ export async function* readReplayEvents(filePath) {
   let remaining = '';
 
   for await (const chunk of stream) {
-    remaining += chunk;
+    remaining += String(chunk);
 
     let newlineIndex = remaining.indexOf('\n');
 
@@ -41,7 +43,8 @@ export async function* readReplayEvents(filePath) {
       remaining = remaining.slice(newlineIndex + 1);
 
       if (line.trim()) {
-        yield JSON.parse(line);
+        const event: unknown = JSON.parse(line);
+        yield event;
       }
 
       newlineIndex = remaining.indexOf('\n');
@@ -49,6 +52,8 @@ export async function* readReplayEvents(filePath) {
   }
 
   if (remaining.trim()) {
-    yield JSON.parse(remaining);
+    const event: unknown = JSON.parse(remaining);
+    yield event;
   }
 }
+

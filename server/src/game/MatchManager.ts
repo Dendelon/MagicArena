@@ -1,14 +1,21 @@
-import { Match } from './Match.js';
+import { Match } from './Match.ts';
+
+import type { MatchStats, SnapshotHandler } from './Match.ts';
+import type { Room, RoomManager } from '../rooms.ts';
+import type { Player } from '../types.ts';
 
 export class MatchManager {
-  #matches = new Map();
-  #cleanups = new Map();
-  #roomManager;
-  #onSnapshot;
-  #onCreated;
-  #onRemoved;
+  #matches = new Map<string, Match>();
+  #cleanups = new Map<string, () => void>();
+  #roomManager: RoomManager;
+  #onSnapshot: SnapshotHandler | null;
+  #onCreated: (room: Room) => void;
+  #onRemoved: (room: Room) => void;
 
-  constructor(roomManager, { onSnapshot = null } = {}) {
+  constructor(
+    roomManager: RoomManager,
+    { onSnapshot = null }: { onSnapshot?: SnapshotHandler | null } = {},
+  ) {
     this.#roomManager = roomManager;
     this.#onSnapshot = onSnapshot;
 
@@ -29,20 +36,22 @@ export class MatchManager {
     roomManager.on('removed', this.#onRemoved);
   }
 
-  #createMatch(room) {
-    if (this.#matches.has(room.id)) {
-      return this.#matches.get(room.id);
+  #createMatch(room: Room): Match {
+    const existing = this.#matches.get(room.id);
+
+    if (existing) {
+      return existing;
     }
 
     const match = new Match(room, {
       onSnapshot: this.#onSnapshot,
     });
 
-    const onJoin = (player) => {
+    const onJoin = (player: Player) => {
       match.addPlayer(player);
     };
 
-    const onLeave = (player) => {
+    const onLeave = (player: Player) => {
       match.removePlayer(player.id);
     };
 
@@ -63,7 +72,7 @@ export class MatchManager {
     return match;
   }
 
-  #destroyMatch(roomId) {
+  #destroyMatch(roomId: string): void {
     const match = this.#matches.get(roomId);
     if (!match) return;
 
@@ -74,15 +83,15 @@ export class MatchManager {
     this.#matches.delete(roomId);
   }
 
-  getMatch(roomId) {
+  getMatch(roomId: string): Match | undefined {
     return this.#matches.get(roomId);
   }
 
-  getStats() {
+  getStats(): MatchStats[] {
     return [...this.#matches.values()].map((match) => match.getStats());
   }
 
-  shutdown() {
+  shutdown(): void {
     this.#roomManager.off('created', this.#onCreated);
     this.#roomManager.off('removed', this.#onRemoved);
 

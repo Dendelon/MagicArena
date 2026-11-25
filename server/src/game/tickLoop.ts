@@ -2,27 +2,37 @@ export const TARGET_TICK_RATE = 30;
 export const FIXED_DT = 1 / TARGET_TICK_RATE;
 export const TICK_INTERVAL_MS = 1000 / TARGET_TICK_RATE;
 
+export interface TickLoopOptions {
+  hz?: number;
+  maxCatchUpSteps?: number;
+  windowSize?: number;
+
+  onTick: (dt: number) => void;
+
+  onAfterTick?: ((tick: number) => void) | null;
+}
+
 export const createTickLoop = ({
   hz = TARGET_TICK_RATE,
   maxCatchUpSteps = 3,
   windowSize = 60,
   onTick,
   onAfterTick = null,
-}) => {
+}: TickLoopOptions) => {
   const stepMs = 1000 / hz;
   const fixedDt = 1 / hz;
 
   let running = false;
-  let timer = null;
+  let timer: ReturnType<typeof setTimeout> | null = null;
   let tick = 0;
   let nextTickAt = 0;
 
-  const stepDurations = [];
-  const jitters = [];
+  const stepDurations: number[] = [];
+  const jitters: number[] = [];
   let lastStepMs = 0;
   let lastJitterMs = 0;
 
-  const pushSample = (list, value) => {
+  const pushSample = (list: number[], value: number): void => {
     list.push(value);
 
     if (list.length > windowSize) {
@@ -30,7 +40,7 @@ export const createTickLoop = ({
     }
   };
 
-  const average = (list) => {
+  const average = (list: readonly number[]): number => {
     if (list.length === 0) return 0;
 
     let sum = 0;
@@ -42,14 +52,14 @@ export const createTickLoop = ({
     return sum / list.length;
   };
 
-  const scheduleNext = () => {
+  const scheduleNext = (): void => {
     if (!running) return;
 
     const delay = Math.max(0, nextTickAt - performance.now());
     timer = setTimeout(runStep, delay);
   };
 
-  const runStep = () => {
+  const runStep = (): void => {
     timer = null;
     if (!running) return;
 
@@ -76,7 +86,11 @@ export const createTickLoop = ({
       nextTickAt += stepMs;
 
       onAfterTick?.(tick);
-    } while (running && performance.now() >= nextTickAt && steps < maxCatchUpSteps);
+    } while (
+      running &&
+      performance.now() >= nextTickAt &&
+      steps < maxCatchUpSteps
+    );
 
     if (running && performance.now() - nextTickAt > stepMs * maxCatchUpSteps) {
       nextTickAt = performance.now() + stepMs;
@@ -85,7 +99,7 @@ export const createTickLoop = ({
     scheduleNext();
   };
 
-  const start = () => {
+  const start = (): void => {
     if (running) return;
 
     running = true;
@@ -93,7 +107,7 @@ export const createTickLoop = ({
     scheduleNext();
   };
 
-  const stop = () => {
+  const stop = (): void => {
     if (!running) return;
 
     running = false;

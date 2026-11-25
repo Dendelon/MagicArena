@@ -9,10 +9,72 @@ import {
   createHoming,
   createSnapshotMessage,
   findSafeSpawn,
+  toSeq,
 } from '@magicarena/shared';
-import { FIXED_DT, createTickLoop } from './tickLoop.js';
 
-const DEFAULT_ARENA_BOUNDS = {
+import { WorldEventSchema } from '@magicarena/shared/protocol';
+
+import type {
+  Bounds,
+  EntityId,
+  EntitySnapshot,
+  GameEntityKind,
+  PlayerId,
+  Seq,
+  SnapshotMessage,
+  SwordInput,
+  Tick,
+  WorldEvent,
+  WorldEventName,
+} from '@magicarena/shared';
+
+import type { z } from 'zod';
+
+import type {
+  Player,
+  MatchPlayerState,
+  QueuedInput,
+  ContinuousInput,
+  FireAck,
+  InputCommand,
+} from '../types.ts';
+
+import type { Room } from '../rooms.ts';
+import { FIXED_DT, createTickLoop } from './tickLoop.ts';
+
+type SnapshotEvent = z.infer<typeof WorldEventSchema>;
+
+export type SnapshotHandler = (match: Match) => void;
+
+export interface MatchOptions {
+  bounds?: Bounds;
+  seed?: number;
+  onSnapshot?: SnapshotHandler | null;
+}
+
+export interface MatchStats {
+  roomId: string;
+  tick: Tick;
+  targetHz: number;
+  lastStepMs: number;
+  avgStepMs: number;
+  lastJitterMs: number;
+  avgJitterMs: number;
+  players: number;
+}
+
+interface SerializedEventDetail {
+  kind?: GameEntityKind;
+  entityId?: EntityId;
+  ownerId?: EntityId | null;
+  ownerPlayerId?: PlayerId | null;
+  originSeq?: Seq | null;
+  hp?: number;
+  score?: number;
+  pos?: { x: number; y: number };
+}
+
+const DEFAULT_ARENA_BOUNDS: Bounds = {
   width: 960,
   height: 640,
 };
@@ -21,7 +83,7 @@ const RESPAWN_SECONDS = 2;
 const MAX_INPUT_QUEUE = 16;
 const MAX_HANDLED_SHOT_SEQS = 64;
 const IDLE_TIMEOUT_TICKS = 30;
-const IDLE_INPUT = Object.freeze({
+const IDLE_INPUT: Readonly<ContinuousInput> = Object.freeze({
   thrust: false,
   turn: 0,
   brake: false,
@@ -33,9 +95,15 @@ const OBSTACLE_PRESETS = [
   { xFactor: 0.7, yFactor: 0.2, vx: -25, vy: -40, radius: 32, homing: false },
 ];
 
-const WORLD_EVENTS = ['fired', 'hit', 'exploded', 'healed', 'scoreChanged'];
+const WORLD_EVENTS: readonly WorldEventName[] = [
+  'fired',
+  'hit',
+  'exploded',
+  'healed',
+  'scoreChanged',
+];
 
-const hashSeed = (value) => {
+const hashSeed = (value: string | number): number => {
   const str = String(value);
   let hash = 2166136261;
 
@@ -47,24 +115,47 @@ const hashSeed = (value) => {
   return hash >>> 0 || 1;
 };
 
-const serializeEventDetail = (detail = {}) => {
-  const out = {};
+const serializeEventDetail = (
+  detail: WorldEvent['detail'],
+): SerializedEventDetail => {
+  const out: SerializedEventDetail = {};
 
-  if (detail.kind !== undefined) out.kind = detail.kind;
-  if (detail.entityId !== undefined) out.entityId = detail.entityId;
-  if (detail.ownerId !== undefined) out.ownerId = detail.ownerId;
-  if (detail.ownerPlayerId !== undefined) out.ownerPlayerId = detail.ownerPlayerId;
-  if (detail.originSeq !== undefined) out.originSeq = detail.originSeq;
-  if (detail.hp !== undefined) out.hp = detail.hp;
-  if (detail.score !== undefined) out.score = detail.score;
-  if (detail.pos) {
+  if ('kind' in detail && detail.kind !== undefined) {
+    out.kind = detail.kind;
+  }
+
+  if ('entityId' in detail && detail.entityId !== undefined) {
+    out.entityId = detail.entityId;
+  }
+
+  if ('ownerId' in detail && detail.ownerId !== undefined) {
+    out.ownerId = detail.ownerId;
+  }
+
+  if ('ownerPlayerId' in detail && detail.ownerPlayerId !== undefined) {
+    out.ownerPlayerId = detail.ownerPlayerId;
+  }
+
+  if ('originSeq' in detail && detail.originSeq !== undefined) {
+    out.originSeq = detail.originSeq;
+  }
+
+  if ('hp' in detail && detail.hp !== undefined) {
+    out.hp = detail.hp;
+  }
+
+  if ('score' in detail && detail.score !== undefined) {
+    out.score = detail.score;
+  }
+
+  if ('pos' in detail && detail.pos) {
     out.pos = { x: detail.pos.x, y: detail.pos.y };
   }
 
   return out;
 };
 
-const findPlayerSpawn = (world) => {
+const findPlayerSpawn = (world: World): Vector2 => {
   const hazards = [...world.ofKind('obstacle'), ...world.ofKind('sword')];
 
   if (hazards.length === 0) {
@@ -97,13 +188,26 @@ const findPlayerSpawn = (world) => {
 };
 
 export class Match {
-  #tickEvents = [];
-  #loop;
+  readonly room: Room;
+  readonly bounds: Bounds;
+  readonly seed: number;
+  readonly world: World;
+
+  readonly players = new Map<PlayerId, MatchPlayerState>();
+
+  readonly onSnapshot: SnapshotHandler | null;
+
+  #tickEvents: SnapshotEvent[] = [];
+  #loop: ReturnType<typeof createTickLoop>;
   #stopped = false;
 
   constructor(
-    room,
-    { bounds = DEFAULT_ARENA_BOUNDS, seed = hashSeed(room.id), onSnapshot = null } = {},
+    room: Room,
+    {
+      bounds = DEFAULT_ARENA_BOUNDS,
+      seed = hashSeed(room.id),
+      onSnapshot = null,
+    }: MatchOptions = {},
   ) {
     this.room = room;
     this.bounds = {
@@ -112,15 +216,16 @@ export class Match {
     };
     this.seed = seed >>> 0;
     this.world = new World(this.bounds, { seed: this.seed });
-    this.players = new Map();
     this.onSnapshot = onSnapshot;
 
     for (const eventName of WORLD_EVENTS) {
       this.world.addEventListener(eventName, (event) => {
-        this.#tickEvents.push({
+        const serialized = WorldEventSchema.parse({
           type: eventName,
           detail: serializeEventDetail(event.detail),
         });
+
+        this.#tickEvents.push(serialized);
       });
     }
 
@@ -136,10 +241,10 @@ export class Match {
     });
   }
 
-  #initWorldEntities() {
+  #initWorldEntities(): void {
     const obstacleCount = Math.max(
       0,
-      Math.min(OBSTACLE_PRESETS.length, this.room.obstacleCount ?? OBSTACLE_PRESETS.length),
+      Math.min(OBSTACLE_PRESETS.length, this.room.obstacleCount),
     );
 
     for (const preset of OBSTACLE_PRESETS.slice(0, obstacleCount)) {
@@ -171,28 +276,28 @@ export class Match {
     );
   }
 
-  get tick() {
+  get tick(): Tick {
     return this.world.tick;
   }
 
-  get stopped() {
+  get stopped(): boolean {
     return this.#stopped;
   }
 
-  start() {
+  start(): void {
     if (this.#stopped) return;
 
     this.#loop.start();
   }
 
-  stop() {
+  stop(): void {
     if (this.#stopped) return;
 
     this.#stopped = true;
     this.#loop.stop();
   }
 
-  addPlayer(player) {
+  addPlayer(player: Player): MatchPlayerState {
     const existing = this.players.get(player.id);
     if (existing) return existing;
 
@@ -208,16 +313,20 @@ export class Match {
 
     this.world.spawn(sword);
 
-    const state = {
+    const state: MatchPlayerState = {
       playerId: player.id,
       entityId: sword.id,
+
       lastReceivedSeq: -1,
-      lastProcessedSeq: 0,
+      lastProcessedSeq: toSeq(0),
+
       inputQueue: [],
       handledShotSeqs: new Set(),
       pendingFireAcks: [],
+
       lastContinuousInput: { ...IDLE_INPUT },
       lastKnownThrust: false,
+
       idleTicks: 0,
       respawnTimer: null,
     };
@@ -226,7 +335,7 @@ export class Match {
     return state;
   }
 
-  removePlayer(playerId) {
+  removePlayer(playerId: PlayerId): void {
     const state = this.players.get(playerId);
     if (!state) return;
 
@@ -238,11 +347,11 @@ export class Match {
     this.players.delete(playerId);
   }
 
-  getPlayer(playerId) {
+  getPlayer(playerId: PlayerId): MatchPlayerState | undefined {
     return this.players.get(playerId);
   }
 
-  applyInput(playerId, input) {
+  applyInput(playerId: PlayerId, input: InputCommand): boolean {
     const state = this.players.get(playerId);
     if (!state) return false;
 
@@ -283,7 +392,7 @@ export class Match {
     return true;
   }
 
-  #markShotHandled(state, originSeq) {
+  #markShotHandled(state: MatchPlayerState, originSeq: Seq): boolean {
     if (state.handledShotSeqs.has(originSeq)) {
       return false;
     }
@@ -291,14 +400,17 @@ export class Match {
     state.handledShotSeqs.add(originSeq);
 
     if (state.handledShotSeqs.size > MAX_HANDLED_SHOT_SEQS) {
-      const oldest = state.handledShotSeqs.values().next().value;
-      state.handledShotSeqs.delete(oldest);
+      const oldest = state.handledShotSeqs.values().next();
+
+      if (!oldest.done) {
+        state.handledShotSeqs.delete(oldest.value);
+      }
     }
 
     return true;
   }
 
-  drainFireAcks(playerId) {
+  drainFireAcks(playerId: PlayerId): FireAck[] {
     const state = this.players.get(playerId);
     if (!state || state.pendingFireAcks.length === 0) return [];
 
@@ -307,16 +419,16 @@ export class Match {
     return acks;
   }
 
-  step(dt = FIXED_DT) {
+  step(dt = FIXED_DT): void {
     this.#tickEvents = [];
 
-    const inputs = new Map();
-    const tickCommands = new Map();
+    const inputs = new Map<EntityId, SwordInput>();
+    const tickCommands = new Map<PlayerId, QueuedInput>();
 
     for (const state of this.players.values()) {
       const sword = this.world.get(state.entityId);
 
-      if (sword && sword.alive) {
+      if (sword?.kind === 'sword' && sword.alive) {
         const command = state.inputQueue.shift() ?? null;
 
         if (command) {
@@ -361,8 +473,12 @@ export class Match {
             }
           }
 
-          const latest = state.inputQueue[state.inputQueue.length - 1];
-          state.lastProcessedSeq = latest.seq;
+          const latest = state.inputQueue.at(-1);
+
+          if (latest) {
+            state.lastProcessedSeq = latest.seq;
+          }
+
           state.inputQueue.length = 0;
         }
       }
@@ -378,12 +494,18 @@ export class Match {
       }
 
       const sword = this.world.get(state.entityId);
-      const wantsShot = Boolean(command && (command.fire || command.homingFire));
-      const originSeq = wantsShot ? (command.fireSeq ?? command.seq) : null;
+      const originSeq =
+        command && (command.fire || command.homingFire)
+          ? (command.fireSeq ?? command.seq)
+          : null;
 
-      if (sword && sword.alive) {
-        if (wantsShot && this.#markShotHandled(state, originSeq)) {
-          const entityIds = [];
+      if (sword?.kind === 'sword' && sword.alive) {
+        if (
+          command &&
+          originSeq !== null &&
+          this.#markShotHandled(state, originSeq)
+        ) {
+          const entityIds: EntityId[] = [];
 
           if (command.fire) {
             const bullet = sword.fire(this.world, { originSeq });
@@ -407,7 +529,7 @@ export class Match {
           state.pendingFireAcks.push({
             originSeq,
             accepted: true,
-            entityId: entityIds[entityIds.length - 1] ?? null,
+            entityId: entityIds.at(-1) ?? null,
             entityIds,
           });
         }
@@ -418,7 +540,7 @@ export class Match {
       state.lastContinuousInput = { ...IDLE_INPUT };
       state.lastKnownThrust = false;
 
-      if (wantsShot && this.#markShotHandled(state, originSeq)) {
+      if (originSeq !== null && this.#markShotHandled(state, originSeq)) {
         state.pendingFireAcks.push({
           originSeq,
           accepted: false,
@@ -450,15 +572,18 @@ export class Match {
     }
   }
 
-  getSnapshotForPlayer(playerId) {
+  getSnapshotForPlayer(playerId: PlayerId): SnapshotMessage {
     const state = this.players.get(playerId);
-    const entities = [...this.world].map((entity) => {
+    const entities: EntitySnapshot[] = [...this.world].map((entity) => {
       const json = entity.toJSON();
 
       if (json.kind === 'sword' && json.alive && json.ownerId) {
         const ownerState = this.players.get(json.ownerId);
         if (ownerState) {
-          json.thrust = ownerState.lastKnownThrust;
+          return {
+            ...json,
+            thrust: ownerState.lastKnownThrust,
+          };
         }
       }
 
@@ -467,7 +592,7 @@ export class Match {
 
     return createSnapshotMessage({
       tick: this.world.tick,
-      lastProcessedSeq: state?.lastProcessedSeq ?? 0,
+      lastProcessedSeq: state?.lastProcessedSeq ?? toSeq(0),
       entities,
       score: this.world.score,
       bounds: this.bounds,
@@ -476,7 +601,7 @@ export class Match {
     });
   }
 
-  getStats() {
+  getStats(): MatchStats {
     const loopStats = this.#loop.getStats();
 
     return {

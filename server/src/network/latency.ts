@@ -1,11 +1,24 @@
+export interface LatencyOptions {
+  delayMs?: number;
+  jitterMs?: number;
+  dropRate?: number;
+}
+
+interface ScheduleOptions {
+  allowDrop?: boolean;
+}
+
 export const createLatencyController = ({
   delayMs = 0,
   jitterMs = 0,
   dropRate = 0,
-} = {}) => {
-  const timers = new Set();
+}: LatencyOptions = {}) => {
+  const timers = new Set<ReturnType<typeof setTimeout>>();
 
-  const schedule = (fn, { allowDrop = false } = {}) => {
+  const schedule = (
+    fn: () => void,
+    { allowDrop = false }: ScheduleOptions = {},
+  ): boolean => {
     if (allowDrop && dropRate > 0 && Math.random() < dropRate) {
       return false;
     }
@@ -27,7 +40,7 @@ export const createLatencyController = ({
     return true;
   };
 
-  const clear = () => {
+  const clear = (): void => {
     for (const timer of timers) {
       clearTimeout(timer);
     }
@@ -43,3 +56,4 @@ export const createLatencyController = ({
     clear,
   };
 };
+
