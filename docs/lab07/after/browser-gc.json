@@ -1,0 +1,97 @@
+{
+  "source": "Trace-20261126T111557.json.gz",
+  "durationMs": 40497.741,
+  "scope": "CrRendererMain, complete events ph=X with start timestamp in trace window; MinorGC and MajorGC combined, incremental marking separate.",
+  "method": "Nearest rank; durations in milliseconds. First 30 seconds for matched comparison, full trace also preserved.",
+  "fullTrace": {
+    "minorGC": {
+      "count": 14,
+      "totalDurationMs": 16.393,
+      "p50Ms": 1.1,
+      "p95Ms": 1.738,
+      "p99Ms": 1.738,
+      "maxMs": 1.738
+    },
+    "majorGC": {
+      "count": 11,
+      "totalDurationMs": 25.217,
+      "p50Ms": 2.276,
+      "p95Ms": 4.245,
+      "p99Ms": 4.245,
+      "maxMs": 4.245
+    },
+    "incrementalMarking": {
+      "count": 114,
+      "totalDurationMs": 13.43,
+      "p50Ms": 0.048,
+      "p95Ms": 0.398,
+      "p99Ms": 0.561,
+      "maxMs": 0.615
+    },
+    "combinedGC": {
+      "count": 25,
+      "totalDurationMs": 41.61,
+      "p50Ms": 1.449,
+      "p95Ms": 2.799,
+      "p99Ms": 4.245,
+      "maxMs": 4.245
+    }
+  },
+  "first30Seconds": {
+    "minorGC": {
+      "count": 11,
+      "totalDurationMs": 11.853,
+      "p50Ms": 1.079,
+      "p95Ms": 1.449,
+      "p99Ms": 1.449,
+      "maxMs": 1.449
+    },
+    "majorGC": {
+      "count": 8,
+      "totalDurationMs": 19.168,
+      "p50Ms": 2.276,
+      "p95Ms": 4.245,
+      "p99Ms": 4.245,
+      "maxMs": 4.245
+    },
+    "incrementalMarking": {
+      "count": 83,
+      "totalDurationMs": 10.289,
+      "p50Ms": 0.068,
+      "p95Ms": 0.398,
+      "p99Ms": 0.561,
+      "maxMs": 0.561
+    },
+    "combinedGC": {
+      "count": 19,
+      "totalDurationMs": 31.021,
+      "p50Ms": 1.132,
+      "p95Ms": 4.245,
+      "p99Ms": 4.245,
+      "maxMs": 4.245
+    }
+  },
+  "browserAppCpuSelfTop3": [
+    {
+      "function": "tu",
+      "url": "http://127.0.0.1:3000/assets/index-BwxFRW0L.js",
+      "lineZeroBased": 54,
+      "columnZeroBased": 54527,
+      "sampleTimeMs": 564.596
+    },
+    {
+      "function": "T",
+      "url": "http://127.0.0.1:3000/assets/index-BwxFRW0L.js",
+      "lineZeroBased": 54,
+      "columnZeroBased": 74575,
+      "sampleTimeMs": 491.477
+    },
+    {
+      "function": "setPendingCount",
+      "url": "http://127.0.0.1:3000/assets/index-BwxFRW0L.js",
+      "lineZeroBased": 54,
+      "columnZeroBased": 75886,
+      "sampleTimeMs": 89.063
+    }
+  ]
+}

@@ -1,0 +1,2483 @@
+{
+  "before": {
+    "metrics": {
+      "recordedAt": "2026-11-26T08:26:58.041Z",
+      "requestedDurationMs": 30000,
+      "client": {
+        "durationMs": 30000.60000014305,
+        "frames": 1801,
+        "fps": 60.03213269039327,
+        "frameIntervalMs": {
+          "count": 1800,
+          "min": 16.39999999999418,
+          "mean": 16.664500000000004,
+          "p50": 16.69999999999709,
+          "p95": 16.80000000000291,
+          "p99": 16.80000000000291,
+          "max": 16.90000000000873
+        },
+        "frameWorkMs": {
+          "count": 1801,
+          "min": 0.10000014305114746,
+          "mean": 0.46801777021015173,
+          "p50": 0.5,
+          "p95": 0.7000000476837158,
+          "p99": 0.9000000953674316,
+          "max": 1.2999999523162842
+        },
+        "simulationMs": {
+          "count": 1801,
+          "min": 0,
+          "mean": 0.08378678411328085,
+          "p50": 0.09999990463256836,
+          "p95": 0.20000004768371582,
+          "p99": 0.3000001907348633,
+          "max": 0.5999999046325684
+        },
+        "renderMs": {
+          "count": 1801,
+          "min": 0.09999990463256836,
+          "mean": 0.37667962500017793,
+          "p50": 0.39999985694885254,
+          "p95": 0.5999999046325684,
+          "p99": 0.7000000476837158,
+          "max": 1.0999999046325684
+        },
+        "framesOverBudget": 1069,
+        "framesOver33Ms": 0,
+        "framesOver50Ms": 0,
+        "valid": true,
+        "cancelledReason": null
+      },
+      "server": {
+        "durationMs": 30002.218200000003,
+        "ticks": 900,
+        "ticksOver33Ms": 0,
+        "tickMs": {
+          "count": 900,
+          "min": 0.8637000000016997,
+          "mean": 2.1975323333332843,
+          "p50": 2.160599999988335,
+          "p95": 3.4275999999954365,
+          "p99": 3.8978000000061,
+          "max": 4.83619999999064
+        },
+        "worldStepMs": {
+          "count": 900,
+          "min": 0.014999999999417923,
+          "mean": 0.062278666666566604,
+          "p50": 0.054799999998067506,
+          "p95": 0.12260000000242144,
+          "p99": 0.19630000001052395,
+          "max": 0.3971999999921536
+        },
+        "collisionMs": {
+          "count": 900,
+          "min": 0.0020000000076834112,
+          "mean": 0.013031000000159516,
+          "p50": 0.007599999997182749,
+          "p95": 0.0415999999968335,
+          "p99": 0.10820000000239816,
+          "max": 0.18659999998635612
+        },
+        "snapshotCreateMs": {
+          "count": 900,
+          "min": 0.13089999998919666,
+          "mean": 0.3457893333336688,
+          "p50": 0.3239000000030501,
+          "p95": 0.5974000000132946,
+          "p99": 0.7353000000002794,
+          "max": 0.9762000000337139
+        },
+        "binaryEncodingMs": {
+          "count": 900,
+          "min": 0.49819999998726416,
+          "mean": 1.3486905555549795,
+          "p50": 1.3170999999856576,
+          "p95": 2.1582000000053085,
+          "p99": 2.536000000007334,
+          "max": 2.8845000000001164
+        },
+        "broadcastMs": {
+          "count": 900,
+          "min": 0.7989999999990687,
+          "mean": 2.0758838888889457,
+          "p50": 2.0227999999915482,
+          "p95": 3.2616000000125496,
+          "p99": 3.720999999990454,
+          "max": 4.6692000000039116
+        },
+        "gc": {
+          "count": 103,
+          "totalDurationMs": 51.65569996833801,
+          "p50Ms": 0.457899808883667,
+          "p95Ms": 0.8122999668121338,
+          "p99Ms": 0.9708001613616943,
+          "maxMs": 1.0204999446868896
+        },
+        "memory": {
+          "heapUsedBefore": 22166376,
+          "heapUsedAfter": 30647888,
+          "rssBefore": 151560192,
+          "rssAfter": 156471296
+        },
+        "entities": {
+          "avg": 12.39,
+          "max": 21
+        },
+        "players": 9
+      },
+      "actualDurationMs": {
+        "client": 30000.60000014305,
+        "server": 30002.218200000003
+      },
+      "players": {
+        "clientRoom": 9,
+        "serverRoom": 9
+      },
+      "experiment": {
+        "roomId": "profiling",
+        "roomName": "Performance Arena",
+        "codec": "binary",
+        "netSim": {
+          "delayMs": 0,
+          "jitterMs": 0,
+          "dropRate": 0
+        },
+        "bounds": {
+          "width": 960,
+          "height": 640
+        }
+      }
+    },
+    "browserTrace": {
+      "source": "Trace-20261126T102926.json.gz",
+      "durationMs": 30485.973,
+      "scope": "CrRendererMain, complete events ph=X with start timestamp in trace window; MinorGC and MajorGC combined, incremental marking separate.",
+      "method": "Nearest rank; durations in milliseconds. First 30 seconds for matched comparison, full trace also preserved.",
+      "fullTrace": {
+        "minorGC": {
+          "count": 23,
+          "totalDurationMs": 21.734,
+          "p50Ms": 0.911,
+          "p95Ms": 1.288,
+          "p99Ms": 1.291,
+          "maxMs": 1.291
+        },
+        "majorGC": {
+          "count": 9,
+          "totalDurationMs": 20.075,
+          "p50Ms": 1.761,
+          "p95Ms": 6.235,
+          "p99Ms": 6.235,
+          "maxMs": 6.235
+        },
+        "incrementalMarking": {
+          "count": 102,
+          "totalDurationMs": 10.249,
+          "p50Ms": 0.042,
+          "p95Ms": 0.392,
+          "p99Ms": 0.449,
+          "maxMs": 0.472
+        },
+        "combinedGC": {
+          "count": 32,
+          "totalDurationMs": 41.809,
+          "p50Ms": 1.036,
+          "p95Ms": 2.07,
+          "p99Ms": 6.235,
+          "maxMs": 6.235
+        }
+      },
+      "first30Seconds": {
+        "minorGC": {
+          "count": 22,
+          "totalDurationMs": 20.474,
+          "p50Ms": 0.907,
+          "p95Ms": 1.288,
+          "p99Ms": 1.291,
+          "maxMs": 1.291
+        },
+        "majorGC": {
+          "count": 8,
+          "totalDurationMs": 18.583,
+          "p50Ms": 1.761,
+          "p95Ms": 6.235,
+          "p99Ms": 6.235,
+          "maxMs": 6.235
+        },
+        "incrementalMarking": {
+          "count": 90,
+          "totalDurationMs": 9.208,
+          "p50Ms": 0.042,
+          "p95Ms": 0.403,
+          "p99Ms": 0.472,
+          "maxMs": 0.472
+        },
+        "combinedGC": {
+          "count": 30,
+          "totalDurationMs": 39.057,
+          "p50Ms": 1.024,
+          "p95Ms": 2.07,
+          "p99Ms": 6.235,
+          "maxMs": 6.235
+        }
+      },
+      "browserAppCpuSelfTop3": [
+        {
+          "function": "Vl",
+          "url": "http://127.0.0.1:3000/assets/index-CsCS-4Cf.js",
+          "lineZeroBased": 54,
+          "columnZeroBased": 50904,
+          "sampleTimeMs": 392.13
+        },
+        {
+          "function": "C",
+          "url": "http://127.0.0.1:3000/assets/index-CsCS-4Cf.js",
+          "lineZeroBased": 54,
+          "columnZeroBased": 70959,
+          "sampleTimeMs": 354.855
+        },
+        {
+          "function": "setPendingCount",
+          "url": "http://127.0.0.1:3000/assets/index-CsCS-4Cf.js",
+          "lineZeroBased": 54,
+          "columnZeroBased": 72280,
+          "sampleTimeMs": 111.775
+        }
+      ]
+    },
+    "serverCpu": {
+      "source": "CPU.20261126.102509.21548.0.001.cpuprofile",
+      "durationSeconds": 516.921631,
+      "idleSampleSeconds": 474.704224,
+      "topApplicationFunctions": [
+        {
+          "function": "transfer",
+          "url": "file:///C:/Users/User/Desktop/MagicArena/shared/src/codec/binary.ts",
+          "selfSampleSeconds": 9.706716,
+          "selfSampleMsPerWallSecond": 18.777925739385434
+        },
+        {
+          "function": "inst._zod.parse",
+          "url": "file:///C:/Users/User/Desktop/MagicArena/node_modules/zod/v4/core/schemas.js",
+          "selfSampleSeconds": 2.869872,
+          "selfSampleMsPerWallSecond": 5.551851243771997
+        },
+        {
+          "function": "transferEntity",
+          "url": "file:///C:/Users/User/Desktop/MagicArena/shared/src/codec/binary.ts",
+          "selfSampleSeconds": 2.636456,
+          "selfSampleMsPerWallSecond": 5.1003011711846895
+        },
+        {
+          "function": "number",
+          "url": "file:///C:/Users/User/Desktop/MagicArena/shared/src/codec/binary.ts",
+          "selfSampleSeconds": 2.074563,
+          "selfSampleMsPerWallSecond": 4.01330274375769
+        },
+        {
+          "function": "inst._zod.run",
+          "url": "file:///C:/Users/User/Desktop/MagicArena/node_modules/zod/v4/core/schemas.js",
+          "selfSampleSeconds": 1.442344,
+          "selfSampleMsPerWallSecond": 2.7902566143532113
+        },
+        {
+          "function": "handleCatchall",
+          "url": "file:///C:/Users/User/Desktop/MagicArena/node_modules/zod/v4/core/schemas.js",
+          "selfSampleSeconds": 0.936891,
+          "selfSampleMsPerWallSecond": 1.8124430161445495
+        },
+        {
+          "function": "isNumberType",
+          "url": "file:///C:/Users/User/Desktop/MagicArena/shared/src/codec/binary.ts",
+          "selfSampleSeconds": 0.68457,
+          "selfSampleMsPerWallSecond": 1.3243206686392275
+        },
+        {
+          "function": "take",
+          "url": "file:///C:/Users/User/Desktop/MagicArena/shared/src/codec/binary.ts",
+          "selfSampleSeconds": 0.537184,
+          "selfSampleMsPerWallSecond": 1.0391981449118346
+        },
+        {
+          "function": "runChecks",
+          "url": "file:///C:/Users/User/Desktop/MagicArena/node_modules/zod/v4/core/schemas.js",
+          "selfSampleSeconds": 0.513752,
+          "selfSampleMsPerWallSecond": 0.9938682562115492
+        },
+        {
+          "function": "toArrayBuffer",
+          "url": "file:///C:/Users/User/Desktop/MagicArena/node_modules/ws/lib/buffer-util.js",
+          "selfSampleSeconds": 0.349212,
+          "selfSampleMsPerWallSecond": 0.6755608182316517
+        }
+      ]
+    },
+    "heap": {
+      "source": "Heap-20261126T103324.heapprofile",
+      "totalSampledBytes": 213512,
+      "topSelfAllocators": [
+        {
+          "function": "(anonymous)",
+          "url": "",
+          "scriptId": "21",
+          "lineZeroBased": 2,
+          "columnZeroBased": 16,
+          "selfSizeBytes": 65676
+        },
+        {
+          "function": "(anonymous)",
+          "url": "",
+          "scriptId": "32",
+          "lineZeroBased": 2,
+          "columnZeroBased": 16,
+          "selfSizeBytes": 49264
+        },
+        {
+          "function": "(anonymous)",
+          "url": "http://127.0.0.1:3000/assets/index-CsCS-4Cf.js",
+          "scriptId": "3",
+          "lineZeroBased": 54,
+          "columnZeroBased": 27323,
+          "selfSizeBytes": 49176
+        }
+      ],
+      "sampledAllocationStacks": [
+        {
+          "selfSizeBytes": 16412,
+          "frame": {
+            "function": "(anonymous)",
+            "url": "",
+            "scriptId": "25",
+            "lineZeroBased": 2,
+            "columnZeroBased": 16
+          },
+          "stack": [
+            {
+              "function": "(root)",
+              "url": "",
+              "scriptId": "0",
+              "lineZeroBased": -1,
+              "columnZeroBased": -1
+            },
+            {
+              "function": "(anonymous)",
+              "url": "http://127.0.0.1:3000/assets/index-CsCS-4Cf.js",
+              "scriptId": "3",
+              "lineZeroBased": 54,
+              "columnZeroBased": 63062
+            },
+            {
+              "function": "Yc",
+              "url": "http://127.0.0.1:3000/assets/index-CsCS-4Cf.js",
+              "scriptId": "3",
+              "lineZeroBased": 54,
+              "columnZeroBased": 40319
+            },
+            {
+              "function": "safeParse",
+              "url": "http://127.0.0.1:3000/assets/index-CsCS-4Cf.js",
+              "scriptId": "3",
+              "lineZeroBased": 54,
+              "columnZeroBased": 15065
+            },
+            {
+              "function": "(anonymous)",
+              "url": "http://127.0.0.1:3000/assets/index-CsCS-4Cf.js",
+              "scriptId": "3",
+              "lineZeroBased": 0,
+              "columnZeroBased": 15539
+            },
+            {
+              "function": "e._zod.parse",
+              "url": "http://127.0.0.1:3000/assets/index-CsCS-4Cf.js",
+              "scriptId": "3",
+              "lineZeroBased": 52,
+              "columnZeroBased": 2620
+            },
+            {
+              "function": "e._zod.parse",
+              "url": "http://127.0.0.1:3000/assets/index-CsCS-4Cf.js",
+              "scriptId": "3",
+              "lineZeroBased": 52,
+              "columnZeroBased": 156
+            },
+            {
+              "function": "(anonymous)",
+              "url": "",
+              "scriptId": "19",
+              "lineZeroBased": 2,
+              "columnZeroBased": 16
+            },
+            {
+              "function": "e._zod.run",
+              "url": "http://127.0.0.1:3000/assets/index-CsCS-4Cf.js",
+              "scriptId": "3",
+              "lineZeroBased": 2,
+              "columnZeroBased": 1053
+            },
+            {
+              "function": "e._zod.parse",
+              "url": "http://127.0.0.1:3000/assets/index-CsCS-4Cf.js",
+              "scriptId": "3",
+              "lineZeroBased": 2,
+              "columnZeroBased": 7550
+            },
+            {
+              "function": "e._zod.parse",
+              "url": "http://127.0.0.1:3000/assets/index-CsCS-4Cf.js",
+              "scriptId": "3",
+              "lineZeroBased": 52,
+              "columnZeroBased": 2620
+            },
+            {
+              "function": "e._zod.parse",
+              "url": "http://127.0.0.1:3000/assets/index-CsCS-4Cf.js",
+              "scriptId": "3",
+              "lineZeroBased": 52,
+              "columnZeroBased": 156
+            },
+            {
+              "function": "(anonymous)",
+              "url": "",
+              "scriptId": "25",
+              "lineZeroBased": 2,
+              "columnZeroBased": 16
+            }
+          ]
+        },
+        {
+          "selfSizeBytes": 16432,
+          "frame": {
+            "function": "(anonymous)",
+            "url": "",
+            "scriptId": "21",
+            "lineZeroBased": 2,
+            "columnZeroBased": 16
+          },
+          "stack": [
+            {
+              "function": "(root)",
+              "url": "",
+              "scriptId": "0",
+              "lineZeroBased": -1,
+              "columnZeroBased": -1
+            },
+            {
+              "function": "(anonymous)",
+              "url": "http://127.0.0.1:3000/assets/index-CsCS-4Cf.js",
+              "scriptId": "3",
+              "lineZeroBased": 54,
+              "columnZeroBased": 63062
+            },
+            {
+              "function": "Yc",
+              "url": "http://127.0.0.1:3000/assets/index-CsCS-4Cf.js",
+              "scriptId": "3",
+              "lineZeroBased": 54,
+              "columnZeroBased": 40319
+            },
+            {
+              "function": "safeParse",
+              "url": "http://127.0.0.1:3000/assets/index-CsCS-4Cf.js",
+              "scriptId": "3",
+              "lineZeroBased": 54,
+              "columnZeroBased": 15065
+            },
+            {
+              "function": "(anonymous)",
+              "url": "http://127.0.0.1:3000/assets/index-CsCS-4Cf.js",
+              "scriptId": "3",
+              "lineZeroBased": 0,
+              "columnZeroBased": 15539
+            },
+            {
+              "function": "e._zod.parse",
+              "url": "http://127.0.0.1:3000/assets/index-CsCS-4Cf.js",
+              "scriptId": "3",
+              "lineZeroBased": 52,
+              "columnZeroBased": 2620
+            },
+            {
+              "function": "e._zod.parse",
+              "url": "http://127.0.0.1:3000/assets/index-CsCS-4Cf.js",
+              "scriptId": "3",
+              "lineZeroBased": 52,
+              "columnZeroBased": 156
+            },
+            {
+              "function": "(anonymous)",
+              "url": "",
+              "scriptId": "19",
+              "lineZeroBased": 2,
+              "columnZeroBased": 16
+            },
+            {
+              "function": "e._zod.run",
+              "url": "http://127.0.0.1:3000/assets/index-CsCS-4Cf.js",
+              "scriptId": "3",
+              "lineZeroBased": 2,
+              "columnZeroBased": 1053
+            },
+            {
+              "function": "e._zod.parse",
+              "url": "http://127.0.0.1:3000/assets/index-CsCS-4Cf.js",
+              "scriptId": "3",
+              "lineZeroBased": 2,
+              "columnZeroBased": 7550
+            },
+            {
+              "function": "e._zod.parse",
+              "url": "http://127.0.0.1:3000/assets/index-CsCS-4Cf.js",
+              "scriptId": "3",
+              "lineZeroBased": 52,
+              "columnZeroBased": 2620
+            },
+            {
+              "function": "e._zod.parse",
+              "url": "http://127.0.0.1:3000/assets/index-CsCS-4Cf.js",
+              "scriptId": "3",
+              "lineZeroBased": 52,
+              "columnZeroBased": 156
+            },
+            {
+              "function": "(anonymous)",
+              "url": "",
+              "scriptId": "25",
+              "lineZeroBased": 2,
+              "columnZeroBased": 16
+            },
+            {
+              "function": "e._zod.parse",
+              "url": "http://127.0.0.1:3000/assets/index-CsCS-4Cf.js",
+              "scriptId": "3",
+              "lineZeroBased": 52,
+              "columnZeroBased": 156
+            },
+            {
+              "function": "(anonymous)",
+              "url": "",
+              "scriptId": "21",
+              "lineZeroBased": 2,
+              "columnZeroBased": 16
+            }
+          ]
+        },
+        {
+          "selfSizeBytes": 16432,
+          "frame": {
+            "function": "(anonymous)",
+            "url": "",
+            "scriptId": "21",
+            "lineZeroBased": 2,
+            "columnZeroBased": 16
+          },
+          "stack": [
+            {
+              "function": "(root)",
+              "url": "",
+              "scriptId": "0",
+              "lineZeroBased": -1,
+              "columnZeroBased": -1
+            },
+            {
+              "function": "(anonymous)",
+              "url": "http://127.0.0.1:3000/assets/index-CsCS-4Cf.js",
+              "scriptId": "3",
+              "lineZeroBased": 54,
+              "columnZeroBased": 63062
+            },
+            {
+              "function": "Yc",
+              "url": "http://127.0.0.1:3000/assets/index-CsCS-4Cf.js",
+              "scriptId": "3",
+              "lineZeroBased": 54,
+              "columnZeroBased": 40319
+            },
+            {
+              "function": "safeParse",
+              "url": "http://127.0.0.1:3000/assets/index-CsCS-4Cf.js",
+              "scriptId": "3",
+              "lineZeroBased": 54,
+              "columnZeroBased": 15065
+            },
+            {
+              "function": "(anonymous)",
+              "url": "http://127.0.0.1:3000/assets/index-CsCS-4Cf.js",
+              "scriptId": "3",
+              "lineZeroBased": 0,
+              "columnZeroBased": 15539
+            },
+            {
+              "function": "e._zod.parse",
+              "url": "http://127.0.0.1:3000/assets/index-CsCS-4Cf.js",
+              "scriptId": "3",
+              "lineZeroBased": 52,
+              "columnZeroBased": 2620
+            },
+            {
+              "function": "e._zod.parse",
+              "url": "http://127.0.0.1:3000/assets/index-CsCS-4Cf.js",
+              "scriptId": "3",
+              "lineZeroBased": 52,
+              "columnZeroBased": 156
+            },
+            {
+              "function": "(anonymous)",
+              "url": "",
+              "scriptId": "19",
+              "lineZeroBased": 2,
+              "columnZeroBased": 16
+            },
+            {
+              "function": "e._zod.run",
+              "url": "http://127.0.0.1:3000/assets/index-CsCS-4Cf.js",
+              "scriptId": "3",
+              "lineZeroBased": 2,
+              "columnZeroBased": 1053
+            },
+            {
+              "function": "e._zod.parse",
+              "url": "http://127.0.0.1:3000/assets/index-CsCS-4Cf.js",
+              "scriptId": "3",
+              "lineZeroBased": 2,
+              "columnZeroBased": 7550
+            },
+            {
+              "function": "e._zod.parse",
+              "url": "http://127.0.0.1:3000/assets/index-CsCS-4Cf.js",
+              "scriptId": "3",
+              "lineZeroBased": 52,
+              "columnZeroBased": 2620
+            },
+            {
+              "function": "e._zod.parse",
+              "url": "http://127.0.0.1:3000/assets/index-CsCS-4Cf.js",
+              "scriptId": "3",
+              "lineZeroBased": 52,
+              "columnZeroBased": 156
+            },
+            {
+              "function": "(anonymous)",
+              "url": "",
+              "scriptId": "28",
+              "lineZeroBased": 2,
+              "columnZeroBased": 16
+            },
+            {
+              "function": "e._zod.parse",
+              "url": "http://127.0.0.1:3000/assets/index-CsCS-4Cf.js",
+              "scriptId": "3",
+              "lineZeroBased": 52,
+              "columnZeroBased": 156
+            },
+            {
+              "function": "(anonymous)",
+              "url": "",
+              "scriptId": "21",
+              "lineZeroBased": 2,
+              "columnZeroBased": 16
+            }
+          ]
+        },
+        {
+          "selfSizeBytes": 49264,
+          "frame": {
+            "function": "(anonymous)",
+            "url": "",
+            "scriptId": "32",
+            "lineZeroBased": 2,
+            "columnZeroBased": 16
+          },
+          "stack": [
+            {
+              "function": "(root)",
+              "url": "",
+              "scriptId": "0",
+              "lineZeroBased": -1,
+              "columnZeroBased": -1
+            },
+            {
+              "function": "(anonymous)",
+              "url": "http://127.0.0.1:3000/assets/index-CsCS-4Cf.js",
+              "scriptId": "3",
+              "lineZeroBased": 54,
+              "columnZeroBased": 63062
+            },
+            {
+              "function": "Yc",
+              "url": "http://127.0.0.1:3000/assets/index-CsCS-4Cf.js",
+              "scriptId": "3",
+              "lineZeroBased": 54,
+              "columnZeroBased": 40319
+            },
+            {
+              "function": "safeParse",
+              "url": "http://127.0.0.1:3000/assets/index-CsCS-4Cf.js",
+              "scriptId": "3",
+              "lineZeroBased": 54,
+              "columnZeroBased": 15065
+            },
+            {
+              "function": "(anonymous)",
+              "url": "http://127.0.0.1:3000/assets/index-CsCS-4Cf.js",
+              "scriptId": "3",
+              "lineZeroBased": 0,
+              "columnZeroBased": 15539
+            },
+            {
+              "function": "e._zod.parse",
+              "url": "http://127.0.0.1:3000/assets/index-CsCS-4Cf.js",
+              "scriptId": "3",
+              "lineZeroBased": 52,
+              "columnZeroBased": 2620
+            },
+            {
+              "function": "e._zod.parse",
+              "url": "http://127.0.0.1:3000/assets/index-CsCS-4Cf.js",
+              "scriptId": "3",
+              "lineZeroBased": 52,
+              "columnZeroBased": 156
+            },
+            {
+              "function": "(anonymous)",
+              "url": "",
+              "scriptId": "19",
+              "lineZeroBased": 2,
+              "columnZeroBased": 16
+            },
+            {
+              "function": "e._zod.run",
+              "url": "http://127.0.0.1:3000/assets/index-CsCS-4Cf.js",
+              "scriptId": "3",
+              "lineZeroBased": 2,
+              "columnZeroBased": 1053
+            },
+            {
+              "function": "e._zod.parse",
+              "url": "http://127.0.0.1:3000/assets/index-CsCS-4Cf.js",
+              "scriptId": "3",
+              "lineZeroBased": 2,
+              "columnZeroBased": 7550
+            },
+            {
+              "function": "e._zod.parse",
+              "url": "http://127.0.0.1:3000/assets/index-CsCS-4Cf.js",
+              "scriptId": "3",
+              "lineZeroBased": 52,
+              "columnZeroBased": 2620
+            },
+            {
+              "function": "e._zod.parse",
+              "url": "http://127.0.0.1:3000/assets/index-CsCS-4Cf.js",
+              "scriptId": "3",
+              "lineZeroBased": 52,
+              "columnZeroBased": 156
+            },
+            {
+              "function": "(anonymous)",
+              "url": "",
+              "scriptId": "31",
+              "lineZeroBased": 2,
+              "columnZeroBased": 16
+            },
+            {
+              "function": "e._zod.run",
+              "url": "http://127.0.0.1:3000/assets/index-CsCS-4Cf.js",
+              "scriptId": "3",
+              "lineZeroBased": 2,
+              "columnZeroBased": 1053
+            },
+            {
+              "function": "e._zod.parse",
+              "url": "http://127.0.0.1:3000/assets/index-CsCS-4Cf.js",
+              "scriptId": "3",
+              "lineZeroBased": 2,
+              "columnZeroBased": 7550
+            },
+            {
+              "function": "e._zod.parse",
+              "url": "http://127.0.0.1:3000/assets/index-CsCS-4Cf.js",
+              "scriptId": "3",
+              "lineZeroBased": 52,
+              "columnZeroBased": 156
+            },
+            {
+              "function": "(anonymous)",
+              "url": "",
+              "scriptId": "32",
+              "lineZeroBased": 2,
+              "columnZeroBased": 16
+            }
+          ]
+        },
+        {
+          "selfSizeBytes": 32812,
+          "frame": {
+            "function": "(anonymous)",
+            "url": "",
+            "scriptId": "21",
+            "lineZeroBased": 2,
+            "columnZeroBased": 16
+          },
+          "stack": [
+            {
+              "function": "(root)",
+              "url": "",
+              "scriptId": "0",
+              "lineZeroBased": -1,
+              "columnZeroBased": -1
+            },
+            {
+              "function": "(anonymous)",
+              "url": "http://127.0.0.1:3000/assets/index-CsCS-4Cf.js",
+              "scriptId": "3",
+              "lineZeroBased": 54,
+              "columnZeroBased": 63062
+            },
+            {
+              "function": "Yc",
+              "url": "http://127.0.0.1:3000/assets/index-CsCS-4Cf.js",
+              "scriptId": "3",
+              "lineZeroBased": 54,
+              "columnZeroBased": 40319
+            },
+            {
+              "function": "safeParse",
+              "url": "http://127.0.0.1:3000/assets/index-CsCS-4Cf.js",
+              "scriptId": "3",
+              "lineZeroBased": 54,
+              "columnZeroBased": 15065
+            },
+            {
+              "function": "(anonymous)",
+              "url": "http://127.0.0.1:3000/assets/index-CsCS-4Cf.js",
+              "scriptId": "3",
+              "lineZeroBased": 0,
+              "columnZeroBased": 15539
+            },
+            {
+              "function": "e._zod.parse",
+              "url": "http://127.0.0.1:3000/assets/index-CsCS-4Cf.js",
+              "scriptId": "3",
+              "lineZeroBased": 52,
+              "columnZeroBased": 2620
+            },
+            {
+              "function": "e._zod.parse",
+              "url": "http://127.0.0.1:3000/assets/index-CsCS-4Cf.js",
+              "scriptId": "3",
+              "lineZeroBased": 52,
+              "columnZeroBased": 156
+            },
+            {
+              "function": "(anonymous)",
+              "url": "",
+              "scriptId": "19",
+              "lineZeroBased": 2,
+              "columnZeroBased": 16
+            },
+            {
+              "function": "e._zod.run",
+              "url": "http://127.0.0.1:3000/assets/index-CsCS-4Cf.js",
+              "scriptId": "3",
+              "lineZeroBased": 2,
+              "columnZeroBased": 1053
+            },
+            {
+              "function": "e._zod.parse",
+              "url": "http://127.0.0.1:3000/assets/index-CsCS-4Cf.js",
+              "scriptId": "3",
+              "lineZeroBased": 2,
+              "columnZeroBased": 7550
+            },
+            {
+              "function": "e._zod.parse",
+              "url": "http://127.0.0.1:3000/assets/index-CsCS-4Cf.js",
+              "scriptId": "3",
+              "lineZeroBased": 52,
+              "columnZeroBased": 2620
+            },
+            {
+              "function": "e._zod.parse",
+              "url": "http://127.0.0.1:3000/assets/index-CsCS-4Cf.js",
+              "scriptId": "3",
+              "lineZeroBased": 52,
+              "columnZeroBased": 156
+            },
+            {
+              "function": "(anonymous)",
+              "url": "",
+              "scriptId": "31",
+              "lineZeroBased": 2,
+              "columnZeroBased": 16
+            },
+            {
+              "function": "e._zod.run",
+              "url": "http://127.0.0.1:3000/assets/index-CsCS-4Cf.js",
+              "scriptId": "3",
+              "lineZeroBased": 2,
+              "columnZeroBased": 1053
+            },
+            {
+              "function": "e._zod.parse",
+              "url": "http://127.0.0.1:3000/assets/index-CsCS-4Cf.js",
+              "scriptId": "3",
+              "lineZeroBased": 2,
+              "columnZeroBased": 7550
+            },
+            {
+              "function": "e._zod.parse",
+              "url": "http://127.0.0.1:3000/assets/index-CsCS-4Cf.js",
+              "scriptId": "3",
+              "lineZeroBased": 52,
+              "columnZeroBased": 156
+            },
+            {
+              "function": "(anonymous)",
+              "url": "",
+              "scriptId": "32",
+              "lineZeroBased": 2,
+              "columnZeroBased": 16
+            },
+            {
+              "function": "e._zod.parse",
+              "url": "http://127.0.0.1:3000/assets/index-CsCS-4Cf.js",
+              "scriptId": "3",
+              "lineZeroBased": 52,
+              "columnZeroBased": 156
+            },
+            {
+              "function": "(anonymous)",
+              "url": "",
+              "scriptId": "21",
+              "lineZeroBased": 2,
+              "columnZeroBased": 16
+            }
+          ]
+        },
+        {
+          "selfSizeBytes": 16392,
+          "frame": {
+            "function": "(anonymous)",
+            "url": "",
+            "scriptId": "31",
+            "lineZeroBased": 2,
+            "columnZeroBased": 16
+          },
+          "stack": [
+            {
+              "function": "(root)",
+              "url": "",
+              "scriptId": "0",
+              "lineZeroBased": -1,
+              "columnZeroBased": -1
+            },
+            {
+              "function": "(anonymous)",
+              "url": "http://127.0.0.1:3000/assets/index-CsCS-4Cf.js",
+              "scriptId": "3",
+              "lineZeroBased": 54,
+              "columnZeroBased": 63062
+            },
+            {
+              "function": "decode",
+              "url": "http://127.0.0.1:3000/assets/index-CsCS-4Cf.js",
+              "scriptId": "3",
+              "lineZeroBased": 54,
+              "columnZeroBased": 47936
+            },
+            {
+              "function": "Ml",
+              "url": "http://127.0.0.1:3000/assets/index-CsCS-4Cf.js",
+              "scriptId": "3",
+              "lineZeroBased": 54,
+              "columnZeroBased": 47621
+            },
+            {
+              "function": "e",
+              "url": "http://127.0.0.1:3000/assets/index-CsCS-4Cf.js",
+              "scriptId": "3",
+              "lineZeroBased": 54,
+              "columnZeroBased": 14947
+            },
+            {
+              "function": "e._zod.parse",
+              "url": "http://127.0.0.1:3000/assets/index-CsCS-4Cf.js",
+              "scriptId": "3",
+              "lineZeroBased": 52,
+              "columnZeroBased": 156
+            },
+            {
+              "function": "(anonymous)",
+              "url": "",
+              "scriptId": "19",
+              "lineZeroBased": 2,
+              "columnZeroBased": 16
+            },
+            {
+              "function": "e._zod.run",
+              "url": "http://127.0.0.1:3000/assets/index-CsCS-4Cf.js",
+              "scriptId": "3",
+              "lineZeroBased": 2,
+              "columnZeroBased": 1053
+            },
+            {
+              "function": "e._zod.parse",
+              "url": "http://127.0.0.1:3000/assets/index-CsCS-4Cf.js",
+              "scriptId": "3",
+              "lineZeroBased": 2,
+              "columnZeroBased": 7550
+            },
+            {
+              "function": "e._zod.parse",
+              "url": "http://127.0.0.1:3000/assets/index-CsCS-4Cf.js",
+              "scriptId": "3",
+              "lineZeroBased": 52,
+              "columnZeroBased": 2620
+            },
+            {
+              "function": "e._zod.parse",
+              "url": "http://127.0.0.1:3000/assets/index-CsCS-4Cf.js",
+              "scriptId": "3",
+              "lineZeroBased": 52,
+              "columnZeroBased": 156
+            },
+            {
+              "function": "(anonymous)",
+              "url": "",
+              "scriptId": "31",
+              "lineZeroBased": 2,
+              "columnZeroBased": 16
+            }
+          ]
+        },
+        {
+          "selfSizeBytes": 49176,
+          "frame": {
+            "function": "(anonymous)",
+            "url": "http://127.0.0.1:3000/assets/index-CsCS-4Cf.js",
+            "scriptId": "3",
+            "lineZeroBased": 54,
+            "columnZeroBased": 27323
+          },
+          "stack": [
+            {
+              "function": "(root)",
+              "url": "",
+              "scriptId": "0",
+              "lineZeroBased": -1,
+              "columnZeroBased": -1
+            },
+            {
+              "function": "(anonymous)",
+              "url": "http://127.0.0.1:3000/assets/index-CsCS-4Cf.js",
+              "scriptId": "3",
+              "lineZeroBased": 54,
+              "columnZeroBased": 63062
+            },
+            {
+              "function": "emit",
+              "url": "http://127.0.0.1:3000/assets/index-CsCS-4Cf.js",
+              "scriptId": "3",
+              "lineZeroBased": 54,
+              "columnZeroBased": 59277
+            },
+            {
+              "function": "(anonymous)",
+              "url": "http://127.0.0.1:3000/assets/index-CsCS-4Cf.js",
+              "scriptId": "3",
+              "lineZeroBased": 54,
+              "columnZeroBased": 88449
+            },
+            {
+              "function": "applySnapshot",
+              "url": "http://127.0.0.1:3000/assets/index-CsCS-4Cf.js",
+              "scriptId": "3",
+              "lineZeroBased": 54,
+              "columnZeroBased": 36847
+            },
+            {
+              "function": "Ec",
+              "url": "http://127.0.0.1:3000/assets/index-CsCS-4Cf.js",
+              "scriptId": "3",
+              "lineZeroBased": 54,
+              "columnZeroBased": 34526
+            },
+            {
+              "function": "t",
+              "url": "http://127.0.0.1:3000/assets/index-CsCS-4Cf.js",
+              "scriptId": "3",
+              "lineZeroBased": 54,
+              "columnZeroBased": 27078
+            },
+            {
+              "function": "map",
+              "url": "",
+              "scriptId": "0",
+              "lineZeroBased": -1,
+              "columnZeroBased": -1
+            },
+            {
+              "function": "(anonymous)",
+              "url": "http://127.0.0.1:3000/assets/index-CsCS-4Cf.js",
+              "scriptId": "3",
+              "lineZeroBased": 54,
+              "columnZeroBased": 27323
+            }
+          ]
+        },
+        {
+          "selfSizeBytes": 16592,
+          "frame": {
+            "function": "set",
+            "url": "",
+            "scriptId": "0",
+            "lineZeroBased": -1,
+            "columnZeroBased": -1
+          },
+          "stack": [
+            {
+              "function": "(root)",
+              "url": "",
+              "scriptId": "0",
+              "lineZeroBased": -1,
+              "columnZeroBased": -1
+            },
+            {
+              "function": "(anonymous)",
+              "url": "http://127.0.0.1:3000/assets/index-CsCS-4Cf.js",
+              "scriptId": "3",
+              "lineZeroBased": 54,
+              "columnZeroBased": 63062
+            },
+            {
+              "function": "emit",
+              "url": "http://127.0.0.1:3000/assets/index-CsCS-4Cf.js",
+              "scriptId": "3",
+              "lineZeroBased": 54,
+              "columnZeroBased": 59277
+            },
+            {
+              "function": "(anonymous)",
+              "url": "http://127.0.0.1:3000/assets/index-CsCS-4Cf.js",
+              "scriptId": "3",
+              "lineZeroBased": 54,
+              "columnZeroBased": 88449
+            },
+            {
+              "function": "u",
+              "url": "http://127.0.0.1:3000/assets/index-CsCS-4Cf.js",
+              "scriptId": "3",
+              "lineZeroBased": 54,
+              "columnZeroBased": 66661
+            },
+            {
+              "function": "set",
+              "url": "",
+              "scriptId": "0",
+              "lineZeroBased": -1,
+              "columnZeroBased": -1
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "after": {
+    "metrics": {
+      "recordedAt": "2026-11-26T09:15:05.770Z",
+      "requestedDurationMs": 30000,
+      "client": {
+        "durationMs": 30001.700000047684,
+        "frames": 1800,
+        "fps": 59.99660019256039,
+        "frameIntervalMs": {
+          "count": 1799,
+          "min": 16.30000000000291,
+          "mean": 16.66442468037799,
+          "p50": 16.69999999999709,
+          "p95": 16.799999999995634,
+          "p99": 16.80000000000291,
+          "max": 17.099999999998545
+        },
+        "frameWorkMs": {
+          "count": 1800,
+          "min": 0.19999980926513672,
+          "mean": 0.570944445265664,
+          "p50": 0.5999999046325684,
+          "p95": 0.8000001907348633,
+          "p99": 0.9000000953674316,
+          "max": 1.1000001430511475
+        },
+        "simulationMs": {
+          "count": 1800,
+          "min": 0,
+          "mean": 0.09605555335680643,
+          "p50": 0.09999990463256836,
+          "p95": 0.2999999523162842,
+          "p99": 0.3000001907348633,
+          "max": 0.5
+        },
+        "renderMs": {
+          "count": 1800,
+          "min": 0.19999980926513672,
+          "mean": 0.46433333608839245,
+          "p50": 0.5,
+          "p95": 0.7000000476837158,
+          "p99": 0.7000000476837158,
+          "max": 0.8999998569488525
+        },
+        "framesOverBudget": 1063,
+        "framesOver33Ms": 0,
+        "framesOver50Ms": 0,
+        "valid": true,
+        "cancelledReason": null
+      },
+      "server": {
+        "durationMs": 30004.702399999995,
+        "ticks": 900,
+        "ticksOver33Ms": 0,
+        "tickMs": {
+          "count": 900,
+          "min": 1.022400000001653,
+          "mean": 2.5989068888888545,
+          "p50": 2.515800000001036,
+          "p95": 4.0732999999963795,
+          "p99": 4.613400000002002,
+          "max": 5.239600000000792
+        },
+        "worldStepMs": {
+          "count": 900,
+          "min": 0.018000000003667083,
+          "mean": 0.07287444444459754,
+          "p50": 0.06429999999818392,
+          "p95": 0.14209999999729916,
+          "p99": 0.21570000000065193,
+          "max": 0.6656999999977415
+        },
+        "collisionMs": {
+          "count": 900,
+          "min": 0.0021999999953550287,
+          "mean": 0.01536855555547744,
+          "p50": 0.00930000000516884,
+          "p95": 0.04099999999743886,
+          "p99": 0.14960000000428408,
+          "max": 0.3536999999996624
+        },
+        "snapshotCreateMs": {
+          "count": 900,
+          "min": 0.14799999998649582,
+          "mean": 0.44162555555522787,
+          "p50": 0.40840000000753207,
+          "p95": 0.8023000000030152,
+          "p99": 0.9651000000085332,
+          "max": 1.0742000000100234
+        },
+        "binaryEncodingMs": {
+          "count": 900,
+          "min": 0.5854999999864958,
+          "mean": 1.5624450000004113,
+          "p50": 1.4950999999928172,
+          "p95": 2.5003000000142492,
+          "p99": 2.790899999985413,
+          "max": 3.222700000012992
+        },
+        "broadcastMs": {
+          "count": 900,
+          "min": 0.9605000000010477,
+          "mean": 2.467477222221892,
+          "p50": 2.38300000000163,
+          "p95": 3.8925000000017462,
+          "p99": 4.393799999998009,
+          "max": 5.081099999995786
+        },
+        "gc": {
+          "count": 125,
+          "totalDurationMs": 65.83990001678467,
+          "p50Ms": 0.46700000762939453,
+          "p95Ms": 0.9281997680664062,
+          "p99Ms": 1.40339994430542,
+          "maxMs": 2.45389986038208
+        },
+        "memory": {
+          "heapUsedBefore": 30138056,
+          "heapUsedAfter": 19423576,
+          "rssBefore": 127143936,
+          "rssAfter": 155607040
+        },
+        "entities": {
+          "avg": 12.747777777777777,
+          "max": 21
+        },
+        "players": 9,
+        "pools": {
+          "bullets": {
+            "before": {
+              "created": 10,
+              "acquired": 142,
+              "reused": 132,
+              "released": 138,
+              "discarded": 0,
+              "active": 4,
+              "available": 6,
+              "peakActive": 10
+            },
+            "after": {
+              "created": 12,
+              "acquired": 363,
+              "reused": 351,
+              "released": 359,
+              "discarded": 0,
+              "active": 4,
+              "available": 8,
+              "peakActive": 12
+            },
+            "delta": {
+              "created": 2,
+              "acquired": 221,
+              "reused": 219,
+              "released": 221,
+              "discarded": 0
+            }
+          },
+          "particles": {
+            "before": {
+              "created": 100,
+              "acquired": 655,
+              "reused": 555,
+              "released": 655,
+              "discarded": 0,
+              "active": 0,
+              "available": 100,
+              "peakActive": 100
+            },
+            "after": {
+              "created": 117,
+              "acquired": 1600,
+              "reused": 1483,
+              "released": 1600,
+              "discarded": 0,
+              "active": 0,
+              "available": 117,
+              "peakActive": 117
+            },
+            "delta": {
+              "created": 17,
+              "acquired": 945,
+              "reused": 928,
+              "released": 945,
+              "discarded": 0
+            }
+          }
+        }
+      },
+      "actualDurationMs": {
+        "client": 30001.700000047684,
+        "server": 30004.702399999995
+      },
+      "players": {
+        "clientRoom": 9,
+        "serverRoom": 9
+      },
+      "experiment": {
+        "roomId": "profiling",
+        "roomName": "Performance Arena",
+        "codec": "binary",
+        "netSim": {
+          "delayMs": 0,
+          "jitterMs": 0,
+          "dropRate": 0
+        },
+        "bounds": {
+          "width": 960,
+          "height": 640
+        }
+      },
+      "pools": {
+        "serverWorld": {
+          "bullets": {
+            "before": {
+              "created": 10,
+              "acquired": 142,
+              "reused": 132,
+              "released": 138,
+              "discarded": 0,
+              "active": 4,
+              "available": 6,
+              "peakActive": 10
+            },
+            "after": {
+              "created": 12,
+              "acquired": 363,
+              "reused": 351,
+              "released": 359,
+              "discarded": 0,
+              "active": 4,
+              "available": 8,
+              "peakActive": 12
+            },
+            "delta": {
+              "created": 2,
+              "acquired": 221,
+              "reused": 219,
+              "released": 221,
+              "discarded": 0
+            }
+          },
+          "particles": {
+            "before": {
+              "created": 100,
+              "acquired": 655,
+              "reused": 555,
+              "released": 655,
+              "discarded": 0,
+              "active": 0,
+              "available": 100,
+              "peakActive": 100
+            },
+            "after": {
+              "created": 117,
+              "acquired": 1600,
+              "reused": 1483,
+              "released": 1600,
+              "discarded": 0,
+              "active": 0,
+              "available": 117,
+              "peakActive": 117
+            },
+            "delta": {
+              "created": 17,
+              "acquired": 945,
+              "reused": 928,
+              "released": 945,
+              "discarded": 0
+            }
+          }
+        },
+        "clientWorld": {
+          "bullets": {
+            "before": {
+              "created": 10,
+              "acquired": 2892,
+              "reused": 2882,
+              "released": 2888,
+              "discarded": 0,
+              "active": 4,
+              "available": 6,
+              "peakActive": 10
+            },
+            "after": {
+              "created": 12,
+              "acquired": 7517,
+              "reused": 7505,
+              "released": 7514,
+              "discarded": 0,
+              "active": 3,
+              "available": 9,
+              "peakActive": 12
+            },
+            "delta": {
+              "created": 2,
+              "acquired": 4625,
+              "reused": 4623,
+              "released": 4626,
+              "discarded": 0
+            }
+          },
+          "particles": {
+            "before": {
+              "created": 100,
+              "acquired": 11171,
+              "reused": 11071,
+              "released": 11171,
+              "discarded": 0,
+              "active": 0,
+              "available": 100,
+              "peakActive": 100
+            },
+            "after": {
+              "created": 117,
+              "acquired": 27143,
+              "reused": 27026,
+              "released": 27143,
+              "discarded": 0,
+              "active": 0,
+              "available": 117,
+              "peakActive": 117
+            },
+            "delta": {
+              "created": 17,
+              "acquired": 15972,
+              "reused": 15955,
+              "released": 15972,
+              "discarded": 0
+            }
+          }
+        },
+        "localPredictedBullets": {
+          "before": {
+            "created": 3,
+            "acquired": 4,
+            "reused": 1,
+            "released": 4,
+            "discarded": 0,
+            "active": 0,
+            "available": 3,
+            "peakActive": 3
+          },
+          "after": {
+            "created": 3,
+            "acquired": 4,
+            "reused": 1,
+            "released": 4,
+            "discarded": 0,
+            "active": 0,
+            "available": 3,
+            "peakActive": 3
+          },
+          "delta": {
+            "created": 0,
+            "acquired": 0,
+            "reused": 0,
+            "released": 0,
+            "discarded": 0
+          }
+        }
+      }
+    },
+    "browserTrace": {
+      "source": "Trace-20261126T111557.json.gz",
+      "durationMs": 40497.741,
+      "scope": "CrRendererMain, complete events ph=X with start timestamp in trace window; MinorGC and MajorGC combined, incremental marking separate.",
+      "method": "Nearest rank; durations in milliseconds. First 30 seconds for matched comparison, full trace also preserved.",
+      "fullTrace": {
+        "minorGC": {
+          "count": 14,
+          "totalDurationMs": 16.393,
+          "p50Ms": 1.1,
+          "p95Ms": 1.738,
+          "p99Ms": 1.738,
+          "maxMs": 1.738
+        },
+        "majorGC": {
+          "count": 11,
+          "totalDurationMs": 25.217,
+          "p50Ms": 2.276,
+          "p95Ms": 4.245,
+          "p99Ms": 4.245,
+          "maxMs": 4.245
+        },
+        "incrementalMarking": {
+          "count": 114,
+          "totalDurationMs": 13.43,
+          "p50Ms": 0.048,
+          "p95Ms": 0.398,
+          "p99Ms": 0.561,
+          "maxMs": 0.615
+        },
+        "combinedGC": {
+          "count": 25,
+          "totalDurationMs": 41.61,
+          "p50Ms": 1.449,
+          "p95Ms": 2.799,
+          "p99Ms": 4.245,
+          "maxMs": 4.245
+        }
+      },
+      "first30Seconds": {
+        "minorGC": {
+          "count": 11,
+          "totalDurationMs": 11.853,
+          "p50Ms": 1.079,
+          "p95Ms": 1.449,
+          "p99Ms": 1.449,
+          "maxMs": 1.449
+        },
+        "majorGC": {
+          "count": 8,
+          "totalDurationMs": 19.168,
+          "p50Ms": 2.276,
+          "p95Ms": 4.245,
+          "p99Ms": 4.245,
+          "maxMs": 4.245
+        },
+        "incrementalMarking": {
+          "count": 83,
+          "totalDurationMs": 10.289,
+          "p50Ms": 0.068,
+          "p95Ms": 0.398,
+          "p99Ms": 0.561,
+          "maxMs": 0.561
+        },
+        "combinedGC": {
+          "count": 19,
+          "totalDurationMs": 31.021,
+          "p50Ms": 1.132,
+          "p95Ms": 4.245,
+          "p99Ms": 4.245,
+          "maxMs": 4.245
+        }
+      },
+      "browserAppCpuSelfTop3": [
+        {
+          "function": "tu",
+          "url": "http://127.0.0.1:3000/assets/index-BwxFRW0L.js",
+          "lineZeroBased": 54,
+          "columnZeroBased": 54527,
+          "sampleTimeMs": 564.596
+        },
+        {
+          "function": "T",
+          "url": "http://127.0.0.1:3000/assets/index-BwxFRW0L.js",
+          "lineZeroBased": 54,
+          "columnZeroBased": 74575,
+          "sampleTimeMs": 491.477
+        },
+        {
+          "function": "setPendingCount",
+          "url": "http://127.0.0.1:3000/assets/index-BwxFRW0L.js",
+          "lineZeroBased": 54,
+          "columnZeroBased": 75886,
+          "sampleTimeMs": 89.063
+        }
+      ]
+    },
+    "serverCpu": {
+      "source": "CPU.20261126.111352.8264.0.001.cpuprofile",
+      "durationSeconds": 386.358227,
+      "idleSampleSeconds": 350.974013,
+      "topApplicationFunctions": [
+        {
+          "function": "transfer",
+          "url": "file:///C:/Users/User/Desktop/MagicArena/shared/src/codec/binary.ts",
+          "selfSampleSeconds": 8.505465,
+          "selfSampleMsPerWallSecond": 22.0144529237629
+        },
+        {
+          "function": "inst._zod.parse",
+          "url": "file:///C:/Users/User/Desktop/MagicArena/node_modules/zod/v4/core/schemas.js",
+          "selfSampleSeconds": 2.487806,
+          "selfSampleMsPerWallSecond": 6.439117446307155
+        },
+        {
+          "function": "transferEntity",
+          "url": "file:///C:/Users/User/Desktop/MagicArena/shared/src/codec/binary.ts",
+          "selfSampleSeconds": 2.35185,
+          "selfSampleMsPerWallSecond": 6.087226401937081
+        },
+        {
+          "function": "number",
+          "url": "file:///C:/Users/User/Desktop/MagicArena/shared/src/codec/binary.ts",
+          "selfSampleSeconds": 1.689175,
+          "selfSampleMsPerWallSecond": 4.37204356463723
+        },
+        {
+          "function": "inst._zod.run",
+          "url": "file:///C:/Users/User/Desktop/MagicArena/node_modules/zod/v4/core/schemas.js",
+          "selfSampleSeconds": 1.145222,
+          "selfSampleMsPerWallSecond": 2.96414550012934
+        },
+        {
+          "function": "handleCatchall",
+          "url": "file:///C:/Users/User/Desktop/MagicArena/node_modules/zod/v4/core/schemas.js",
+          "selfSampleSeconds": 0.829037,
+          "selfSampleMsPerWallSecond": 2.1457728658641972
+        },
+        {
+          "function": "isNumberType",
+          "url": "file:///C:/Users/User/Desktop/MagicArena/shared/src/codec/binary.ts",
+          "selfSampleSeconds": 0.544236,
+          "selfSampleMsPerWallSecond": 1.408630545351374
+        },
+        {
+          "function": "runChecks",
+          "url": "file:///C:/Users/User/Desktop/MagicArena/node_modules/zod/v4/core/schemas.js",
+          "selfSampleSeconds": 0.422015,
+          "selfSampleMsPerWallSecond": 1.092289410469833
+        },
+        {
+          "function": "take",
+          "url": "file:///C:/Users/User/Desktop/MagicArena/shared/src/codec/binary.ts",
+          "selfSampleSeconds": 0.383407,
+          "selfSampleMsPerWallSecond": 0.9923614231721795
+        },
+        {
+          "function": "toArrayBuffer",
+          "url": "file:///C:/Users/User/Desktop/MagicArena/node_modules/ws/lib/buffer-util.js",
+          "selfSampleSeconds": 0.285066,
+          "selfSampleMsPerWallSecond": 0.7378282124687355
+        }
+      ]
+    },
+    "heap": {
+      "source": "Heap-20261126T111939.heapprofile",
+      "totalSampledBytes": 229752,
+      "topSelfAllocators": [
+        {
+          "function": "(anonymous)",
+          "url": "",
+          "scriptId": "20",
+          "lineZeroBased": 2,
+          "columnZeroBased": 16,
+          "selfSizeBytes": 65676
+        },
+        {
+          "function": "(anonymous)",
+          "url": "",
+          "scriptId": "24",
+          "lineZeroBased": 2,
+          "columnZeroBased": 16,
+          "selfSizeBytes": 65604
+        },
+        {
+          "function": "(anonymous)",
+          "url": "",
+          "scriptId": "33",
+          "lineZeroBased": 2,
+          "columnZeroBased": 16,
+          "selfSizeBytes": 49264
+        }
+      ],
+      "sampledAllocationStacks": [
+        {
+          "selfSizeBytes": 65604,
+          "frame": {
+            "function": "(anonymous)",
+            "url": "",
+            "scriptId": "24",
+            "lineZeroBased": 2,
+            "columnZeroBased": 16
+          },
+          "stack": [
+            {
+              "function": "(root)",
+              "url": "",
+              "scriptId": "0",
+              "lineZeroBased": -1,
+              "columnZeroBased": -1
+            },
+            {
+              "function": "(anonymous)",
+              "url": "http://127.0.0.1:3000/assets/index-BwxFRW0L.js",
+              "scriptId": "3",
+              "lineZeroBased": 54,
+              "columnZeroBased": 66681
+            },
+            {
+              "function": "safeParse",
+              "url": "http://127.0.0.1:3000/assets/index-BwxFRW0L.js",
+              "scriptId": "3",
+              "lineZeroBased": 54,
+              "columnZeroBased": 15075
+            },
+            {
+              "function": "(anonymous)",
+              "url": "http://127.0.0.1:3000/assets/index-BwxFRW0L.js",
+              "scriptId": "3",
+              "lineZeroBased": 0,
+              "columnZeroBased": 17501
+            },
+            {
+              "function": "e._zod.parse",
+              "url": "http://127.0.0.1:3000/assets/index-BwxFRW0L.js",
+              "scriptId": "3",
+              "lineZeroBased": 52,
+              "columnZeroBased": 2620
+            },
+            {
+              "function": "e._zod.parse",
+              "url": "http://127.0.0.1:3000/assets/index-BwxFRW0L.js",
+              "scriptId": "3",
+              "lineZeroBased": 52,
+              "columnZeroBased": 156
+            },
+            {
+              "function": "(anonymous)",
+              "url": "",
+              "scriptId": "18",
+              "lineZeroBased": 2,
+              "columnZeroBased": 16
+            },
+            {
+              "function": "e._zod.run",
+              "url": "http://127.0.0.1:3000/assets/index-BwxFRW0L.js",
+              "scriptId": "3",
+              "lineZeroBased": 2,
+              "columnZeroBased": 1053
+            },
+            {
+              "function": "e._zod.parse",
+              "url": "http://127.0.0.1:3000/assets/index-BwxFRW0L.js",
+              "scriptId": "3",
+              "lineZeroBased": 2,
+              "columnZeroBased": 7550
+            },
+            {
+              "function": "e._zod.parse",
+              "url": "http://127.0.0.1:3000/assets/index-BwxFRW0L.js",
+              "scriptId": "3",
+              "lineZeroBased": 52,
+              "columnZeroBased": 2620
+            },
+            {
+              "function": "e._zod.parse",
+              "url": "http://127.0.0.1:3000/assets/index-BwxFRW0L.js",
+              "scriptId": "3",
+              "lineZeroBased": 52,
+              "columnZeroBased": 156
+            },
+            {
+              "function": "(anonymous)",
+              "url": "",
+              "scriptId": "24",
+              "lineZeroBased": 2,
+              "columnZeroBased": 16
+            }
+          ]
+        },
+        {
+          "selfSizeBytes": 16432,
+          "frame": {
+            "function": "(anonymous)",
+            "url": "",
+            "scriptId": "20",
+            "lineZeroBased": 2,
+            "columnZeroBased": 16
+          },
+          "stack": [
+            {
+              "function": "(root)",
+              "url": "",
+              "scriptId": "0",
+              "lineZeroBased": -1,
+              "columnZeroBased": -1
+            },
+            {
+              "function": "(anonymous)",
+              "url": "http://127.0.0.1:3000/assets/index-BwxFRW0L.js",
+              "scriptId": "3",
+              "lineZeroBased": 54,
+              "columnZeroBased": 66681
+            },
+            {
+              "function": "safeParse",
+              "url": "http://127.0.0.1:3000/assets/index-BwxFRW0L.js",
+              "scriptId": "3",
+              "lineZeroBased": 54,
+              "columnZeroBased": 15075
+            },
+            {
+              "function": "(anonymous)",
+              "url": "http://127.0.0.1:3000/assets/index-BwxFRW0L.js",
+              "scriptId": "3",
+              "lineZeroBased": 0,
+              "columnZeroBased": 17501
+            },
+            {
+              "function": "e._zod.parse",
+              "url": "http://127.0.0.1:3000/assets/index-BwxFRW0L.js",
+              "scriptId": "3",
+              "lineZeroBased": 52,
+              "columnZeroBased": 2620
+            },
+            {
+              "function": "e._zod.parse",
+              "url": "http://127.0.0.1:3000/assets/index-BwxFRW0L.js",
+              "scriptId": "3",
+              "lineZeroBased": 52,
+              "columnZeroBased": 156
+            },
+            {
+              "function": "(anonymous)",
+              "url": "",
+              "scriptId": "18",
+              "lineZeroBased": 2,
+              "columnZeroBased": 16
+            },
+            {
+              "function": "e._zod.run",
+              "url": "http://127.0.0.1:3000/assets/index-BwxFRW0L.js",
+              "scriptId": "3",
+              "lineZeroBased": 2,
+              "columnZeroBased": 1053
+            },
+            {
+              "function": "e._zod.parse",
+              "url": "http://127.0.0.1:3000/assets/index-BwxFRW0L.js",
+              "scriptId": "3",
+              "lineZeroBased": 2,
+              "columnZeroBased": 7550
+            },
+            {
+              "function": "e._zod.parse",
+              "url": "http://127.0.0.1:3000/assets/index-BwxFRW0L.js",
+              "scriptId": "3",
+              "lineZeroBased": 52,
+              "columnZeroBased": 2620
+            },
+            {
+              "function": "e._zod.parse",
+              "url": "http://127.0.0.1:3000/assets/index-BwxFRW0L.js",
+              "scriptId": "3",
+              "lineZeroBased": 52,
+              "columnZeroBased": 156
+            },
+            {
+              "function": "(anonymous)",
+              "url": "",
+              "scriptId": "24",
+              "lineZeroBased": 2,
+              "columnZeroBased": 16
+            },
+            {
+              "function": "e._zod.parse",
+              "url": "http://127.0.0.1:3000/assets/index-BwxFRW0L.js",
+              "scriptId": "3",
+              "lineZeroBased": 52,
+              "columnZeroBased": 156
+            },
+            {
+              "function": "(anonymous)",
+              "url": "",
+              "scriptId": "20",
+              "lineZeroBased": 2,
+              "columnZeroBased": 16
+            }
+          ]
+        },
+        {
+          "selfSizeBytes": 49264,
+          "frame": {
+            "function": "(anonymous)",
+            "url": "",
+            "scriptId": "33",
+            "lineZeroBased": 2,
+            "columnZeroBased": 16
+          },
+          "stack": [
+            {
+              "function": "(root)",
+              "url": "",
+              "scriptId": "0",
+              "lineZeroBased": -1,
+              "columnZeroBased": -1
+            },
+            {
+              "function": "(anonymous)",
+              "url": "http://127.0.0.1:3000/assets/index-BwxFRW0L.js",
+              "scriptId": "3",
+              "lineZeroBased": 54,
+              "columnZeroBased": 66681
+            },
+            {
+              "function": "safeParse",
+              "url": "http://127.0.0.1:3000/assets/index-BwxFRW0L.js",
+              "scriptId": "3",
+              "lineZeroBased": 54,
+              "columnZeroBased": 15075
+            },
+            {
+              "function": "(anonymous)",
+              "url": "http://127.0.0.1:3000/assets/index-BwxFRW0L.js",
+              "scriptId": "3",
+              "lineZeroBased": 0,
+              "columnZeroBased": 17501
+            },
+            {
+              "function": "e._zod.parse",
+              "url": "http://127.0.0.1:3000/assets/index-BwxFRW0L.js",
+              "scriptId": "3",
+              "lineZeroBased": 52,
+              "columnZeroBased": 2620
+            },
+            {
+              "function": "e._zod.parse",
+              "url": "http://127.0.0.1:3000/assets/index-BwxFRW0L.js",
+              "scriptId": "3",
+              "lineZeroBased": 52,
+              "columnZeroBased": 156
+            },
+            {
+              "function": "(anonymous)",
+              "url": "",
+              "scriptId": "18",
+              "lineZeroBased": 2,
+              "columnZeroBased": 16
+            },
+            {
+              "function": "e._zod.run",
+              "url": "http://127.0.0.1:3000/assets/index-BwxFRW0L.js",
+              "scriptId": "3",
+              "lineZeroBased": 2,
+              "columnZeroBased": 1053
+            },
+            {
+              "function": "e._zod.parse",
+              "url": "http://127.0.0.1:3000/assets/index-BwxFRW0L.js",
+              "scriptId": "3",
+              "lineZeroBased": 2,
+              "columnZeroBased": 7550
+            },
+            {
+              "function": "e._zod.parse",
+              "url": "http://127.0.0.1:3000/assets/index-BwxFRW0L.js",
+              "scriptId": "3",
+              "lineZeroBased": 52,
+              "columnZeroBased": 2620
+            },
+            {
+              "function": "e._zod.parse",
+              "url": "http://127.0.0.1:3000/assets/index-BwxFRW0L.js",
+              "scriptId": "3",
+              "lineZeroBased": 52,
+              "columnZeroBased": 156
+            },
+            {
+              "function": "(anonymous)",
+              "url": "",
+              "scriptId": "32",
+              "lineZeroBased": 2,
+              "columnZeroBased": 16
+            },
+            {
+              "function": "e._zod.run",
+              "url": "http://127.0.0.1:3000/assets/index-BwxFRW0L.js",
+              "scriptId": "3",
+              "lineZeroBased": 2,
+              "columnZeroBased": 1053
+            },
+            {
+              "function": "e._zod.parse",
+              "url": "http://127.0.0.1:3000/assets/index-BwxFRW0L.js",
+              "scriptId": "3",
+              "lineZeroBased": 2,
+              "columnZeroBased": 7550
+            },
+            {
+              "function": "e._zod.parse",
+              "url": "http://127.0.0.1:3000/assets/index-BwxFRW0L.js",
+              "scriptId": "3",
+              "lineZeroBased": 52,
+              "columnZeroBased": 156
+            },
+            {
+              "function": "(anonymous)",
+              "url": "",
+              "scriptId": "33",
+              "lineZeroBased": 2,
+              "columnZeroBased": 16
+            }
+          ]
+        },
+        {
+          "selfSizeBytes": 32812,
+          "frame": {
+            "function": "(anonymous)",
+            "url": "",
+            "scriptId": "20",
+            "lineZeroBased": 2,
+            "columnZeroBased": 16
+          },
+          "stack": [
+            {
+              "function": "(root)",
+              "url": "",
+              "scriptId": "0",
+              "lineZeroBased": -1,
+              "columnZeroBased": -1
+            },
+            {
+              "function": "(anonymous)",
+              "url": "http://127.0.0.1:3000/assets/index-BwxFRW0L.js",
+              "scriptId": "3",
+              "lineZeroBased": 54,
+              "columnZeroBased": 66681
+            },
+            {
+              "function": "safeParse",
+              "url": "http://127.0.0.1:3000/assets/index-BwxFRW0L.js",
+              "scriptId": "3",
+              "lineZeroBased": 54,
+              "columnZeroBased": 15075
+            },
+            {
+              "function": "(anonymous)",
+              "url": "http://127.0.0.1:3000/assets/index-BwxFRW0L.js",
+              "scriptId": "3",
+              "lineZeroBased": 0,
+              "columnZeroBased": 17501
+            },
+            {
+              "function": "e._zod.parse",
+              "url": "http://127.0.0.1:3000/assets/index-BwxFRW0L.js",
+              "scriptId": "3",
+              "lineZeroBased": 52,
+              "columnZeroBased": 2620
+            },
+            {
+              "function": "e._zod.parse",
+              "url": "http://127.0.0.1:3000/assets/index-BwxFRW0L.js",
+              "scriptId": "3",
+              "lineZeroBased": 52,
+              "columnZeroBased": 156
+            },
+            {
+              "function": "(anonymous)",
+              "url": "",
+              "scriptId": "18",
+              "lineZeroBased": 2,
+              "columnZeroBased": 16
+            },
+            {
+              "function": "e._zod.run",
+              "url": "http://127.0.0.1:3000/assets/index-BwxFRW0L.js",
+              "scriptId": "3",
+              "lineZeroBased": 2,
+              "columnZeroBased": 1053
+            },
+            {
+              "function": "e._zod.parse",
+              "url": "http://127.0.0.1:3000/assets/index-BwxFRW0L.js",
+              "scriptId": "3",
+              "lineZeroBased": 2,
+              "columnZeroBased": 7550
+            },
+            {
+              "function": "e._zod.parse",
+              "url": "http://127.0.0.1:3000/assets/index-BwxFRW0L.js",
+              "scriptId": "3",
+              "lineZeroBased": 52,
+              "columnZeroBased": 2620
+            },
+            {
+              "function": "e._zod.parse",
+              "url": "http://127.0.0.1:3000/assets/index-BwxFRW0L.js",
+              "scriptId": "3",
+              "lineZeroBased": 52,
+              "columnZeroBased": 156
+            },
+            {
+              "function": "(anonymous)",
+              "url": "",
+              "scriptId": "32",
+              "lineZeroBased": 2,
+              "columnZeroBased": 16
+            },
+            {
+              "function": "e._zod.run",
+              "url": "http://127.0.0.1:3000/assets/index-BwxFRW0L.js",
+              "scriptId": "3",
+              "lineZeroBased": 2,
+              "columnZeroBased": 1053
+            },
+            {
+              "function": "e._zod.parse",
+              "url": "http://127.0.0.1:3000/assets/index-BwxFRW0L.js",
+              "scriptId": "3",
+              "lineZeroBased": 2,
+              "columnZeroBased": 7550
+            },
+            {
+              "function": "e._zod.parse",
+              "url": "http://127.0.0.1:3000/assets/index-BwxFRW0L.js",
+              "scriptId": "3",
+              "lineZeroBased": 52,
+              "columnZeroBased": 156
+            },
+            {
+              "function": "(anonymous)",
+              "url": "",
+              "scriptId": "33",
+              "lineZeroBased": 2,
+              "columnZeroBased": 16
+            },
+            {
+              "function": "e._zod.parse",
+              "url": "http://127.0.0.1:3000/assets/index-BwxFRW0L.js",
+              "scriptId": "3",
+              "lineZeroBased": 52,
+              "columnZeroBased": 156
+            },
+            {
+              "function": "(anonymous)",
+              "url": "",
+              "scriptId": "20",
+              "lineZeroBased": 2,
+              "columnZeroBased": 16
+            }
+          ]
+        },
+        {
+          "selfSizeBytes": 16432,
+          "frame": {
+            "function": "(anonymous)",
+            "url": "",
+            "scriptId": "20",
+            "lineZeroBased": 2,
+            "columnZeroBased": 16
+          },
+          "stack": [
+            {
+              "function": "(root)",
+              "url": "",
+              "scriptId": "0",
+              "lineZeroBased": -1,
+              "columnZeroBased": -1
+            },
+            {
+              "function": "(anonymous)",
+              "url": "http://127.0.0.1:3000/assets/index-BwxFRW0L.js",
+              "scriptId": "3",
+              "lineZeroBased": 54,
+              "columnZeroBased": 66681
+            },
+            {
+              "function": "safeParse",
+              "url": "http://127.0.0.1:3000/assets/index-BwxFRW0L.js",
+              "scriptId": "3",
+              "lineZeroBased": 54,
+              "columnZeroBased": 15075
+            },
+            {
+              "function": "(anonymous)",
+              "url": "http://127.0.0.1:3000/assets/index-BwxFRW0L.js",
+              "scriptId": "3",
+              "lineZeroBased": 0,
+              "columnZeroBased": 17501
+            },
+            {
+              "function": "e._zod.parse",
+              "url": "http://127.0.0.1:3000/assets/index-BwxFRW0L.js",
+              "scriptId": "3",
+              "lineZeroBased": 52,
+              "columnZeroBased": 2620
+            },
+            {
+              "function": "e._zod.parse",
+              "url": "http://127.0.0.1:3000/assets/index-BwxFRW0L.js",
+              "scriptId": "3",
+              "lineZeroBased": 52,
+              "columnZeroBased": 156
+            },
+            {
+              "function": "(anonymous)",
+              "url": "",
+              "scriptId": "18",
+              "lineZeroBased": 2,
+              "columnZeroBased": 16
+            },
+            {
+              "function": "e._zod.run",
+              "url": "http://127.0.0.1:3000/assets/index-BwxFRW0L.js",
+              "scriptId": "3",
+              "lineZeroBased": 2,
+              "columnZeroBased": 1053
+            },
+            {
+              "function": "e._zod.parse",
+              "url": "http://127.0.0.1:3000/assets/index-BwxFRW0L.js",
+              "scriptId": "3",
+              "lineZeroBased": 2,
+              "columnZeroBased": 7550
+            },
+            {
+              "function": "e._zod.parse",
+              "url": "http://127.0.0.1:3000/assets/index-BwxFRW0L.js",
+              "scriptId": "3",
+              "lineZeroBased": 52,
+              "columnZeroBased": 2620
+            },
+            {
+              "function": "e._zod.parse",
+              "url": "http://127.0.0.1:3000/assets/index-BwxFRW0L.js",
+              "scriptId": "3",
+              "lineZeroBased": 52,
+              "columnZeroBased": 156
+            },
+            {
+              "function": "(anonymous)",
+              "url": "",
+              "scriptId": "32",
+              "lineZeroBased": 2,
+              "columnZeroBased": 16
+            },
+            {
+              "function": "e._zod.parse",
+              "url": "http://127.0.0.1:3000/assets/index-BwxFRW0L.js",
+              "scriptId": "3",
+              "lineZeroBased": 52,
+              "columnZeroBased": 156
+            },
+            {
+              "function": "(anonymous)",
+              "url": "",
+              "scriptId": "20",
+              "lineZeroBased": 2,
+              "columnZeroBased": 16
+            }
+          ]
+        },
+        {
+          "selfSizeBytes": 16392,
+          "frame": {
+            "function": "reset",
+            "url": "http://127.0.0.1:3000/assets/index-BwxFRW0L.js",
+            "scriptId": "3",
+            "lineZeroBased": 54,
+            "columnZeroBased": 35367
+          },
+          "stack": [
+            {
+              "function": "(root)",
+              "url": "",
+              "scriptId": "0",
+              "lineZeroBased": -1,
+              "columnZeroBased": -1
+            },
+            {
+              "function": "(anonymous)",
+              "url": "http://127.0.0.1:3000/assets/index-BwxFRW0L.js",
+              "scriptId": "3",
+              "lineZeroBased": 54,
+              "columnZeroBased": 66681
+            },
+            {
+              "function": "emit",
+              "url": "http://127.0.0.1:3000/assets/index-BwxFRW0L.js",
+              "scriptId": "3",
+              "lineZeroBased": 54,
+              "columnZeroBased": 62896
+            },
+            {
+              "function": "(anonymous)",
+              "url": "http://127.0.0.1:3000/assets/index-BwxFRW0L.js",
+              "scriptId": "3",
+              "lineZeroBased": 54,
+              "columnZeroBased": 92486
+            },
+            {
+              "function": "applySnapshot",
+              "url": "http://127.0.0.1:3000/assets/index-BwxFRW0L.js",
+              "scriptId": "3",
+              "lineZeroBased": 54,
+              "columnZeroBased": 40422
+            },
+            {
+              "function": "#a",
+              "url": "http://127.0.0.1:3000/assets/index-BwxFRW0L.js",
+              "scriptId": "3",
+              "lineZeroBased": 54,
+              "columnZeroBased": 39062
+            },
+            {
+              "function": "t",
+              "url": "http://127.0.0.1:3000/assets/index-BwxFRW0L.js",
+              "scriptId": "3",
+              "lineZeroBased": 54,
+              "columnZeroBased": 35748
+            },
+            {
+              "function": "map",
+              "url": "",
+              "scriptId": "0",
+              "lineZeroBased": -1,
+              "columnZeroBased": -1
+            },
+            {
+              "function": "(anonymous)",
+              "url": "http://127.0.0.1:3000/assets/index-BwxFRW0L.js",
+              "scriptId": "3",
+              "lineZeroBased": 54,
+              "columnZeroBased": 36017
+            },
+            {
+              "function": "acquire",
+              "url": "http://127.0.0.1:3000/assets/index-BwxFRW0L.js",
+              "scriptId": "3",
+              "lineZeroBased": 54,
+              "columnZeroBased": 34243
+            },
+            {
+              "function": "reset",
+              "url": "http://127.0.0.1:3000/assets/index-BwxFRW0L.js",
+              "scriptId": "3",
+              "lineZeroBased": 54,
+              "columnZeroBased": 35367
+            }
+          ]
+        },
+        {
+          "selfSizeBytes": 32816,
+          "frame": {
+            "function": "join",
+            "url": "",
+            "scriptId": "0",
+            "lineZeroBased": -1,
+            "columnZeroBased": -1
+          },
+          "stack": [
+            {
+              "function": "(root)",
+              "url": "",
+              "scriptId": "0",
+              "lineZeroBased": -1,
+              "columnZeroBased": -1
+            },
+            {
+              "function": "(anonymous)",
+              "url": "",
+              "scriptId": "1729",
+              "lineZeroBased": 1,
+              "columnZeroBased": 2518
+            },
+            {
+              "function": "l",
+              "url": "",
+              "scriptId": "1729",
+              "lineZeroBased": 1,
+              "columnZeroBased": 4392
+            },
+            {
+              "function": "_processEntry",
+              "url": "",
+              "scriptId": "1729",
+              "lineZeroBased": 1,
+              "columnZeroBased": 2027
+            },
+            {
+              "function": "Vt.i._onAfterProcessingUnexpectedShift",
+              "url": "",
+              "scriptId": "1729",
+              "lineZeroBased": 1,
+              "columnZeroBased": 11101
+            },
+            {
+              "function": "Q",
+              "url": "",
+              "scriptId": "1729",
+              "lineZeroBased": 1,
+              "columnZeroBased": 10694
+            },
+            {
+              "function": "join",
+              "url": "",
+              "scriptId": "0",
+              "lineZeroBased": -1,
+              "columnZeroBased": -1
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "limitations": [
+    "One numeric run per version; variation in bot workloads and timing, not a controlled repeated benchmark.",
+    "Browser traces have different durations: matched first 30 seconds used for GC comparison.",
+    "CPU profiles cover full process lifetime, not isolated 60-second match; raw self-time sums not directly comparable.",
+    "Heap sampling is stochastic and is not total allocation volume; minified functions lack source maps.",
+    "Local predicted projectile pool was inactive during numeric measurement.",
+    "Major GC count not zero; server GC kind breakdown unavailable."
+  ]
+}

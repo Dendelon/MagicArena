@@ -1,0 +1,361 @@
+{
+  "recordedAt": "2026-11-26T09:15:05.770Z",
+  "requestedDurationMs": 30000,
+  "client": {
+    "durationMs": 30001.700000047684,
+    "frames": 1800,
+    "fps": 59.99660019256039,
+    "frameIntervalMs": {
+      "count": 1799,
+      "min": 16.30000000000291,
+      "mean": 16.66442468037799,
+      "p50": 16.69999999999709,
+      "p95": 16.799999999995634,
+      "p99": 16.80000000000291,
+      "max": 17.099999999998545
+    },
+    "frameWorkMs": {
+      "count": 1800,
+      "min": 0.19999980926513672,
+      "mean": 0.570944445265664,
+      "p50": 0.5999999046325684,
+      "p95": 0.8000001907348633,
+      "p99": 0.9000000953674316,
+      "max": 1.1000001430511475
+    },
+    "simulationMs": {
+      "count": 1800,
+      "min": 0,
+      "mean": 0.09605555335680643,
+      "p50": 0.09999990463256836,
+      "p95": 0.2999999523162842,
+      "p99": 0.3000001907348633,
+      "max": 0.5
+    },
+    "renderMs": {
+      "count": 1800,
+      "min": 0.19999980926513672,
+      "mean": 0.46433333608839245,
+      "p50": 0.5,
+      "p95": 0.7000000476837158,
+      "p99": 0.7000000476837158,
+      "max": 0.8999998569488525
+    },
+    "framesOverBudget": 1063,
+    "framesOver33Ms": 0,
+    "framesOver50Ms": 0,
+    "valid": true,
+    "cancelledReason": null
+  },
+  "server": {
+    "durationMs": 30004.702399999995,
+    "ticks": 900,
+    "ticksOver33Ms": 0,
+    "tickMs": {
+      "count": 900,
+      "min": 1.022400000001653,
+      "mean": 2.5989068888888545,
+      "p50": 2.515800000001036,
+      "p95": 4.0732999999963795,
+      "p99": 4.613400000002002,
+      "max": 5.239600000000792
+    },
+    "worldStepMs": {
+      "count": 900,
+      "min": 0.018000000003667083,
+      "mean": 0.07287444444459754,
+      "p50": 0.06429999999818392,
+      "p95": 0.14209999999729916,
+      "p99": 0.21570000000065193,
+      "max": 0.6656999999977415
+    },
+    "collisionMs": {
+      "count": 900,
+      "min": 0.0021999999953550287,
+      "mean": 0.01536855555547744,
+      "p50": 0.00930000000516884,
+      "p95": 0.04099999999743886,
+      "p99": 0.14960000000428408,
+      "max": 0.3536999999996624
+    },
+    "snapshotCreateMs": {
+      "count": 900,
+      "min": 0.14799999998649582,
+      "mean": 0.44162555555522787,
+      "p50": 0.40840000000753207,
+      "p95": 0.8023000000030152,
+      "p99": 0.9651000000085332,
+      "max": 1.0742000000100234
+    },
+    "binaryEncodingMs": {
+      "count": 900,
+      "min": 0.5854999999864958,
+      "mean": 1.5624450000004113,
+      "p50": 1.4950999999928172,
+      "p95": 2.5003000000142492,
+      "p99": 2.790899999985413,
+      "max": 3.222700000012992
+    },
+    "broadcastMs": {
+      "count": 900,
+      "min": 0.9605000000010477,
+      "mean": 2.467477222221892,
+      "p50": 2.38300000000163,
+      "p95": 3.8925000000017462,
+      "p99": 4.393799999998009,
+      "max": 5.081099999995786
+    },
+    "gc": {
+      "count": 125,
+      "totalDurationMs": 65.83990001678467,
+      "p50Ms": 0.46700000762939453,
+      "p95Ms": 0.9281997680664062,
+      "p99Ms": 1.40339994430542,
+      "maxMs": 2.45389986038208
+    },
+    "memory": {
+      "heapUsedBefore": 30138056,
+      "heapUsedAfter": 19423576,
+      "rssBefore": 127143936,
+      "rssAfter": 155607040
+    },
+    "entities": {
+      "avg": 12.747777777777777,
+      "max": 21
+    },
+    "players": 9,
+    "pools": {
+      "bullets": {
+        "before": {
+          "created": 10,
+          "acquired": 142,
+          "reused": 132,
+          "released": 138,
+          "discarded": 0,
+          "active": 4,
+          "available": 6,
+          "peakActive": 10
+        },
+        "after": {
+          "created": 12,
+          "acquired": 363,
+          "reused": 351,
+          "released": 359,
+          "discarded": 0,
+          "active": 4,
+          "available": 8,
+          "peakActive": 12
+        },
+        "delta": {
+          "created": 2,
+          "acquired": 221,
+          "reused": 219,
+          "released": 221,
+          "discarded": 0
+        }
+      },
+      "particles": {
+        "before": {
+          "created": 100,
+          "acquired": 655,
+          "reused": 555,
+          "released": 655,
+          "discarded": 0,
+          "active": 0,
+          "available": 100,
+          "peakActive": 100
+        },
+        "after": {
+          "created": 117,
+          "acquired": 1600,
+          "reused": 1483,
+          "released": 1600,
+          "discarded": 0,
+          "active": 0,
+          "available": 117,
+          "peakActive": 117
+        },
+        "delta": {
+          "created": 17,
+          "acquired": 945,
+          "reused": 928,
+          "released": 945,
+          "discarded": 0
+        }
+      }
+    }
+  },
+  "actualDurationMs": {
+    "client": 30001.700000047684,
+    "server": 30004.702399999995
+  },
+  "players": {
+    "clientRoom": 9,
+    "serverRoom": 9
+  },
+  "experiment": {
+    "roomId": "profiling",
+    "roomName": "Performance Arena",
+    "codec": "binary",
+    "netSim": {
+      "delayMs": 0,
+      "jitterMs": 0,
+      "dropRate": 0
+    },
+    "bounds": {
+      "width": 960,
+      "height": 640
+    }
+  },
+  "pools": {
+    "serverWorld": {
+      "bullets": {
+        "before": {
+          "created": 10,
+          "acquired": 142,
+          "reused": 132,
+          "released": 138,
+          "discarded": 0,
+          "active": 4,
+          "available": 6,
+          "peakActive": 10
+        },
+        "after": {
+          "created": 12,
+          "acquired": 363,
+          "reused": 351,
+          "released": 359,
+          "discarded": 0,
+          "active": 4,
+          "available": 8,
+          "peakActive": 12
+        },
+        "delta": {
+          "created": 2,
+          "acquired": 221,
+          "reused": 219,
+          "released": 221,
+          "discarded": 0
+        }
+      },
+      "particles": {
+        "before": {
+          "created": 100,
+          "acquired": 655,
+          "reused": 555,
+          "released": 655,
+          "discarded": 0,
+          "active": 0,
+          "available": 100,
+          "peakActive": 100
+        },
+        "after": {
+          "created": 117,
+          "acquired": 1600,
+          "reused": 1483,
+          "released": 1600,
+          "discarded": 0,
+          "active": 0,
+          "available": 117,
+          "peakActive": 117
+        },
+        "delta": {
+          "created": 17,
+          "acquired": 945,
+          "reused": 928,
+          "released": 945,
+          "discarded": 0
+        }
+      }
+    },
+    "clientWorld": {
+      "bullets": {
+        "before": {
+          "created": 10,
+          "acquired": 2892,
+          "reused": 2882,
+          "released": 2888,
+          "discarded": 0,
+          "active": 4,
+          "available": 6,
+          "peakActive": 10
+        },
+        "after": {
+          "created": 12,
+          "acquired": 7517,
+          "reused": 7505,
+          "released": 7514,
+          "discarded": 0,
+          "active": 3,
+          "available": 9,
+          "peakActive": 12
+        },
+        "delta": {
+          "created": 2,
+          "acquired": 4625,
+          "reused": 4623,
+          "released": 4626,
+          "discarded": 0
+        }
+      },
+      "particles": {
+        "before": {
+          "created": 100,
+          "acquired": 11171,
+          "reused": 11071,
+          "released": 11171,
+          "discarded": 0,
+          "active": 0,
+          "available": 100,
+          "peakActive": 100
+        },
+        "after": {
+          "created": 117,
+          "acquired": 27143,
+          "reused": 27026,
+          "released": 27143,
+          "discarded": 0,
+          "active": 0,
+          "available": 117,
+          "peakActive": 117
+        },
+        "delta": {
+          "created": 17,
+          "acquired": 15972,
+          "reused": 15955,
+          "released": 15972,
+          "discarded": 0
+        }
+      }
+    },
+    "localPredictedBullets": {
+      "before": {
+        "created": 3,
+        "acquired": 4,
+        "reused": 1,
+        "released": 4,
+        "discarded": 0,
+        "active": 0,
+        "available": 3,
+        "peakActive": 3
+      },
+      "after": {
+        "created": 3,
+        "acquired": 4,
+        "reused": 1,
+        "released": 4,
+        "discarded": 0,
+        "active": 0,
+        "available": 3,
+        "peakActive": 3
+      },
+      "delta": {
+        "created": 0,
+        "acquired": 0,
+        "reused": 0,
+        "released": 0,
+        "discarded": 0
+      }
+    }
+  }
+}
