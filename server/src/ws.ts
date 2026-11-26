@@ -9,16 +9,19 @@ import type { CodecMode, ServerMessage } from '@magicarena/shared';
 import { MAX_MESSAGE_SIZE, ProtocolError, parseMessage } from './protocol.ts';
 import { createLatencyController } from './network/latency.ts';
 import { getErrorMessage } from './errors.ts';
+import {
+  BUCKET_CAPACITY,
+  CHAT_BUCKET_CAPACITY,
+  CHAT_RATE_PER_SECOND,
+  RATE_PER_SECOND,
+  consumeToken,
+} from './network/rateLimit.ts';
 
 import type { Player, SocketState, ChatEvent } from './types.ts';
 import type { Room, RoomManager } from './rooms.ts';
 import type { Match } from './game/Match.ts';
 import type { MatchManager } from './game/MatchManager.ts';
 
-const RATE_PER_SECOND = 60;
-const BUCKET_CAPACITY = 60;
-const CHAT_RATE_PER_SECOND = 5;
-const CHAT_BUCKET_CAPACITY = 10;
 const MAX_BUFFERED_AMOUNT = 256 * 1024;
 
 interface WebSocketOptions {
@@ -260,21 +263,18 @@ export const setupWebSocket = (
       try {
         // Token Bucket: поступове відновлення токенів
         const now = Date.now();
-        const elapsedSeconds = Math.max(0, (now - state.lastRefill) / 1000);
+        const messageLimit = consumeToken(state.tokens, state.lastRefill, now, {
+          capacity: BUCKET_CAPACITY,
+          ratePerSecond: RATE_PER_SECOND,
+        });
 
-        state.tokens = Math.min(
-          BUCKET_CAPACITY,
-          state.tokens + elapsedSeconds * RATE_PER_SECOND,
-        );
+        state.tokens = messageLimit.tokens;
+        state.lastRefill = messageLimit.lastRefill;
 
-        state.lastRefill = now;
-
-        if (state.tokens < 1) {
+        if (!messageLimit.allowed) {
           socket.close(4008, 'Rate limit exceeded');
           return;
         }
-
-        state.tokens -= 1;
 
         const message = parseMessage(data, isBinary, codec);
 
@@ -403,19 +403,23 @@ export const setupWebSocket = (
             const room = currentRoom;
             const player = currentPlayer;
 
-            const chatElapsed = Math.max(0, (now - state.lastChatRefill) / 1000);
-            state.chatTokens = Math.min(
-              CHAT_BUCKET_CAPACITY,
-              state.chatTokens + chatElapsed * CHAT_RATE_PER_SECOND,
+            const chatLimit = consumeToken(
+              state.chatTokens,
+              state.lastChatRefill,
+              now,
+              {
+                capacity: CHAT_BUCKET_CAPACITY,
+                ratePerSecond: CHAT_RATE_PER_SECOND,
+              },
             );
-            state.lastChatRefill = now;
 
-            if (state.chatTokens < 1) {
+            state.chatTokens = chatLimit.tokens;
+            state.lastChatRefill = chatLimit.lastRefill;
+
+            if (!chatLimit.allowed) {
               socket.close(4008, 'Chat rate limit exceeded');
               return;
             }
-
-            state.chatTokens -= 1;
 
             if (room.logBackpressured) {
               socket.close(4009, 'Log backpressure');

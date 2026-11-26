@@ -31,11 +31,24 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
 
-      include: ['shared/src/**/*.ts'],
+      include: [
+        'shared/src/**/*.ts',
+      ],
 
-      reporter: ['text', 'html', 'json-summary'],
+      reporter: [
+        'text',
+        'html',
+        'json-summary',
+      ],
 
       reportsDirectory: './coverage',
+
+      thresholds: {
+        statements: 85,
+        branches: 85,
+        functions: 85,
+        lines: 85,
+      },
     },
   },
 });
