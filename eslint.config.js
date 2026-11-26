@@ -10,7 +10,7 @@ export default tseslint.config(
   js.configs.recommended,
 
   {
-    files: ['client/src/**/*.{js,ts}'],
+    files: ['client/src/**/*.{js,ts}', 'client/test/**/*.{js,ts}'],
     languageOptions: {
       ecmaVersion: 'latest',
       sourceType: 'module',
@@ -40,7 +40,12 @@ export default tseslint.config(
   },
 
   {
-    files: ['client/src/**/*.ts', 'server/**/*.ts', 'shared/**/*.ts'],
+    files: [
+      'client/src/**/*.ts',
+      'client/test/**/*.ts',
+      'server/**/*.ts',
+      'shared/**/*.ts',
+    ],
 
     extends: [...tseslint.configs.recommended],
 

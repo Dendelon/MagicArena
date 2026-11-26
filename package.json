@@ -12,9 +12,14 @@
     "dev:client": "npm run dev -w client",
     "dev:server": "node --watch --env-file=server/.env server/src/index.ts",
     "build": "npm run build -w client",
-    "lint": "eslint client/src server/src shared/src server/test shared/test server/scripts",
+    "lint": "eslint client/src server/src shared/src server/test shared/test client/test server/scripts",
     "typecheck": "tsc --noEmit -p . && npm run typecheck --workspaces",
-    "test": "node --test shared/test/*.test.ts server/test/*.test.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:shared": "vitest run --project shared",
+    "test:server": "vitest run --project server",
+    "test:client": "vitest run --project client",
     "audit:types": "node scripts/audit-types.mjs",
     "benchmark": "node server/scripts/codec-benchmark.ts",
     "format": "prettier --write .",
@@ -24,10 +29,14 @@
     "@eslint/js": "^10.0.1",
     "@types/node": "^24.19.4",
     "@types/ws": "^8.18.2",
+    "@vitest/coverage-v8": "^4.1.12",
     "eslint": "^10.15.0",
+    "fast-check": "^4.11.0",
     "globals": "^17.14.0",
+    "jsdom": "^27.4.0",
     "prettier": "^3.10.1",
     "typescript": "^5.9.3",
-    "typescript-eslint": "^8.74.0"
+    "typescript-eslint": "^8.74.0",
+    "vitest": "^4.1.12"
   }
 }

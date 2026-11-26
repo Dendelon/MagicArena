@@ -1,5 +1,4 @@
-import test from 'node:test';
-import type { TestContext } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { once } from 'node:events';
 import WebSocket, { WebSocketServer } from 'ws';
@@ -23,7 +22,7 @@ test('RoomManager enforces room limit', () => {
   );
 });
 
-test('Room enforces player limit', async (t: TestContext) => {
+test('Room enforces player limit', async ({ onTestFinished }) => {
   const manager = new RoomManager();
   const room = manager.create({
     name: 'Test room',
@@ -37,7 +36,7 @@ test('Room enforces player limit', async (t: TestContext) => {
 
   const clients: WebSocket[] = [];
 
-  t.after(async () => {
+  onTestFinished(async () => {
     for (const client of clients) {
       client.terminate();
     }
