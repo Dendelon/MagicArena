@@ -6,6 +6,23 @@ import { flushLogger, serializeLogError, type AppLogger } from './log/logger.ts'
 
 export const DEFAULT_SHUTDOWN_DEADLINE_MS = 8000;
 
+export interface HealthMetadata {
+  readonly version: string;
+  readonly gitSha: string | null;
+  readonly buildId: string | null;
+}
+
+export interface HealthPayload extends HealthMetadata {
+  readonly status: 'ok';
+}
+
+export const createHealthPayload = (metadata: HealthMetadata): HealthPayload => ({
+  status: 'ok',
+  version: metadata.version,
+  gitSha: metadata.gitSha,
+  buildId: metadata.buildId,
+});
+
 export type ShutdownTrigger = 'signal' | 'fatal' | 'manual';
 export type FatalSource =
   | 'uncaughtException'

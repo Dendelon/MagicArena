@@ -24,6 +24,7 @@ shared/test
 shared/type-tests
 *.md
 *.local
+render.yaml
 *.cpuprofile
 *.heapprofile
 *.heapsnapshot

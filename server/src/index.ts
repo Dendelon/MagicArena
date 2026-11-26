@@ -22,7 +22,7 @@ import { createLogger, serializeLogError } from './log/logger.ts';
 import { setupMatchLogs } from './log/matchlog.ts';
 import { getReplayPath, listReplays } from './log/replay.ts';
 import { startRssProfiler } from './log/rss.ts';
-import { createServerLifecycle } from './lifecycle.ts';
+import { createHealthPayload, createServerLifecycle } from './lifecycle.ts';
 
 const readServerPackageVersion = (): string => {
   try {
@@ -100,6 +100,7 @@ const mimeTypes: Readonly<Record<string, string>> = {
   '.js': 'text/javascript; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
   '.json': 'application/json; charset=utf-8',
+  '.webmanifest': 'application/manifest+json; charset=utf-8',
   '.png': 'image/png',
   '.jpg': 'image/jpeg',
   '.svg': 'image/svg+xml',
@@ -203,9 +204,17 @@ const serveStatic = async (
     return;
   }
 
+  const ext = extname(filePath);
+  const cacheControlHeader =
+    ext === '.html'
+      ? { 'Cache-Control': 'no-store' }
+      : pathname === '/sw.js' || ext === '.webmanifest'
+        ? { 'Cache-Control': 'no-cache' }
+        : {};
+
   res.writeHead(200, {
-    'Content-Type': mimeTypes[extname(filePath)] ?? 'application/octet-stream',
-    ...(extname(filePath) === '.html' ? { 'Cache-Control': 'no-store' } : {}),
+    'Content-Type': mimeTypes[ext] ?? 'application/octet-stream',
+    ...cacheControlHeader,
   });
 
   if (req.method === 'HEAD') {
@@ -243,7 +252,15 @@ const handleRequest = async (
   const pathname = url.pathname;
 
   if (pathname === '/health' && req.method === 'GET') {
-    sendJson(res, 200, { status: 'ok' });
+    sendJson(
+      res,
+      200,
+      createHealthPayload({
+        version: serverVersion,
+        gitSha: config.gitSha,
+        buildId: config.buildId,
+      }),
+    );
     return;
   }
 

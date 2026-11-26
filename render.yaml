@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: magicarena
+    runtime: image
+    image:
+      url: ghcr.io/dendelon/magicarena:latest
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: HOST
+        value: 0.0.0.0
+      - key: LOG_LEVEL
+        value: info
+      - key: ALLOW_MISSING_ORIGIN
+        value: "0"
+      - key: ALLOWED_ORIGINS
+        sync: false
+

@@ -58,6 +58,9 @@ import { DecodeProfiler } from './performance/DecodeProfiler.ts';
 
 import type { FrameStats, LoadedAssets } from './types.ts';
 import type { TypedEvent } from './events.ts';
+import { registerServiceWorker } from './pwa.ts';
+
+void registerServiceWorker();
 
 const INPUT_INTERVAL = 1 / 30;
 

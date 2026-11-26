@@ -6,7 +6,10 @@ import { afterEach, describe, expect, test, vi } from 'vitest';
 import WebSocket from 'ws';
 import { PROTOCOL_VERSION } from '@magicarena/shared';
 
-import { createServerLifecycle } from '../src/lifecycle.ts';
+import {
+  createHealthPayload,
+  createServerLifecycle,
+} from '../src/lifecycle.ts';
 import { createLogger, serializeLogError } from '../src/log/logger.ts';
 import { rawDataToUtf8 } from '../src/network/rawData.ts';
 import { RoomManager } from '../src/rooms.ts';
@@ -367,5 +370,104 @@ describe('WebSocket shutdown behavior and /health + /ready integration', () => {
     const fatalRecord = logs.find((entry) => entry.event === 'server.fatal');
     expect(fatalRecord).toBeDefined();
     expect(fatalRecord?.source).toBe('startup');
+  });
+
+  test('exposes version, gitSha, and buildId on /health payload', async () => {
+    expect(
+      createHealthPayload({
+        version: '1.0.0',
+        gitSha: 'abc1234',
+        buildId: 'v1.0.0-42',
+      }),
+    ).toEqual({
+      status: 'ok',
+      version: '1.0.0',
+      gitSha: 'abc1234',
+      buildId: 'v1.0.0-42',
+    });
+
+    expect(
+      createHealthPayload({
+        version: '1.0.0',
+        gitSha: null,
+        buildId: null,
+      }),
+    ).toEqual({
+      status: 'ok',
+      version: '1.0.0',
+      gitSha: null,
+      buildId: null,
+    });
+
+    const probe = createServer();
+    await new Promise<void>((resolve) => {
+      probe.listen(0, '127.0.0.1', () => resolve());
+    });
+    const addr = probe.address();
+    if (!addr || typeof addr === 'string') {
+      throw new Error('Expected TCP port');
+    }
+    const port = addr.port;
+    await new Promise<void>((resolve) => probe.close(() => resolve()));
+
+    const child = spawn(process.execPath, ['server/src/index.ts'], {
+      cwd: process.cwd(),
+      env: {
+        ...process.env,
+        HOST: '127.0.0.1',
+        PORT: String(port),
+        GIT_SHA: 'deadbeefcafebabe',
+        BUILD_ID: 'v1.0.0-99',
+        LOG_LEVEL: 'info',
+        LOG_DIR: 'server/logs/test-health',
+        ENABLE_BOTS: '0',
+        ENABLE_PROFILE: '0',
+        ENABLE_LOAD_TEST: '0',
+        RSS_PROFILE: '0',
+      },
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+
+    const stdoutChunks: string[] = [];
+    let resolvedStarted = false;
+    let markStarted: (() => void) | null = null;
+    const startedPromise = new Promise<void>((resolve) => {
+      markStarted = resolve;
+    });
+
+    child.stdout?.on('data', (chunk: Buffer | string) => {
+      const text = typeof chunk === 'string' ? chunk : chunk.toString('utf8');
+      stdoutChunks.push(text);
+      if (!resolvedStarted && stdoutChunks.join('').includes('server.started')) {
+        resolvedStarted = true;
+        markStarted?.();
+      }
+    });
+
+    try {
+      await Promise.race([
+        startedPromise,
+        new Promise<never>((_, reject) => {
+          child.once('exit', (code) => {
+            reject(new Error(`Server exited early with code ${String(code)}`));
+          });
+        }),
+      ]);
+
+      const healthRes = await fetch(`http://127.0.0.1:${port}/health`);
+      expect(healthRes.status).toBe(200);
+      const body: unknown = await healthRes.json();
+      expect(body).toEqual({
+        status: 'ok',
+        version: '1.0.0',
+        gitSha: 'deadbeefcafebabe',
+        buildId: 'v1.0.0-99',
+      });
+    } finally {
+      if (child.exitCode === null) {
+        child.kill('SIGTERM');
+        await once(child, 'exit');
+      }
+    }
   });
 });
