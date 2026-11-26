@@ -4,6 +4,7 @@ import { createServer } from 'node:http';
 import { PassThrough } from 'node:stream';
 import { afterEach, describe, expect, test, vi } from 'vitest';
 import WebSocket from 'ws';
+import { z } from 'zod';
 import { PROTOCOL_VERSION } from '@magicarena/shared';
 
 import {
@@ -463,6 +464,96 @@ describe('WebSocket shutdown behavior and /health + /ready integration', () => {
         gitSha: 'deadbeefcafebabe',
         buildId: 'v1.0.0-99',
       });
+
+      // Default persistent rooms survive full player departure and accept re-joins.
+      const firstWs = new WebSocket(`ws://127.0.0.1:${port}/ws`);
+      try {
+        await once(firstWs, 'open');
+        firstWs.send(
+          JSON.stringify({
+            v: PROTOCOL_VERSION,
+            type: 'join',
+            room: 'arcane',
+            name: 'FirstVisitor',
+          }),
+        );
+        await new Promise<void>((resolve) => {
+          firstWs.on('message', (data) => {
+            const text = rawDataToUtf8(data);
+            if (text.includes('"type":"joined"')) {
+              resolve();
+            }
+          });
+        });
+      } finally {
+        if (firstWs.readyState !== WebSocket.CLOSED) {
+          await new Promise<void>((resolve) => {
+            firstWs.once('close', () => resolve());
+            firstWs.close(1000, 'done');
+          });
+        }
+      }
+
+      const RoomsResponseSchema = z.object({
+        rooms: z.array(
+          z.object({
+            id: z.string(),
+            players: z.number().int().nonnegative(),
+          }),
+        ),
+      });
+      type RoomsResponse = z.infer<typeof RoomsResponseSchema>;
+
+      let parsedRooms: RoomsResponse | null = null;
+      const deadline = Date.now() + 2000;
+      while (Date.now() < deadline) {
+        const roomsRes = await fetch(`http://127.0.0.1:${port}/api/rooms`);
+        expect(roomsRes.status).toBe(200);
+        const nextPayload: unknown = await roomsRes.json();
+        const candidate = RoomsResponseSchema.parse(nextPayload);
+        parsedRooms = candidate;
+        const arcane = candidate.rooms.find((room) => room.id === 'arcane');
+        const training = candidate.rooms.find((room) => room.id === 'training');
+        if (arcane?.players === 0 && training?.players === 0) {
+          break;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 25));
+      }
+
+      expect(
+        parsedRooms?.rooms.find((room) => room.id === 'arcane')?.players,
+      ).toBe(0);
+      expect(
+        parsedRooms?.rooms.find((room) => room.id === 'training')?.players,
+      ).toBe(0);
+
+      const secondWs = new WebSocket(`ws://127.0.0.1:${port}/ws`);
+      try {
+        await once(secondWs, 'open');
+        secondWs.send(
+          JSON.stringify({
+            v: PROTOCOL_VERSION,
+            type: 'join',
+            room: 'arcane',
+            name: 'SecondVisitor',
+          }),
+        );
+        await new Promise<void>((resolve) => {
+          secondWs.on('message', (data) => {
+            const text = rawDataToUtf8(data);
+            if (text.includes('"type":"joined"')) {
+              resolve();
+            }
+          });
+        });
+      } finally {
+        if (secondWs.readyState !== WebSocket.CLOSED) {
+          await new Promise<void>((resolve) => {
+            secondWs.once('close', () => resolve());
+            secondWs.close(1000, 'done');
+          });
+        }
+      }
     } finally {
       if (child.exitCode === null) {
         child.kill('SIGTERM');

@@ -36,6 +36,7 @@ export class Room extends EventEmitter<RoomEvents> {
   readonly name: string;
   readonly obstacleCount: number;
   readonly maxPlayers: number;
+  readonly persistent: boolean;
 
   readonly players = new Map<PlayerId, Player>();
 
@@ -47,6 +48,7 @@ export class Room extends EventEmitter<RoomEvents> {
     name,
     obstacleCount = 3,
     maxPlayers = 4,
+    persistent = false,
     canAcceptServerPlayer = null,
   }: RoomOptions & { canAcceptServerPlayer?: (() => boolean) | null }) {
     super();
@@ -55,6 +57,7 @@ export class Room extends EventEmitter<RoomEvents> {
     this.name = name;
     this.obstacleCount = obstacleCount;
     this.maxPlayers = maxPlayers;
+    this.persistent = persistent;
     this.#canAcceptServerPlayer = canAcceptServerPlayer;
   }
 
@@ -219,17 +222,19 @@ export class RoomManager extends EventEmitter<RoomManagerEvents> {
       );
     });
 
-    room.once('empty', () => {
-      this.rooms.delete(room.id);
-      this.emit('removed', room);
-      this.#logger?.info(
-        {
-          event: 'room.closed',
-          roomId: room.id,
-        },
-        'room.closed',
-      );
-    });
+    if (!room.persistent) {
+      room.once('empty', () => {
+        this.rooms.delete(room.id);
+        this.emit('removed', room);
+        this.#logger?.info(
+          {
+            event: 'room.closed',
+            roomId: room.id,
+          },
+          'room.closed',
+        );
+      });
+    }
 
     room.on('error', (error) => {
       if (this.#logger) {

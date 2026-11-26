@@ -65,6 +65,7 @@ rooms.create({
   name: 'Arcane Ruins',
   obstacleCount: 3,
   maxPlayers: config.maxPlayersPerRoom,
+  persistent: true,
 });
 
 rooms.create({
@@ -72,6 +73,7 @@ rooms.create({
   name: 'Training Grounds',
   obstacleCount: 2,
   maxPlayers: config.maxPlayersPerRoom,
+  persistent: true,
 });
 
 if (config.enableBots) {
@@ -80,6 +82,7 @@ if (config.enableBots) {
     name: 'Performance Arena',
     obstacleCount: 3,
     maxPlayers: 9,
+    persistent: true,
   });
 }
 
@@ -89,6 +92,7 @@ if (config.enableLoadTest) {
     name: 'Load Test Arena',
     obstacleCount: 3,
     maxPlayers: 128,
+    persistent: true,
   });
 }
 

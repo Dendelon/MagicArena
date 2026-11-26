@@ -19,6 +19,7 @@ export interface RoomOptions {
   name: string;
   obstacleCount?: number;
   maxPlayers?: number;
+  persistent?: boolean;
 }
 
 export interface ContinuousInput {
