@@ -492,6 +492,10 @@ export const setupWebSocket = (
     });
 
     socket.on('message', (data, isBinary) => {
+      if (shuttingDown || socket.readyState !== WebSocket.OPEN) {
+        return;
+      }
+
       try {
         const messageBytes = rawByteLength(data);
         metrics?.recordIncomingMessage(messageBytes);
