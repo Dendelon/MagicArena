@@ -10,6 +10,23 @@ test('Environment defaults', () => {
   assert.equal(result.HOST, '127.0.0.1');
   assert.equal(result.NET_CODEC, 'binary');
   assert.equal(result.NET_DELAY_MS, 0);
+  assert.equal(result.ENABLE_BOTS, false);
+});
+
+test('ENABLE_BOTS accepts loopback host and rejects non-loopback host', () => {
+  const enabled = EnvSchema.parse({
+    HOST: '127.0.0.1',
+    ENABLE_BOTS: '1',
+  });
+
+  assert.equal(enabled.ENABLE_BOTS, true);
+
+  const rejected = EnvSchema.safeParse({
+    HOST: '0.0.0.0',
+    ENABLE_BOTS: '1',
+  });
+
+  assert.equal(rejected.success, false);
 });
 
 test('Parse valid network configuration', () => {

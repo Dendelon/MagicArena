@@ -13,6 +13,7 @@ import { HttpError, hasErrorCode } from './errors.ts';
 import { RoomManager } from './rooms.ts';
 import { MatchManager } from './game/MatchManager.ts';
 import { setupWebSocket } from './ws.ts';
+import { BotManager } from './bots/BotManager.ts';
 import { setupMatchLogs } from './log/matchlog.ts';
 import { getReplayPath, listReplays } from './log/replay.ts';
 import { startRssProfiler } from './log/rss.ts';
@@ -36,6 +37,15 @@ rooms.create({
   obstacleCount: 2,
   maxPlayers: 4,
 });
+
+if (config.enableBots) {
+  rooms.create({
+    id: 'profiling',
+    name: 'Performance Arena',
+    obstacleCount: 3,
+    maxPlayers: 9,
+  });
+}
 
 await mkdir(config.logDir, { recursive: true });
 
@@ -112,6 +122,11 @@ const readJsonBody = async (req: IncomingMessage): Promise<unknown> => {
 const CreateRoomSchema = z.object({
   name: z.string().trim().min(2).max(40),
   obstacleCount: z.number().int().min(0).max(3),
+});
+
+const CreateBotsSchema = z.strictObject({
+  count: z.number().int().min(1).max(8),
+  seed: z.number().int().min(0).max(0xffffffff).default(1337),
 });
 
 const serveStatic = async (
@@ -299,6 +314,50 @@ const handleRequest = async (
     return;
   }
 
+  const botsMatch = /^\/api\/rooms\/([^/]+)\/bots$/.exec(pathname);
+
+  if (botsMatch?.[1]) {
+    if (!config.enableBots) {
+      sendJson(res, 404, { error: 'Bots API is disabled' });
+      return;
+    }
+
+    const roomId = decodeURIComponent(botsMatch[1]);
+
+    if (req.method === 'POST') {
+      const body = await readJsonBody(req);
+      const result = CreateBotsSchema.safeParse(body);
+
+      if (!result.success) {
+        sendJson(res, 400, { error: 'Invalid bots payload' });
+        return;
+      }
+
+      const bots = await botManager.addBots(
+        roomId,
+        result.data.count,
+        result.data.seed,
+      );
+      sendJson(res, 201, { roomId, bots });
+      return;
+    }
+
+    if (req.method === 'GET') {
+      const bots = botManager.listBots(roomId);
+      sendJson(res, 200, { roomId, bots });
+      return;
+    }
+
+    if (req.method === 'DELETE') {
+      const removed = await botManager.removeBots(roomId);
+      sendJson(res, 200, { roomId, removed });
+      return;
+    }
+
+    sendJson(res, 405, { error: 'Method not allowed' });
+    return;
+  }
+
   if (pathname.startsWith('/api/')) {
     sendJson(res, 404, { error: 'Unknown API route' });
     return;
@@ -332,6 +391,16 @@ const server = createServer((req, res) => {
 
 let websocket: ReturnType<typeof setupWebSocket> | null = null;
 
+const botManager = new BotManager({
+  roomManager: rooms,
+  getWsUrl: () => {
+    const address = server.address();
+    const port =
+      address && typeof address !== 'string' ? address.port : config.port;
+    return `ws://${config.host}:${port}/ws`;
+  },
+});
+
 const matchManager = new MatchManager(rooms, {
   onSnapshot: (match) => {
     websocket?.broadcastSnapshot(match);
@@ -361,6 +430,8 @@ const shutdown = (): void => {
   console.log('Shutting down server...');
 
   void (async () => {
+    await botManager.shutdown();
+
     const httpClosed = new Promise<void>((resolve, reject) => {
       server.close((error) => {
         if (error) reject(error);

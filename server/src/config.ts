@@ -68,7 +68,18 @@ export const EnvSchema = z.object({
     .string()
     .optional()
     .transform((value) => value === '1'),
-});
+
+  ENABLE_BOTS: z
+    .string()
+    .optional()
+    .transform((value) => value === '1'),
+}).refine(
+  (data) => !data.ENABLE_BOTS || data.HOST === '127.0.0.1',
+  {
+    message: 'ENABLE_BOTS=1 requires HOST=127.0.0.1',
+    path: ['ENABLE_BOTS'],
+  },
+);
 
 export const readConfig = (env: unknown) => {
   const data = EnvSchema.parse(env);
@@ -86,6 +97,7 @@ export const readConfig = (env: unknown) => {
 
     rssProfile: data.RSS_PROFILE,
     enableSlowDemo: data.ENABLE_SLOW_DEMO,
+    enableBots: data.ENABLE_BOTS,
   };
 };
 
