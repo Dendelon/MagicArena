@@ -19,7 +19,12 @@ export default tseslint.config(
   },
 
   {
-    files: ['server/**/*.{js,ts}'],
+    files: [
+      'server/**/*.{js,ts}',
+      'e2e/**/*.ts',
+      'playwright.config.ts',
+      'vitest.config.ts',
+    ],
     languageOptions: {
       ecmaVersion: 'latest',
       sourceType: 'module',
@@ -45,6 +50,9 @@ export default tseslint.config(
       'client/test/**/*.ts',
       'server/**/*.ts',
       'shared/**/*.ts',
+      'e2e/**/*.ts',
+      'playwright.config.ts',
+      'vitest.config.ts',
     ],
 
     extends: [...tseslint.configs.recommended],

@@ -38,6 +38,7 @@ import {
   createInterpolation,
 } from './network/interpolation.ts';
 import { createProjectilePredictor } from './network/projectiles.ts';
+import { createRenderProbe } from './e2e/renderProbe.ts';
 
 import type { FrameStats, LoadedAssets } from './types.ts';
 import type { TypedEvent } from './events.ts';
@@ -51,6 +52,7 @@ if (!(canvas instanceof HTMLCanvasElement)) {
 }
 
 const { ctx, size } = createCanvas(canvas);
+const renderProbe = createRenderProbe(canvas);
 
 const input = createInput();
 
@@ -169,6 +171,7 @@ const simulate = (dt: number): void => {
 };
 
 const render = (_alpha: number, stats: FrameStats): void => {
+  renderProbe.beginFrame();
   pollLocalShots();
   drawOuterBackground(ctx, size.width, size.height);
   prediction.advanceSmoothing(stats.frameTimeMs);
@@ -288,6 +291,8 @@ const render = (_alpha: number, stats: FrameStats): void => {
       ) {
         drawSword(ctx, x, y, angle);
       }
+
+      renderProbe.recordSword(sword.id, sword.ownerId, isOwnSword, x, y, angle);
     }
 
     // Малювання вибухів
@@ -317,6 +322,8 @@ const render = (_alpha: number, stats: FrameStats): void => {
   ctx.fillText(`${playerName} | ${roomName}`, size.width - 18, 30);
 
   ctx.restore();
+
+  renderProbe.endFrame(lastAppliedSnapshotTick, world.width, world.height);
 };
 
 const loop = createLoop({
