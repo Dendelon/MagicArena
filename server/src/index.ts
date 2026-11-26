@@ -53,20 +53,25 @@ const distDir = resolve(
 );
 const clientIndexPath = join(distDir, 'index.html');
 
-const rooms = new RoomManager({ logger });
+const rooms = new RoomManager({
+  maxRooms: config.maxRooms,
+  defaultMaxPlayersPerRoom: config.maxPlayersPerRoom,
+  maxTotalPlayers: config.maxTotalPlayers,
+  logger,
+});
 
 rooms.create({
   id: 'arcane',
   name: 'Arcane Ruins',
   obstacleCount: 3,
-  maxPlayers: 4,
+  maxPlayers: config.maxPlayersPerRoom,
 });
 
 rooms.create({
   id: 'training',
   name: 'Training Grounds',
   obstacleCount: 2,
-  maxPlayers: 4,
+  maxPlayers: config.maxPlayersPerRoom,
 });
 
 if (config.enableBots) {
@@ -311,7 +316,7 @@ const handleRequest = async (
     const room = rooms.create({
       name: result.data.name,
       obstacleCount: result.data.obstacleCount,
-      maxPlayers: 4,
+      maxPlayers: config.maxPlayersPerRoom,
     });
 
     sendJson(res, 201, room.getInfo());
@@ -601,6 +606,9 @@ websocket = setupWebSocket(server, rooms, {
   loadProfiler,
   metrics,
   logger,
+  allowedOrigins: config.allowedOrigins,
+  allowMissingOrigin: config.allowMissingOrigin,
+  maxConnectionsPerIp: config.maxConnectionsPerIp,
 });
 
 const lifecycle = createServerLifecycle({

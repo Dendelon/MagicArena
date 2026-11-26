@@ -40,19 +40,22 @@ export class Room extends EventEmitter<RoomEvents> {
   readonly players = new Map<PlayerId, Player>();
 
   logBackpressured = false;
+  readonly #canAcceptServerPlayer: (() => boolean) | null;
 
   constructor({
     id = randomUUID(),
     name,
     obstacleCount = 3,
     maxPlayers = 4,
-  }: RoomOptions) {
+    canAcceptServerPlayer = null,
+  }: RoomOptions & { canAcceptServerPlayer?: (() => boolean) | null }) {
     super();
 
     this.id = id;
     this.name = name;
     this.obstacleCount = obstacleCount;
     this.maxPlayers = maxPlayers;
+    this.#canAcceptServerPlayer = canAcceptServerPlayer;
   }
 
   getInfo(): RoomInfo {
@@ -74,6 +77,13 @@ export class Room extends EventEmitter<RoomEvents> {
 
   join(player: Player): boolean {
     if (this.players.size >= this.maxPlayers) {
+      return false;
+    }
+
+    if (
+      this.#canAcceptServerPlayer !== null &&
+      !this.#canAcceptServerPlayer()
+    ) {
       return false;
     }
 
@@ -134,27 +144,56 @@ export class RoomManager extends EventEmitter<RoomManagerEvents> {
   readonly rooms = new Map<string, Room>();
 
   readonly maxRooms: number;
+  readonly defaultMaxPlayersPerRoom: number;
+  readonly maxTotalPlayers: number;
   readonly #logger: RoomLogger | null;
 
   constructor({
     maxRooms = 20,
+    defaultMaxPlayersPerRoom = 4,
+    maxTotalPlayers = 2000,
     logger = null,
   }: {
     maxRooms?: number;
+    defaultMaxPlayersPerRoom?: number;
+    maxTotalPlayers?: number;
     logger?: RoomLogger | null;
   } = {}) {
     super();
 
     this.maxRooms = maxRooms;
+    this.defaultMaxPlayersPerRoom = defaultMaxPlayersPerRoom;
+    this.maxTotalPlayers = maxTotalPlayers;
     this.#logger = logger;
+  }
+
+  getTotalPlayers(): number {
+    let total = 0;
+    for (const room of this.rooms.values()) {
+      total += room.players.size;
+    }
+    return total;
   }
 
   create(options: RoomOptions): Room {
     if (this.rooms.size >= this.maxRooms) {
+      this.#logger?.warn(
+        {
+          event: 'room.limit.reached',
+          maxRooms: this.maxRooms,
+          activeRooms: this.rooms.size,
+        },
+        'room.limit.reached',
+      );
       throw new HttpError('Room limit reached', 429);
     }
 
-    const room = new Room(options);
+    const room = new Room({
+      ...options,
+      maxPlayers: options.maxPlayers ?? this.defaultMaxPlayersPerRoom,
+      canAcceptServerPlayer: () =>
+        this.getTotalPlayers() < this.maxTotalPlayers,
+    });
 
     this.rooms.set(room.id, room);
 

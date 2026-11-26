@@ -2,6 +2,7 @@ import { resolve } from 'node:path';
 import { z } from 'zod';
 
 import { CodecSchema } from '@magicarena/shared/protocol';
+import { normalizeAllowedOrigin } from './network/origin.ts';
 
 const envNumber = (defaultValue: number, schema: z.ZodNumber) =>
   z.preprocess((value) => {
@@ -83,6 +84,24 @@ export const EnvSchema = z.object({
     LogLevelSchema,
   ),
 
+  ALLOWED_ORIGINS: z.string().optional(),
+
+  ALLOW_MISSING_ORIGIN: z
+    .string()
+    .optional()
+    .refine(
+      (value) => value === undefined || value === '0' || value === '1',
+      'ALLOW_MISSING_ORIGIN must be "0" or "1"',
+    ),
+
+  MAX_CONNECTIONS_PER_IP: envNumber(10, z.number().int().min(1).max(1000)),
+
+  MAX_ROOMS: envNumber(20, z.number().int().min(1).max(500)),
+
+  MAX_PLAYERS_PER_ROOM: envNumber(4, z.number().int().min(1).max(64)),
+
+  MAX_TOTAL_PLAYERS: envNumber(80, z.number().int().min(1).max(2000)),
+
   NET_DELAY_MS: envNumber(0, z.number().min(0).max(1000)),
 
   NET_JITTER_MS: envNumber(0, z.number().min(0).max(500)),
@@ -142,7 +161,59 @@ export const EnvSchema = z.object({
       message: 'ENABLE_LOAD_TEST=1 requires HOST=127.0.0.1',
       path: ['ENABLE_LOAD_TEST'],
     },
-  );
+  )
+  .transform((data, ctx) => {
+    const isProduction = data.NODE_ENV === 'production';
+    const rawOrigins = data.ALLOWED_ORIGINS?.trim() ?? '';
+
+    let allowedOrigins: string[];
+    if (rawOrigins.length === 0) {
+      if (isProduction) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['ALLOWED_ORIGINS'],
+          message: 'ALLOWED_ORIGINS is required when NODE_ENV=production',
+        });
+        return z.NEVER;
+      }
+
+      allowedOrigins = [
+        `http://127.0.0.1:${data.PORT}`,
+        `http://localhost:${data.PORT}`,
+        'http://127.0.0.1:5173',
+        'http://localhost:5173',
+      ];
+    } else {
+      const entries = rawOrigins.split(',');
+      const normalized = new Set<string>();
+
+      for (const entry of entries) {
+        const origin = normalizeAllowedOrigin(entry);
+        if (origin === null) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['ALLOWED_ORIGINS'],
+            message: `Invalid ALLOWED_ORIGINS entry: "${entry.trim()}"`,
+          });
+          return z.NEVER;
+        }
+        normalized.add(origin);
+      }
+
+      allowedOrigins = [...normalized];
+    }
+
+    const allowMissingOrigin =
+      data.ALLOW_MISSING_ORIGIN !== undefined
+        ? data.ALLOW_MISSING_ORIGIN === '1'
+        : !isProduction;
+
+    return {
+      ...data,
+      ALLOWED_ORIGINS: allowedOrigins,
+      ALLOW_MISSING_ORIGIN: allowMissingOrigin,
+    };
+  });
 
 export const readConfig = (env: unknown) => {
   const data = EnvSchema.parse(env);
@@ -156,6 +227,13 @@ export const readConfig = (env: unknown) => {
     host: data.HOST,
     logDir: resolve(data.LOG_DIR),
     logLevel: data.LOG_LEVEL,
+
+    allowedOrigins: data.ALLOWED_ORIGINS,
+    allowMissingOrigin: data.ALLOW_MISSING_ORIGIN,
+    maxConnectionsPerIp: data.MAX_CONNECTIONS_PER_IP,
+    maxRooms: data.MAX_ROOMS,
+    maxPlayersPerRoom: data.MAX_PLAYERS_PER_ROOM,
+    maxTotalPlayers: data.MAX_TOTAL_PLAYERS,
 
     netDelayMs: data.NET_DELAY_MS,
     netJitterMs: data.NET_JITTER_MS,

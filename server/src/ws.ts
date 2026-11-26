@@ -9,6 +9,11 @@ import type { CodecMode, ServerMessage } from '@magicarena/shared';
 
 import { MAX_MESSAGE_SIZE, ProtocolError, parseMessage } from './protocol.ts';
 import { createLatencyController } from './network/latency.ts';
+import { IpConnectionLimiter, normalizeClientIp } from './network/ipLimit.ts';
+import {
+  normalizeAllowedOrigin,
+  validateWebSocketOrigin,
+} from './network/origin.ts';
 import { getErrorMessage } from './errors.ts';
 import {
   BUCKET_CAPACITY,
@@ -55,6 +60,9 @@ interface WebSocketOptions {
   loadProfiler?: LoadProfiler | null;
   metrics?: ServerMetrics | null;
   logger?: WebSocketLogger | null;
+  allowedOrigins?: readonly string[];
+  allowMissingOrigin?: boolean;
+  maxConnectionsPerIp?: number;
 }
 
 type WithoutVersion<T> = T extends { v: number } ? Omit<T, 'v'> : never;
@@ -76,6 +84,9 @@ export const setupWebSocket = (
     loadProfiler = null,
     metrics = null,
     logger = null,
+    allowedOrigins = [],
+    allowMissingOrigin = true,
+    maxConnectionsPerIp = 10,
   }: WebSocketOptions = {},
 ) => {
   const wss = new WebSocketServer({
@@ -84,6 +95,15 @@ export const setupWebSocket = (
     perMessageDeflate: false,
   });
 
+  const allowedOriginSet = new Set<string>();
+  for (const rawOrigin of allowedOrigins) {
+    const normalized = normalizeAllowedOrigin(rawOrigin);
+    if (normalized !== null) {
+      allowedOriginSet.add(normalized);
+    }
+  }
+
+  const ipLimiter = new IpConnectionLimiter(maxConnectionsPerIp);
   const latency = createLatencyController({ delayMs, jitterMs, dropRate });
   const gameCodec = getCodec(codec);
   const socketStates = new WeakMap<WebSocket, SocketState>();
@@ -316,9 +336,30 @@ export const setupWebSocket = (
 
   roomManager.on('created', registerRoom);
 
-  const rejectUpgrade = (socket: Duplex): void => {
-    socket.write('HTTP/1.1 503 Service Unavailable\r\nConnection: close\r\n\r\n');
+  const rejectUpgrade = (
+    socket: Duplex,
+    statusLine = 'HTTP/1.1 503 Service Unavailable',
+  ): void => {
+    socket.write(`${statusLine}\r\nConnection: close\r\n\r\n`);
     socket.destroy();
+  };
+
+  const attachIpRelease = (ws: WebSocket, ip: string): void => {
+    let released = false;
+    const release = (): void => {
+      if (released) {
+        return;
+      }
+      released = true;
+      ipLimiter.release(ip);
+    };
+
+    if (ws.readyState === WebSocket.CLOSED) {
+      release();
+      return;
+    }
+
+    ws.once('close', release);
   };
 
   const handleUpgrade = (
@@ -327,21 +368,81 @@ export const setupWebSocket = (
     head: Buffer,
   ): void => {
     if (shuttingDown) {
-      rejectUpgrade(socket);
+      rejectUpgrade(socket, 'HTTP/1.1 503 Service Unavailable');
       return;
     }
 
     const pathname = new URL(req.url ?? '/', 'http://localhost').pathname;
 
     if (pathname !== '/ws') {
-      socket.write('HTTP/1.1 404 Not Found\r\n\r\n');
-      socket.destroy();
+      rejectUpgrade(socket, 'HTTP/1.1 404 Not Found');
       return;
     }
 
-    wss.handleUpgrade(req, socket, head, (ws) => {
-      wss.emit('connection', ws, req);
-    });
+    const clientIp = normalizeClientIp(req.socket.remoteAddress);
+    const originCheck = validateWebSocketOrigin(
+      req.headers.origin,
+      allowedOriginSet,
+      allowMissingOrigin,
+    );
+
+    if (!originCheck.allowed) {
+      logger?.warn(
+        {
+          event: 'connection.origin.rejected',
+          reason: originCheck.reason,
+          origin: originCheck.origin,
+          ip: clientIp,
+        },
+        'connection.origin.rejected',
+      );
+      rejectUpgrade(socket, 'HTTP/1.1 403 Forbidden');
+      return;
+    }
+
+    if (clientIp === null) {
+      rejectUpgrade(socket, 'HTTP/1.1 400 Bad Request');
+      return;
+    }
+
+    if (!ipLimiter.tryAcquire(clientIp)) {
+      logger?.warn(
+        {
+          event: 'connection.ip.limit.reached',
+          ip: clientIp,
+          limit: maxConnectionsPerIp,
+        },
+        'connection.ip.limit.reached',
+      );
+      rejectUpgrade(socket, 'HTTP/1.1 429 Too Many Requests');
+      return;
+    }
+
+    let handedOff = false;
+    const releasePreConnectionSlot = (): void => {
+      if (!handedOff) {
+        handedOff = true;
+        ipLimiter.release(clientIp);
+      }
+    };
+
+    socket.once('close', releasePreConnectionSlot);
+    socket.once('error', releasePreConnectionSlot);
+
+    try {
+      wss.handleUpgrade(req, socket, head, (ws) => {
+        handedOff = true;
+        socket.off('close', releasePreConnectionSlot);
+        socket.off('error', releasePreConnectionSlot);
+        attachIpRelease(ws, clientIp);
+        wss.emit('connection', ws, req);
+      });
+    } catch {
+      socket.off('close', releasePreConnectionSlot);
+      socket.off('error', releasePreConnectionSlot);
+      releasePreConnectionSlot();
+      socket.destroy();
+    }
   };
 
   const rejectUpgradeDuringShutdown = (
@@ -449,6 +550,18 @@ export const setupWebSocket = (
             };
 
             if (!room.join(player)) {
+              logger?.warn(
+                {
+                  event: 'room.player.limit.reached',
+                  roomId: room.id,
+                  playerId: player.id,
+                  roomPlayers: room.players.size,
+                  roomMaxPlayers: room.maxPlayers,
+                  totalPlayers: roomManager.getTotalPlayers(),
+                  maxTotalPlayers: roomManager.maxTotalPlayers,
+                },
+                'room.player.limit.reached',
+              );
               socket.close(4003, 'Room is full');
               return;
             }
@@ -734,6 +847,11 @@ export const setupWebSocket = (
     return shutdownPromise;
   };
 
-  return { broadcastSnapshot, shutdown };
+  const getActiveIpCount = (rawIp: string): number => {
+    const normalized = normalizeClientIp(rawIp);
+    return normalized === null ? 0 : ipLimiter.countFor(normalized);
+  };
+
+  return { broadcastSnapshot, shutdown, getActiveIpCount };
 };
 

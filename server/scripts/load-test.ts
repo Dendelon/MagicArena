@@ -124,6 +124,8 @@ const buildServerEnv = (port: number): NodeJS.ProcessEnv => ({
   ENABLE_PROFILE: '0',
   RSS_PROFILE: '0',
   ENABLE_SLOW_DEMO: '0',
+  MAX_CONNECTIONS_PER_IP: '256',
+  MAX_TOTAL_PLAYERS: '256',
   LOG_DIR: LOAD_LOG_DIR,
 });
 
