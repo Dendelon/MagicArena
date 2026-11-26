@@ -1,4 +1,4 @@
-import { Vector2 } from './vector.ts';
+import { MutableVector2, type Vector2View } from './vector.ts';
 import { toEntityId } from '../types.ts';
 
 import type {
@@ -7,6 +7,8 @@ import type {
   EntityKind,
   Vec2Like,
 } from '../types.ts';
+
+const ZERO_VEC: Vec2Like = { x: 0, y: 0 };
 
 export interface EntityOptions {
   id?: EntityId | null;
@@ -22,9 +24,9 @@ export class Entity {
   static #nextId = 1;
 
   #id: EntityId;
+  readonly #pos: MutableVector2;
+  readonly #vel: MutableVector2;
 
-  pos: Vector2;
-  vel: Vector2;
   angle: number;
   radius: number;
   readonly kind: EntityKind;
@@ -32,16 +34,24 @@ export class Entity {
 
   constructor({
     id = null,
-    pos = new Vector2(),
-    vel = new Vector2(),
+    pos = ZERO_VEC,
+    vel = ZERO_VEC,
     angle = 0,
     radius = 16,
     kind = 'entity',
     alive = true,
   }: EntityOptions = {}) {
-    if (id !== null && id !== undefined) {
-      this.#id = id;
+    this.#id = Entity.#resolveId(id);
+    this.#pos = new MutableVector2(pos.x, pos.y);
+    this.#vel = new MutableVector2(vel.x, vel.y);
+    this.angle = angle;
+    this.radius = radius;
+    this.kind = kind;
+    this.alive = alive;
+  }
 
+  static #resolveId(id?: EntityId | null): EntityId {
+    if (id !== null && id !== undefined) {
       if (
         typeof id === 'number' &&
         Number.isInteger(id) &&
@@ -49,16 +59,11 @@ export class Entity {
       ) {
         Entity.#nextId = id + 1;
       }
-    } else {
-      this.#id = toEntityId(Entity.#nextId++);
+
+      return id;
     }
 
-    this.pos = Vector2.fromJSON(pos);
-    this.vel = Vector2.fromJSON(vel);
-    this.angle = angle;
-    this.radius = radius;
-    this.kind = kind;
-    this.alive = alive;
+    return toEntityId(Entity.#nextId++);
   }
 
   static resetNextId(value = 1): void {
@@ -69,8 +74,52 @@ export class Entity {
     return this.#id;
   }
 
+  get pos(): Vector2View {
+    return this.#pos;
+  }
+
+  set pos(value: Vec2Like) {
+    this.#pos.copyFrom(value);
+  }
+
+  get vel(): Vector2View {
+    return this.#vel;
+  }
+
+  set vel(value: Vec2Like) {
+    this.#vel.copyFrom(value);
+  }
+
+  protected get mutablePos(): MutableVector2 {
+    return this.#pos;
+  }
+
+  protected get mutableVel(): MutableVector2 {
+    return this.#vel;
+  }
+
+  setVelocity(vx: number, vy: number): void {
+    this.#vel.set(vx, vy);
+  }
+
+  protected reinitEntity({
+    id = null,
+    pos = ZERO_VEC,
+    vel = ZERO_VEC,
+    angle = 0,
+    radius = 16,
+    alive = true,
+  }: Omit<EntityOptions, 'kind'> = {}): void {
+    this.#id = Entity.#resolveId(id);
+    this.#pos.copyFrom(pos);
+    this.#vel.copyFrom(vel);
+    this.angle = angle;
+    this.radius = radius;
+    this.alive = alive;
+  }
+
   update(dt: number): void {
-    this.pos = this.pos.add(this.vel.scale(dt));
+    this.#pos.addScaled(this.#vel, dt);
   }
 
   destroy(): void {
@@ -81,8 +130,8 @@ export class Entity {
     return {
       id: this.#id,
       kind: this.kind,
-      pos: this.pos.toJSON(),
-      vel: this.vel.toJSON(),
+      pos: this.#pos.toJSON(),
+      vel: this.#vel.toJSON(),
       angle: this.angle,
       radius: this.radius,
       alive: this.alive,

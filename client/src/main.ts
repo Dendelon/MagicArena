@@ -363,6 +363,10 @@ if (import.meta.env.VITE_PROFILE === '1' && frameProfiler) {
         world.width > 0 && world.height > 0
           ? { width: world.width, height: world.height }
           : null,
+      pools: {
+        world: world.getPoolStats(),
+        localBullets: projectiles.getPoolStats(),
+      },
     }),
   });
 }

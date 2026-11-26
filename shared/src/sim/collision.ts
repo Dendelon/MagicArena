@@ -1,5 +1,3 @@
-import { Explosion } from '../entities/Explosion.ts';
-
 import type { World } from './world.ts';
 import type { GameEntity } from '../entities/types.ts';
 import type { Vec2Like } from '../types.ts';
@@ -48,9 +46,11 @@ const explode = (
     color?: string;
   } = {},
 ): void => {
+  const posCopy = { x: entity.pos.x, y: entity.pos.y };
+
   world.spawn(
-    new Explosion({
-      pos: entity.pos,
+    world.createExplosion({
+      pos: posCopy,
       count,
       color,
       random: world.rng,
@@ -59,7 +59,7 @@ const explode = (
 
   world.emit('exploded', {
     kind: entity.kind,
-    pos: entity.pos,
+    pos: posCopy,
   });
 };
 
@@ -90,7 +90,7 @@ export const resolveCollisions = (world: World): void => {
 
       world.emit('hit', {
         kind: 'obstacle',
-        pos: obstacle.pos,
+        pos: { x: obstacle.pos.x, y: obstacle.pos.y },
       });
 
       if (!obstacle.alive) {
@@ -115,7 +115,7 @@ export const resolveCollisions = (world: World): void => {
       if (damaged) {
         world.emit('hit', {
           kind: 'sword',
-          pos: sword.pos,
+          pos: { x: sword.pos.x, y: sword.pos.y },
         });
       }
 
@@ -134,7 +134,7 @@ export const resolveCollisions = (world: World): void => {
       if (damaged) {
         world.emit('hit', {
           kind: 'sword',
-          pos: sword.pos,
+          pos: { x: sword.pos.x, y: sword.pos.y },
         });
       }
 

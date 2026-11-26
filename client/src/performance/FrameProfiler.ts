@@ -1,9 +1,12 @@
-import { summarizeTimings } from '@magicarena/shared';
+import { diffPoolStats, summarizeTimings } from '@magicarena/shared';
 import type {
   Bounds,
   CodecMode,
   NetSim,
+  PoolDeltaStats,
+  PoolStats,
   TimingSummary,
+  WorldPoolStats,
 } from '@magicarena/shared';
 
 import type { LoopFrameTiming, LoopProfiler } from '../loop.ts';
@@ -69,6 +72,15 @@ export interface ServerProfileReport {
     readonly max: number | null;
   };
   readonly players: number | null;
+  readonly pools?: {
+    readonly bullets: PoolDeltaStats;
+    readonly particles: PoolDeltaStats;
+  } | null;
+}
+
+export interface ProfilePoolSnapshots {
+  readonly world: WorldPoolStats;
+  readonly localBullets: PoolStats;
 }
 
 export interface ProfileExperimentContext {
@@ -78,6 +90,7 @@ export interface ProfileExperimentContext {
   readonly codec: CodecMode | null;
   readonly netSim: NetSim | null;
   readonly bounds: Bounds | null;
+  readonly pools?: ProfilePoolSnapshots | null;
 }
 
 export interface CombinedProfileReport {
@@ -99,6 +112,17 @@ export interface CombinedProfileReport {
     readonly codec: CodecMode | null;
     readonly netSim: NetSim | null;
     readonly bounds: Bounds | null;
+  };
+  readonly pools: {
+    readonly serverWorld: {
+      readonly bullets: PoolDeltaStats;
+      readonly particles: PoolDeltaStats;
+    } | null;
+    readonly clientWorld: {
+      readonly bullets: PoolDeltaStats;
+      readonly particles: PoolDeltaStats;
+    } | null;
+    readonly localPredictedBullets: PoolDeltaStats | null;
   };
 }
 
@@ -517,9 +541,11 @@ export const createMagicArenaProfileApi = ({
           );
         }
 
+        const poolsBefore = getContext().pools ?? null;
         const client = await profiler.start(durationMs);
         const server = await fetchServerResult();
         const context = getContext();
+        const poolsAfter = context.pools ?? null;
 
         const report: CombinedProfileReport = {
           recordedAt: new Date().toISOString(),
@@ -540,6 +566,29 @@ export const createMagicArenaProfileApi = ({
             codec: context.codec,
             netSim: context.netSim,
             bounds: context.bounds,
+          },
+          pools: {
+            serverWorld: server?.pools ?? null,
+            clientWorld:
+              poolsBefore && poolsAfter
+                ? {
+                    bullets: diffPoolStats(
+                      poolsBefore.world.bullets,
+                      poolsAfter.world.bullets,
+                    ),
+                    particles: diffPoolStats(
+                      poolsBefore.world.particles,
+                      poolsAfter.world.particles,
+                    ),
+                  }
+                : null,
+            localPredictedBullets:
+              poolsBefore && poolsAfter
+                ? diffPoolStats(
+                    poolsBefore.localBullets,
+                    poolsAfter.localBullets,
+                  )
+                : null,
           },
         };
 

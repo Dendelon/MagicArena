@@ -8,12 +8,21 @@ const MAX_SPEED = 320;
 const DRAG = 0.8;
 const BRAKE_FORCE = 5;
 
-export const integrate = <T extends SwordState>(
-  sword: T,
+export interface MutableSwordState {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  angle: number;
+}
+
+export const integrateInto = (
+  target: MutableSwordState,
+  sword: SwordState,
   input: SwordInput,
   dt: number,
   world: Bounds,
-): T => {
+): void => {
   const direction =
     typeof input.turn === 'number'
       ? Math.max(-1, Math.min(1, input.turn))
@@ -44,16 +53,21 @@ export const integrate = <T extends SwordState>(
     vy *= scale;
   }
 
-  const x = wrap(sword.x + vx * dt, world.width);
-  const y = wrap(sword.y + vy * dt, world.height);
+  target.x = wrap(sword.x + vx * dt, world.width);
+  target.y = wrap(sword.y + vy * dt, world.height);
+  target.vx = vx;
+  target.vy = vy;
+  target.angle = angle;
+};
 
-  return {
-    ...sword,
-    x,
-    y,
-    vx,
-    vy,
-    angle,
-  };
+export const integrate = <T extends SwordState>(
+  sword: T,
+  input: SwordInput,
+  dt: number,
+  world: Bounds,
+): T => {
+  const next: T = { ...sword };
+  integrateInto(next, sword, input, dt, world);
+  return next;
 };
 

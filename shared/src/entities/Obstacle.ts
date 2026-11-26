@@ -1,9 +1,11 @@
 import { Entity, type EntityOptions } from '../sim/entity.ts';
-import { Vector2 } from '../sim/vector.ts';
+import { MutableVector2, type Vector2View } from '../sim/vector.ts';
 import { createHoming, type HomingBehavior } from '../sim/behaviors/homing.ts';
 
-import type { ObstacleSnapshot } from '../types.ts';
+import type { ObstacleSnapshot, Vec2Like } from '../types.ts';
 import type { World } from '../sim/world.ts';
+
+const ZERO_VEC: Vec2Like = { x: 0, y: 0 };
 
 export interface ObstacleOptions extends Omit<EntityOptions, 'kind'> {
   hp?: number;
@@ -13,14 +15,14 @@ export interface ObstacleOptions extends Omit<EntityOptions, 'kind'> {
 export class Obstacle extends Entity {
   declare readonly kind: 'obstacle';
 
-  previousPos: Vector2;
+  readonly #previousPos: MutableVector2;
   hp: number;
   homing: HomingBehavior | null;
 
   constructor({
     id = null,
-    pos = new Vector2(),
-    vel = new Vector2(),
+    pos = ZERO_VEC,
+    vel = ZERO_VEC,
     angle = 0,
     radius = 26,
     hp = 1,
@@ -37,9 +39,17 @@ export class Obstacle extends Entity {
       alive,
     });
 
-    this.previousPos = this.pos;
+    this.#previousPos = new MutableVector2(this.mutablePos.x, this.mutablePos.y);
     this.hp = hp;
     this.homing = homing;
+  }
+
+  get previousPos(): Vector2View {
+    return this.#previousPos;
+  }
+
+  set previousPos(value: Vec2Like) {
+    this.#previousPos.copyFrom(value);
   }
 
   takeDamage(amount = 1): void {
@@ -53,7 +63,7 @@ export class Obstacle extends Entity {
   }
 
   override update(dt: number, world?: World): void {
-    this.previousPos = this.pos;
+    this.#previousPos.copyFrom(this.mutablePos);
 
     if (world) {
       this.homing?.update(this, world, dt);
@@ -64,10 +74,10 @@ export class Obstacle extends Entity {
 
     if (!world) return;
 
-    let x = this.pos.x;
-    let y = this.pos.y;
-    let vx = this.vel.x;
-    let vy = this.vel.y;
+    let x = this.mutablePos.x;
+    let y = this.mutablePos.y;
+    let vx = this.mutableVel.x;
+    let vy = this.mutableVel.y;
 
     // Межі, за які центр каменя не повинен виходити
     const minX = Math.min(this.radius, world.width / 2);
@@ -94,8 +104,8 @@ export class Obstacle extends Entity {
       vy = -Math.abs(vy);
     }
 
-    this.pos = new Vector2(x, y);
-    this.vel = new Vector2(vx, vy);
+    this.mutablePos.set(x, y);
+    this.mutableVel.set(vx, vy);
   }
 
   override toJSON(): ObstacleSnapshot {

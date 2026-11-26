@@ -1,12 +1,19 @@
 import { resolveCollisions } from './collision.ts';
+import { BulletPool } from './BulletPool.ts';
+import { ParticlePool } from './ParticlePool.ts';
 import { mulberry32 } from './random.ts';
+import { Explosion, type ExplosionOptions } from '../entities/Explosion.ts';
 import { entityFromJSON } from '../entities/fromJSON.ts';
+import { createHoming } from './behaviors/homing.ts';
 import { toSeq, toTick } from '../types.ts';
 
+import type { Bullet, BulletOptions } from '../entities/Bullet.ts';
 import type { EntityOfKind, GameEntity } from '../entities/types.ts';
+import type { PoolStats } from './ObjectPool.ts';
 import type {
   Bounds,
   EntityId,
+  EntitySnapshot,
   GameEntityKind,
   RandomSource,
   Seq,
@@ -19,6 +26,11 @@ import type {
   WorldSnapshot,
   WorldState,
 } from '../types.ts';
+
+export interface WorldPoolStats {
+  readonly bullets: PoolStats;
+  readonly particles: PoolStats;
+}
 
 export interface WorldOptions {
   seed?: number;
@@ -43,6 +55,8 @@ type EmitArgs = {
 export class World {
   #entities = new Map<EntityId, GameEntity>();
   #listeners = new Map<WorldEventName, Map<WorldListener, boolean>>();
+  readonly #bulletPool = new BulletPool();
+  readonly #particlePool = new ParticlePool();
 
   bounds: Bounds;
   readonly seed: number;
@@ -151,6 +165,66 @@ export class World {
     return this.#entities.size;
   }
 
+  createBullet(options: BulletOptions = {}): Bullet {
+    return this.#bulletPool.acquire(options);
+  }
+
+  createExplosion(options: ExplosionOptions = {}): Explosion {
+    return new Explosion({
+      ...options,
+      particlePool: options.particlePool ?? this.#particlePool,
+    });
+  }
+
+  getPoolStats(): WorldPoolStats {
+    return {
+      bullets: this.#bulletPool.getStats(),
+      particles: this.#particlePool.getStats(),
+    };
+  }
+
+  #releaseEntityResources(entity: GameEntity): void {
+    if (entity.kind === 'bullet') {
+      this.#bulletPool.release(entity);
+    } else if (entity.kind === 'explosion') {
+      entity.releaseParticles();
+    }
+  }
+
+  #restoreSnapshotEntity(entityData: EntitySnapshot): GameEntity {
+    if (entityData.kind === 'bullet') {
+      return this.#bulletPool.acquire({
+        id: entityData.id,
+        pos: entityData.pos,
+        vel: entityData.vel,
+        angle: entityData.angle,
+        ttl: entityData.ttl,
+        radius: entityData.radius,
+        ownerId: entityData.ownerId,
+        ownerPlayerId: entityData.ownerPlayerId ?? null,
+        originSeq: entityData.originSeq ?? null,
+        damage: entityData.damage,
+        alive: entityData.alive,
+        homing: entityData.homing ? createHoming(entityData.homing) : null,
+      });
+    }
+
+    if (entityData.kind === 'explosion') {
+      return new Explosion({
+        id: entityData.id,
+        pos: entityData.pos,
+        vel: entityData.vel,
+        angle: entityData.angle,
+        color: entityData.color,
+        alive: entityData.alive,
+        particles: entityData.particles ?? [],
+        particlePool: this.#particlePool,
+      });
+    }
+
+    return entityFromJSON(entityData);
+  }
+
   // Додавання сутності
   spawn<T extends GameEntity>(entity: T): T {
     if (this.#entities.has(entity.id)) {
@@ -165,7 +239,7 @@ export class World {
         ownerId: entity.ownerId ?? null,
         ownerPlayerId: entity.ownerPlayerId ?? null,
         originSeq: entity.originSeq ?? null,
-        pos: entity.pos,
+        pos: entity.pos.toJSON(),
       });
     }
 
@@ -236,10 +310,11 @@ export class World {
       hooks?.onAfterCollisions?.();
     }
 
-    // 3. Видаляємо знищені об'єкти
+    // 3. Видаляємо знищені об'єкти та повертаємо їх у пул лише після завершення колізій
     for (const [id, entity] of this.#entities) {
       if (!entity.alive) {
         this.#entities.delete(id);
+        this.#releaseEntityResources(entity);
       }
     }
   }
@@ -253,10 +328,14 @@ export class World {
   }
 
   applySnapshot(snapshot: SnapshotWorldState): void {
+    for (const existing of this.#entities.values()) {
+      this.#releaseEntityResources(existing);
+    }
+
     this.#entities.clear();
 
     for (const entityData of snapshot.entities ?? []) {
-      const entity = entityFromJSON(entityData);
+      const entity = this.#restoreSnapshotEntity(entityData);
       this.#entities.set(entity.id, entity);
     }
 
@@ -308,7 +387,7 @@ export class World {
     world.score = data.score ?? 0;
 
     for (const entityData of data.entities ?? []) {
-      const entity = entityFromJSON(entityData);
+      const entity = world.#restoreSnapshotEntity(entityData);
       world.#entities.set(entity.id, entity);
     }
 

@@ -314,6 +314,40 @@ describe('FrameProfiler', () => {
         codec: 'binary',
         netSim: { delayMs: 0, jitterMs: 0, dropRate: 0 },
         bounds: { width: 960, height: 640 },
+        pools: {
+          world: {
+            bullets: {
+              created: 8,
+              acquired: 20,
+              reused: 12,
+              released: 18,
+              discarded: 0,
+              active: 2,
+              available: 6,
+              peakActive: 8,
+            },
+            particles: {
+              created: 40,
+              acquired: 80,
+              reused: 40,
+              released: 80,
+              discarded: 0,
+              active: 0,
+              available: 40,
+              peakActive: 20,
+            },
+          },
+          localBullets: {
+            created: 2,
+            acquired: 5,
+            reused: 3,
+            released: 5,
+            discarded: 0,
+            active: 0,
+            available: 2,
+            peakActive: 2,
+          },
+        },
       }),
     });
 
@@ -344,6 +378,9 @@ describe('FrameProfiler', () => {
     expect(report.experiment.roomId).toBe('profiling');
     expect(report.experiment.codec).toBe('binary');
     expect(report.server).toEqual(serverReport);
+    expect(report.pools.clientWorld?.bullets.after.created).toBe(8);
+    expect(report.pools.clientWorld?.particles.after.reused).toBe(40);
+    expect(report.pools.localPredictedBullets?.after.peakActive).toBe(2);
     expect(api.result()).toEqual(report);
 
     const createObjectUrlSpy = vi

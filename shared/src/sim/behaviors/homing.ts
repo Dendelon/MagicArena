@@ -5,14 +5,16 @@ import type {
   EntityKind,
   GameEntityKind,
   HomingData,
+  Vec2Like,
 } from '../../types.ts';
 import type { World } from '../world.ts';
 
 export interface HomingTarget {
   readonly id: EntityId;
   readonly kind: EntityKind;
-  pos: Vector2;
-  vel: Vector2;
+  pos: Vec2Like;
+  vel: Vec2Like;
+  setVelocity?(vx: number, vy: number): void;
 }
 
 export interface HomingBehavior extends HomingData {
@@ -41,6 +43,18 @@ const smoothstep = (value: number): number => {
   return t * t * (3 - 2 * t);
 };
 
+const updateVelocity = (
+  entity: HomingTarget,
+  vx: number,
+  vy: number,
+): void => {
+  if (entity.setVelocity) {
+    entity.setVelocity(vx, vy);
+  } else {
+    entity.vel = new Vector2(vx, vy);
+  }
+};
+
 const updateBulletAssist = (
   entity: HomingTarget,
   world: World,
@@ -48,7 +62,7 @@ const updateBulletAssist = (
   turnRate: number,
   speed: number | null,
 ): void => {
-  const currentSpeed = entity.vel.length();
+  const currentSpeed = Math.hypot(entity.vel.x, entity.vel.y);
 
   if (currentSpeed <= 0 || dt <= 0) return;
 
@@ -114,8 +128,13 @@ const updateBulletAssist = (
     Math.max(0, Math.min(turnRate, ASSIST_MAX_TURN_RATE)) * dt * bestWeight;
 
   const turn = Math.max(-maxTurn, Math.min(maxTurn, bestDifference));
+  const nextAngle = currentAngle + turn;
 
-  entity.vel = Vector2.fromAngle(currentAngle + turn).scale(movementSpeed);
+  updateVelocity(
+    entity,
+    Math.cos(nextAngle) * movementSpeed,
+    Math.sin(nextAngle) * movementSpeed,
+  );
 };
 
 export const createHoming = ({
@@ -137,7 +156,9 @@ export const createHoming = ({
     for (const candidate of world.ofKind(targetKind)) {
       if (candidate.id === entity.id) continue;
 
-      const distance = candidate.pos.sub(entity.pos).length();
+      const dx = candidate.pos.x - entity.pos.x;
+      const dy = candidate.pos.y - entity.pos.y;
+      const distance = Math.hypot(dx, dy);
 
       if (distance < nearestDistance && distance > 0) {
         nearestDistance = distance;
@@ -148,11 +169,12 @@ export const createHoming = ({
     if (!target) return;
 
     // Напрямок до цілі
-    const direction = target.pos.sub(entity.pos);
+    const dirX = target.pos.x - entity.pos.x;
+    const dirY = target.pos.y - entity.pos.y;
 
-    const targetAngle = Math.atan2(direction.y, direction.x);
+    const targetAngle = Math.atan2(dirY, dirX);
 
-    const currentSpeed = entity.vel.length();
+    const currentSpeed = Math.hypot(entity.vel.x, entity.vel.y);
     const movementSpeed = speed ?? currentSpeed;
 
     if (movementSpeed <= 0) return;
@@ -174,7 +196,11 @@ export const createHoming = ({
     const newAngle = currentAngle + turn;
 
     // Змінюємо напрямок швидкості
-    entity.vel = Vector2.fromAngle(newAngle).scale(movementSpeed);
+    updateVelocity(
+      entity,
+      Math.cos(newAngle) * movementSpeed,
+      Math.sin(newAngle) * movementSpeed,
+    );
   };
 
   return {

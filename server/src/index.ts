@@ -427,7 +427,11 @@ const server = createServer((req, res) => {
 });
 
 let websocket: ReturnType<typeof setupWebSocket> | null = null;
-const serverProfiler = new ServerProfiler();
+let matchManagerRef: MatchManager | null = null;
+
+const serverProfiler = new ServerProfiler({
+  getPoolStats: () => matchManagerRef?.getPoolStats() ?? null,
+});
 
 const botManager = new BotManager({
   roomManager: rooms,
@@ -445,6 +449,7 @@ const matchManager = new MatchManager(rooms, {
   },
   profiler: serverProfiler,
 });
+matchManagerRef = matchManager;
 
 websocket = setupWebSocket(server, rooms, {
   matchManager,

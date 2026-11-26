@@ -1,8 +1,8 @@
 import { Entity, type EntityOptions } from '../sim/entity.ts';
 import { Vector2 } from '../sim/vector.ts';
-import { integrate } from '../sim/sword.ts';
+import { integrateInto, type MutableSwordState } from '../sim/sword.ts';
 import { wrap } from '../sim/arena.ts';
-import { Bullet } from './Bullet.ts';
+import type { Bullet } from './Bullet.ts';
 
 import type {
   Bounds,
@@ -17,6 +17,14 @@ import type { World } from '../sim/world.ts';
 
 const BULLET_SPEED = 550;
 const SWORD_TIP_OFFSET = 60;
+const ZERO_VEC: Vec2Like = { x: 0, y: 0 };
+
+interface MutableControls {
+  left: boolean;
+  right: boolean;
+  forward: boolean;
+  brake: boolean;
+}
 
 export interface SwordOptions extends Omit<EntityOptions, 'kind'> {
   ownerId?: PlayerId | null;
@@ -42,9 +50,10 @@ export class Sword extends Entity {
 
   #hp: number;
   #damageCooldown: number;
+  readonly #controls: MutableControls;
+  readonly #simState: MutableSwordState;
 
   ownerId: PlayerId | null;
-  input: SwordControls;
 
   get hp(): number {
     return this.#hp;
@@ -84,8 +93,8 @@ export class Sword extends Entity {
   constructor({
     id = null,
     ownerId = null,
-    pos = new Vector2(),
-    vel = new Vector2(),
+    pos = ZERO_VEC,
+    vel = ZERO_VEC,
     angle = 0,
     radius = 22,
     alive = true,
@@ -107,11 +116,19 @@ export class Sword extends Entity {
     this.#hp = hp;
     this.#damageCooldown = damageCooldown;
 
-    this.input = {
+    this.#controls = {
       left: false,
       right: false,
       forward: false,
       brake: false,
+    };
+
+    this.#simState = {
+      x: this.mutablePos.x,
+      y: this.mutablePos.y,
+      vx: this.mutableVel.x,
+      vy: this.mutableVel.y,
+      angle: this.angle,
     };
 
     if (input) {
@@ -119,15 +136,21 @@ export class Sword extends Entity {
     }
   }
 
+  get input(): SwordControls {
+    return this.#controls;
+  }
+
+  set input(value: SwordInput) {
+    this.setInput(value);
+  }
+
   setInput(input: SwordInput = {}): void {
     const turn = typeof input.turn === 'number' ? input.turn : null;
 
-    this.input = {
-      left: turn !== null ? turn < 0 : Boolean(input.left),
-      right: turn !== null ? turn > 0 : Boolean(input.right),
-      forward: Boolean(input.thrust ?? input.forward),
-      brake: Boolean(input.brake),
-    };
+    this.#controls.left = turn !== null ? turn < 0 : Boolean(input.left);
+    this.#controls.right = turn !== null ? turn > 0 : Boolean(input.right);
+    this.#controls.forward = Boolean(input.thrust ?? input.forward);
+    this.#controls.brake = Boolean(input.brake);
   }
 
   override update(dt: number, world?: World): void {
@@ -135,19 +158,17 @@ export class Sword extends Entity {
 
     if (!world) return;
 
-    const state = {
-      x: this.pos.x,
-      y: this.pos.y,
-      vx: this.vel.x,
-      vy: this.vel.y,
-      angle: this.angle,
-    };
+    this.#simState.x = this.mutablePos.x;
+    this.#simState.y = this.mutablePos.y;
+    this.#simState.vx = this.mutableVel.x;
+    this.#simState.vy = this.mutableVel.y;
+    this.#simState.angle = this.angle;
 
-    const next = integrate(state, this.input, dt, world);
+    integrateInto(this.#simState, this.#simState, this.#controls, dt, world);
 
-    this.pos = new Vector2(next.x, next.y);
-    this.vel = new Vector2(next.vx, next.vy);
-    this.angle = next.angle;
+    this.mutablePos.set(this.#simState.x, this.#simState.y);
+    this.mutableVel.set(this.#simState.vx, this.#simState.vy);
+    this.angle = this.#simState.angle;
   }
 
   static createBulletSpawn({
@@ -170,24 +191,23 @@ export class Sword extends Entity {
     world: World,
     { originSeq = null }: { originSeq?: Seq | null } = {},
   ): Bullet {
-    const { pos, vel } = Sword.createBulletSpawn({
-      pos: this.pos,
-      vel: this.vel,
-      angle: this.angle,
-      world,
-    });
+    const dirAngle = this.angle - Math.PI / 2;
+    const dirX = Math.cos(dirAngle);
+    const dirY = Math.sin(dirAngle);
+    const spawnX = wrap(this.mutablePos.x + dirX * SWORD_TIP_OFFSET, world.width);
+    const spawnY = wrap(this.mutablePos.y + dirY * SWORD_TIP_OFFSET, world.height);
+    const spawnVx = this.mutableVel.x + dirX * BULLET_SPEED;
+    const spawnVy = this.mutableVel.y + dirY * BULLET_SPEED;
 
-    const bullet = new Bullet({
-      pos,
-      vel,
+    const bullet = world.createBullet({
+      pos: { x: spawnX, y: spawnY },
+      vel: { x: spawnVx, y: spawnVy },
       ownerId: this.id,
       ownerPlayerId: this.ownerId,
       originSeq,
     });
 
-    world.spawn(bullet);
-
-    return bullet;
+    return world.spawn(bullet);
   }
 
   override toJSON(): SwordSnapshot {

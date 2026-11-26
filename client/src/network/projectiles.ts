@@ -1,5 +1,5 @@
 import {
-  Bullet,
+  BulletPool,
   Sword,
   createHoming,
   toEntityId,
@@ -10,11 +10,13 @@ import type {
   World,
   EntityId,
   PlayerId,
+  PoolStats,
   Seq,
   Vec2Like,
   SnapshotMessage,
   FireAckMessage,
-} from '@magicarena/shared';
+
+  Bullet} from '@magicarena/shared';
 
 import type { BulletSnapshot } from '@magicarena/shared/types';
 
@@ -55,7 +57,7 @@ interface ProjectileRecord {
 
   bullet: Bullet;
 
-  visualPos: Vec2Like;
+  readonly visualPos: { x: number; y: number };
   lastVisualAt: number;
 
   accepted: boolean | null;
@@ -112,14 +114,27 @@ interface BulletRenderOptions {
 export const createProjectilePredictor = () => {
   const ownProjectiles = new Map<string, ProjectileRecord>();
   const pendingShots = new Map<Seq, PendingShot>();
+  const bulletPool = new BulletPool(MAX_LOCAL_PROJECTILES);
 
   const makeKey = (originSeq: Seq, isHoming: boolean): string =>
     `${originSeq}:${isHoming ? 'h' : 'n'}`;
 
+  const removeProjectileRecord = (key: string): void => {
+    const record = ownProjectiles.get(key);
+    if (!record) return;
+
+    ownProjectiles.delete(key);
+    bulletPool.release(record.bullet);
+  };
+
   const reset = (): void => {
-    ownProjectiles.clear();
+    for (const key of [...ownProjectiles.keys()]) {
+      removeProjectileRecord(key);
+    }
     pendingShots.clear();
   };
+
+  const getPoolStats = (): PoolStats => bulletPool.getStats();
 
   const isOwnBullet = (
     bullet: BulletIdentity,
@@ -204,11 +219,11 @@ export const createProjectilePredictor = () => {
         const oldest = ownProjectiles.keys().next();
 
         if (!oldest.done) {
-          ownProjectiles.delete(oldest.value);
+          removeProjectileRecord(oldest.value);
         }
       }
 
-      const bullet = new Bullet({
+      const bullet = bulletPool.acquire({
         id: toEntityId(-originSeq - (isHoming ? 0.5 : 0)),
         pos,
         vel,
@@ -295,7 +310,7 @@ export const createProjectilePredictor = () => {
         !record.bullet.alive ||
         now - record.createdAt > MAX_UNCONFIRMED_AGE_MS
       ) {
-        ownProjectiles.delete(key);
+        removeProjectileRecord(key);
       }
     }
   };
@@ -323,7 +338,9 @@ export const createProjectilePredictor = () => {
       if (dt === 0) continue;
 
       let vel: Vec2Like = record.bullet.vel;
-      let target: Vec2Like | null = null;
+      let hasTarget = false;
+      let targetX = 0;
+      let targetY = 0;
 
       if (
         record.seenOnServer &&
@@ -343,10 +360,9 @@ export const createProjectilePredictor = () => {
           age + halfRttSec,
         );
 
-        target = {
-          x: wrap(record.lastServerPos.x + vel.x * lead, world.width),
-          y: wrap(record.lastServerPos.y + vel.y * lead, world.height),
-        };
+        hasTarget = true;
+        targetX = wrap(record.lastServerPos.x + vel.x * lead, world.width);
+        targetY = wrap(record.lastServerPos.y + vel.y * lead, world.height);
       }
 
       // Безперервний рух у кожному кадрі.
@@ -356,11 +372,11 @@ export const createProjectilePredictor = () => {
       let correctionX = 0;
       let correctionY = 0;
 
-      if (target) {
+      if (hasTarget) {
         const blend = 1 - Math.exp(-RECONCILE_BLEND_RATE * dt);
 
-        correctionX = shortestWrappedDelta(x, target.x, world.width) * blend;
-        correctionY = shortestWrappedDelta(y, target.y, world.height) * blend;
+        correctionX = shortestWrappedDelta(x, targetX, world.width) * blend;
+        correctionY = shortestWrappedDelta(y, targetY, world.height) * blend;
 
         const length = Math.hypot(correctionX, correctionY);
         const limit = Math.hypot(vel.x, vel.y) * dt * MAX_CORRECTION_RATIO;
@@ -371,10 +387,8 @@ export const createProjectilePredictor = () => {
         }
       }
 
-      record.visualPos = {
-        x: wrap(x + correctionX, world.width),
-        y: wrap(y + correctionY, world.height),
-      };
+      record.visualPos.x = wrap(x + correctionX, world.width);
+      record.visualPos.y = wrap(y + correctionY, world.height);
     }
   };
 
@@ -419,7 +433,7 @@ export const createProjectilePredictor = () => {
       if (record.originSeq !== originSeq) continue;
 
       if (!accepted) {
-        ownProjectiles.delete(key);
+        removeProjectileRecord(key);
         continue;
       }
 
@@ -457,13 +471,13 @@ export const createProjectilePredictor = () => {
       }
 
       if (record.seenOnServer) {
-        ownProjectiles.delete(key);
+        removeProjectileRecord(key);
         continue;
       }
 
       if (record.accepted) {
         if (record.seenSnapshotAfterAck) {
-          ownProjectiles.delete(key);
+          removeProjectileRecord(key);
         } else {
           record.seenSnapshotAfterAck = true;
         }
@@ -545,6 +559,7 @@ export const createProjectilePredictor = () => {
     onFireAck,
     onSnapshot,
     getBulletsToRender,
+    getPoolStats,
     reset,
   };
 };

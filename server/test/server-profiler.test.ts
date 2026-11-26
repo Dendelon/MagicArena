@@ -236,4 +236,85 @@ describe('ServerProfiler', () => {
     expect(result?.players).toBe(1);
     expect(result?.entities.max).toBeGreaterThanOrEqual(4);
   });
+
+  test('records before, after, and delta pool metrics when getPoolStats is provided', async () => {
+    vi.useFakeTimers();
+    let stage = 0;
+
+    const profiler = new ServerProfiler({
+      enableGcObserver: false,
+      getPoolStats: () => {
+        stage += 1;
+        return stage === 1
+          ? {
+              bullets: {
+                created: 10,
+                acquired: 10,
+                reused: 0,
+                released: 5,
+                discarded: 0,
+                active: 5,
+                available: 5,
+                peakActive: 6,
+              },
+              particles: {
+                created: 20,
+                acquired: 20,
+                reused: 0,
+                released: 20,
+                discarded: 0,
+                active: 0,
+                available: 20,
+                peakActive: 20,
+              },
+            }
+          : {
+              bullets: {
+                created: 12,
+                acquired: 50,
+                reused: 38,
+                released: 48,
+                discarded: 0,
+                active: 2,
+                available: 10,
+                peakActive: 12,
+              },
+              particles: {
+                created: 25,
+                acquired: 120,
+                reused: 95,
+                released: 120,
+                discarded: 0,
+                active: 0,
+                available: 25,
+                peakActive: 25,
+              },
+            };
+      },
+    });
+
+    profiler.start(500);
+    await vi.advanceTimersByTimeAsync(500);
+
+    const state = profiler.getState();
+    if (state.status !== 'completed') {
+      throw new Error('Expected completed state');
+    }
+
+    expect(state.result.pools?.bullets.delta).toEqual({
+      created: 2,
+      acquired: 40,
+      reused: 38,
+      released: 43,
+      discarded: 0,
+    });
+    expect(state.result.pools?.particles.delta).toEqual({
+      created: 5,
+      acquired: 100,
+      reused: 95,
+      released: 100,
+      discarded: 0,
+    });
+    expect(state.result.pools?.bullets.after.peakActive).toBe(12);
+  });
 });

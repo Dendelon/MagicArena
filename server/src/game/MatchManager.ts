@@ -4,6 +4,7 @@ import type { MatchStats, SnapshotHandler } from './Match.ts';
 import type { Room, RoomManager } from '../rooms.ts';
 import type { ServerProfiler } from '../performance/ServerProfiler.ts';
 import type { Player } from '../types.ts';
+import type { WorldPoolStats } from '@magicarena/shared';
 
 export class MatchManager {
   #matches = new Map<string, Match>();
@@ -99,6 +100,70 @@ export class MatchManager {
 
   getStats(): MatchStats[] {
     return [...this.#matches.values()].map((match) => match.getStats());
+  }
+
+  getPoolStats(): WorldPoolStats {
+    let bulletsCreated = 0;
+    let bulletsAcquired = 0;
+    let bulletsReused = 0;
+    let bulletsReleased = 0;
+    let bulletsDiscarded = 0;
+    let bulletsActive = 0;
+    let bulletsAvailable = 0;
+    let bulletsPeakActive = 0;
+
+    let particlesCreated = 0;
+    let particlesAcquired = 0;
+    let particlesReused = 0;
+    let particlesReleased = 0;
+    let particlesDiscarded = 0;
+    let particlesActive = 0;
+    let particlesAvailable = 0;
+    let particlesPeakActive = 0;
+
+    for (const match of this.#matches.values()) {
+      const stats = match.world.getPoolStats();
+      bulletsCreated += stats.bullets.created;
+      bulletsAcquired += stats.bullets.acquired;
+      bulletsReused += stats.bullets.reused;
+      bulletsReleased += stats.bullets.released;
+      bulletsDiscarded += stats.bullets.discarded;
+      bulletsActive += stats.bullets.active;
+      bulletsAvailable += stats.bullets.available;
+      bulletsPeakActive += stats.bullets.peakActive;
+
+      particlesCreated += stats.particles.created;
+      particlesAcquired += stats.particles.acquired;
+      particlesReused += stats.particles.reused;
+      particlesReleased += stats.particles.released;
+      particlesDiscarded += stats.particles.discarded;
+      particlesActive += stats.particles.active;
+      particlesAvailable += stats.particles.available;
+      particlesPeakActive += stats.particles.peakActive;
+    }
+
+    return {
+      bullets: {
+        created: bulletsCreated,
+        acquired: bulletsAcquired,
+        reused: bulletsReused,
+        released: bulletsReleased,
+        discarded: bulletsDiscarded,
+        active: bulletsActive,
+        available: bulletsAvailable,
+        peakActive: bulletsPeakActive,
+      },
+      particles: {
+        created: particlesCreated,
+        acquired: particlesAcquired,
+        reused: particlesReused,
+        released: particlesReleased,
+        discarded: particlesDiscarded,
+        active: particlesActive,
+        available: particlesAvailable,
+        peakActive: particlesPeakActive,
+      },
+    };
   }
 
   shutdown(): void {

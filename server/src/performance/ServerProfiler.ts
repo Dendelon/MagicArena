@@ -3,8 +3,12 @@ import {
   PerformanceObserver,
 } from 'node:perf_hooks';
 
-import { summarizeTimings } from '@magicarena/shared';
-import type { TimingSummary } from '@magicarena/shared';
+import { diffPoolStats, summarizeTimings } from '@magicarena/shared';
+import type {
+  PoolDeltaStats,
+  TimingSummary,
+  WorldPoolStats,
+} from '@magicarena/shared';
 
 import { HttpError } from '../errors.ts';
 
@@ -43,6 +47,10 @@ export interface ServerProfileResult {
     readonly max: number | null;
   };
   readonly players: number | null;
+  readonly pools: {
+    readonly bullets: PoolDeltaStats;
+    readonly particles: PoolDeltaStats;
+  } | null;
 }
 
 export type ServerProfileState =
@@ -66,6 +74,7 @@ export interface ServerProfilerOptions {
   readonly now?: () => number;
   readonly memoryUsage?: () => MemorySample;
   readonly enableGcObserver?: boolean;
+  readonly getPoolStats?: () => WorldPoolStats | null;
 }
 
 class MetricBuffer {
@@ -101,12 +110,14 @@ export class ServerProfiler {
   readonly #now: () => number;
   readonly #memoryUsage: () => MemorySample;
   readonly #enableGcObserver: boolean;
+  readonly #getPoolStats: (() => WorldPoolStats | null) | null;
 
   #status: 'idle' | 'running' | 'completed' = 'idle';
   #requestedDurationMs = 0;
   #startedAt = 0;
   #endedAt: number | null = null;
   #memoryBefore: MemorySample = { heapUsed: 0, rss: 0 };
+  #poolsBefore: WorldPoolStats | null = null;
 
   #tickBuffer: MetricBuffer | null = null;
   #worldStepBuffer: MetricBuffer | null = null;
@@ -131,6 +142,7 @@ export class ServerProfiler {
     this.#now = options.now ?? (() => performance.now());
     this.#memoryUsage = options.memoryUsage ?? (() => process.memoryUsage());
     this.#enableGcObserver = options.enableGcObserver ?? true;
+    this.#getPoolStats = options.getPoolStats ?? null;
   }
 
   isRunning(): boolean {
@@ -172,6 +184,7 @@ export class ServerProfiler {
     this.#startedAt = this.#now();
     this.#endedAt = null;
     this.#memoryBefore = this.#memoryUsage();
+    this.#poolsBefore = this.#getPoolStats?.() ?? null;
     this.#result = null;
 
     this.#tickBuffer = new MetricBuffer();
@@ -293,6 +306,20 @@ export class ServerProfiler {
     this.#cleanupObserverAndTimer();
 
     const memoryAfter = this.#memoryUsage();
+    const poolsAfter = this.#getPoolStats?.() ?? null;
+    const pools =
+      this.#poolsBefore && poolsAfter
+        ? {
+            bullets: diffPoolStats(
+              this.#poolsBefore.bullets,
+              poolsAfter.bullets,
+            ),
+            particles: diffPoolStats(
+              this.#poolsBefore.particles,
+              poolsAfter.particles,
+            ),
+          }
+        : null;
     const gcValues = this.#gcBuffer?.toArray() ?? [];
     const gcSummary = summarizeTimings(gcValues);
 
@@ -333,6 +360,7 @@ export class ServerProfiler {
         max: this.#maxEntityCount,
       },
       players: this.#players,
+      pools,
     };
 
     this.#result = result;

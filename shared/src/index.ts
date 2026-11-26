@@ -15,9 +15,26 @@ export {
   createDefaultInputForTick,
   runDeterministicScenario,
 } from './sim/scenario.ts';
-export { integrate } from './sim/sword.ts';
-export { Vector2 } from './sim/vector.ts';
-export { World, type WorldStepHooks } from './sim/world.ts';
+export { integrate, integrateInto, type MutableSwordState } from './sim/sword.ts';
+export { Vector2, MutableVector2, type Vector2View } from './sim/vector.ts';
+export { World, type WorldStepHooks, type WorldPoolStats } from './sim/world.ts';
+export {
+  ObjectPool,
+  diffPoolStats,
+  type ObjectPoolOptions,
+  type PoolDeltaStats,
+  type PoolStats,
+} from './sim/ObjectPool.ts';
+export {
+  BulletPool,
+  DEFAULT_BULLET_POOL_MAX_SIZE,
+} from './sim/BulletPool.ts';
+export {
+  ParticlePool,
+  DEFAULT_PARTICLE_POOL_MAX_SIZE,
+  type ParticleOptions,
+  type PooledParticle,
+} from './sim/ParticlePool.ts';
 export {
   summarizeTimings,
   type TimingSummary,
