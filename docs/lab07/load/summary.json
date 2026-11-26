@@ -1,0 +1,400 @@
+{
+  "recordedAt": "2026-11-26T10:38:29.542Z",
+  "environment": {
+    "platform": "win32",
+    "release": "10.0.19045",
+    "arch": "x64",
+    "nodeVersion": "v24.19.0",
+    "cpuModel": "AMD Ryzen 5 4600H with Radeon Graphics",
+    "cpuCores": 12,
+    "totalMemoryMiB": 15741.32
+  },
+  "tickBudgetMs": 33,
+  "warmupMs": 15000,
+  "durationMs": 60000,
+  "seed": 1337,
+  "scenarios": [
+    {
+      "scenario": "clients-8",
+      "recordedAt": "2026-11-26T10:34:39.398Z",
+      "valid": true,
+      "requestedClients": 8,
+      "warmupMs": 15000,
+      "durationMs": 60000,
+      "seed": 1337,
+      "environment": {
+        "platform": "win32",
+        "release": "10.0.19045",
+        "arch": "x64",
+        "nodeVersion": "v24.19.0",
+        "cpuModel": "AMD Ryzen 5 4600H with Radeon Graphics",
+        "cpuCores": 12,
+        "totalMemoryMiB": 15741.32
+      },
+      "clients": {
+        "requestedClients": 8,
+        "joinedClients": 8,
+        "minConnectedClients": 8,
+        "disconnects": 0,
+        "decodeErrors": 0,
+        "clientErrors": 0,
+        "inputsSent": 12128,
+        "snapshotsReceived": 14408
+      },
+      "loadGeneratorElu": {
+        "utilization": 0.05512350808961591,
+        "utilizationPercent": 5.512350808961591,
+        "activeMs": 3308.3251001434346,
+        "idleMs": 56708.267
+      },
+      "server": {
+        "durationMs": 60005.285599999996,
+        "expectedClients": 8,
+        "ticks": 1800,
+        "actualTickRateHz": 29.997357432792555,
+        "ticksOver33Ms": 0,
+        "over33MsShare": 0,
+        "tickMs": {
+          "count": 1800,
+          "min": 1.1389000000017404,
+          "mean": 2.550104611111106,
+          "p50": 2.50170000000071,
+          "p95": 3.55199999999968,
+          "p99": 4.234600000003411,
+          "max": 5.886399999999412
+        },
+        "elu": {
+          "utilization": 0.0887559853598274,
+          "utilizationPercent": 8.87559853598274,
+          "activeMs": 5325.824699985127,
+          "idleMs": 54679.4209
+        },
+        "memory": {
+          "rssStartBytes": 97832960,
+          "rssEndBytes": 116625408,
+          "rssPeakBytes": 116637696,
+          "heapUsedStartBytes": 23797184,
+          "heapUsedEndBytes": 24672696
+        },
+        "network": {
+          "receivedBytes": 234088,
+          "sentBytes": 32989511,
+          "receivedMessages": 12120,
+          "sentMessages": 15352,
+          "receivedBytesPerSecond": 3901.1230037375244,
+          "sentBytesPerSecond": 549776.7516666899,
+          "totalBytesPerSecond": 553677.8746704274,
+          "droppedMessages": 0,
+          "backpressureEvents": 0,
+          "scopeNote": "WebSocket application payload throughput only (excludes TCP, IP, TLS, and WebSocket framing overhead)"
+        },
+        "entities": {
+          "avg": 19.720555555555556,
+          "max": 29
+        },
+        "players": 8
+      }
+    },
+    {
+      "scenario": "clients-32",
+      "recordedAt": "2026-11-26T10:35:55.030Z",
+      "valid": true,
+      "requestedClients": 32,
+      "warmupMs": 15000,
+      "durationMs": 60000,
+      "seed": 1337,
+      "environment": {
+        "platform": "win32",
+        "release": "10.0.19045",
+        "arch": "x64",
+        "nodeVersion": "v24.19.0",
+        "cpuModel": "AMD Ryzen 5 4600H with Radeon Graphics",
+        "cpuCores": 12,
+        "totalMemoryMiB": 15741.32
+      },
+      "clients": {
+        "requestedClients": 32,
+        "joinedClients": 32,
+        "minConnectedClients": 32,
+        "disconnects": 0,
+        "decodeErrors": 0,
+        "clientErrors": 0,
+        "inputsSent": 57659,
+        "snapshotsReceived": 57664
+      },
+      "loadGeneratorElu": {
+        "utilization": 0.40124417299510495,
+        "utilizationPercent": 40.1244172995105,
+        "activeMs": 24097.315700088133,
+        "idleMs": 35959.17189999999
+      },
+      "server": {
+        "durationMs": 60013.67509999999,
+        "expectedClients": 32,
+        "ticks": 1800,
+        "actualTickRateHz": 29.993164008047895,
+        "ticksOver33Ms": 6,
+        "over33MsShare": 0.0033333333333333335,
+        "tickMs": {
+          "count": 1800,
+          "min": 12.049299999998766,
+          "mean": 20.931721055555737,
+          "p50": 20.57770000000164,
+          "p95": 27.006499999999505,
+          "p99": 30.542600000000675,
+          "max": 42.367599999997765
+        },
+        "elu": {
+          "utilization": 0.6454083541774999,
+          "utilizationPercent": 64.54083541774999,
+          "activeMs": 38733.30119982147,
+          "idleMs": 21280.3335
+        },
+        "memory": {
+          "rssStartBytes": 162861056,
+          "rssEndBytes": 235433984,
+          "rssPeakBytes": 236593152,
+          "heapUsedStartBytes": 27335984,
+          "heapUsedEndBytes": 44855912
+        },
+        "network": {
+          "receivedBytes": 1112137,
+          "sentBytes": 454409550,
+          "receivedMessages": 57595,
+          "sentMessages": 62056,
+          "receivedBytesPerSecond": 18531.393022454646,
+          "sentBytesPerSecond": 7571766.755540689,
+          "totalBytesPerSecond": 7590298.148563144,
+          "droppedMessages": 0,
+          "backpressureEvents": 0,
+          "scopeNote": "WebSocket application payload throughput only (excludes TCP, IP, TLS, and WebSocket framing overhead)"
+        },
+        "entities": {
+          "avg": 53.94,
+          "max": 69
+        },
+        "players": 32
+      }
+    },
+    {
+      "scenario": "clients-64",
+      "recordedAt": "2026-11-26T10:37:11.415Z",
+      "valid": true,
+      "requestedClients": 64,
+      "warmupMs": 15000,
+      "durationMs": 60000,
+      "seed": 1337,
+      "environment": {
+        "platform": "win32",
+        "release": "10.0.19045",
+        "arch": "x64",
+        "nodeVersion": "v24.19.0",
+        "cpuModel": "AMD Ryzen 5 4600H with Radeon Graphics",
+        "cpuCores": 12,
+        "totalMemoryMiB": 15741.32
+      },
+      "clients": {
+        "requestedClients": 64,
+        "joinedClients": 64,
+        "minConnectedClients": 64,
+        "disconnects": 0,
+        "decodeErrors": 0,
+        "clientErrors": 0,
+        "inputsSent": 113920,
+        "snapshotsReceived": 49810
+      },
+      "loadGeneratorElu": {
+        "utilization": 0.5396246158325193,
+        "utilizationPercent": 53.96246158325193,
+        "activeMs": 32692.930599890533,
+        "idleMs": 27891.649199999985
+      },
+      "server": {
+        "durationMs": 60209.479999999996,
+        "expectedClients": 64,
+        "ticks": 774,
+        "actualTickRateHz": 12.855118496289954,
+        "ticksOver33Ms": 774,
+        "over33MsShare": 1,
+        "tickMs": {
+          "count": 774,
+          "min": 40.86830000000191,
+          "mean": 67.68584186046495,
+          "p50": 65.19509999999718,
+          "p95": 92.91889999999694,
+          "p99": 128.26950000000215,
+          "max": 134.04620000000068
+        },
+        "elu": {
+          "utilization": 0.8851976697695552,
+          "utilizationPercent": 88.51976697695551,
+          "activeMs": 53297.24200005799,
+          "idleMs": 6912.182199999999
+        },
+        "memory": {
+          "rssStartBytes": 229818368,
+          "rssEndBytes": 229928960,
+          "rssPeakBytes": 234934272,
+          "heapUsedStartBytes": 36946216,
+          "heapUsedEndBytes": 49179848
+        },
+        "network": {
+          "receivedBytes": 2185401,
+          "sentBytes": 678494737,
+          "receivedMessages": 113231,
+          "sentMessages": 58037,
+          "receivedBytesPerSecond": 36296.62637843742,
+          "sentBytesPerSecond": 11268902.123054376,
+          "totalBytesPerSecond": 11305198.749432813,
+          "droppedMessages": 0,
+          "backpressureEvents": 0,
+          "scopeNote": "WebSocket application payload throughput only (excludes TCP, IP, TLS, and WebSocket framing overhead)"
+        },
+        "entities": {
+          "avg": 80.34496124031008,
+          "max": 108
+        },
+        "players": 64
+      }
+    },
+    {
+      "scenario": "clients-128",
+      "recordedAt": "2026-11-26T10:38:29.539Z",
+      "valid": true,
+      "requestedClients": 128,
+      "warmupMs": 15000,
+      "durationMs": 60000,
+      "seed": 1337,
+      "environment": {
+        "platform": "win32",
+        "release": "10.0.19045",
+        "arch": "x64",
+        "nodeVersion": "v24.19.0",
+        "cpuModel": "AMD Ryzen 5 4600H with Radeon Graphics",
+        "cpuCores": 12,
+        "totalMemoryMiB": 15741.32
+      },
+      "clients": {
+        "requestedClients": 128,
+        "joinedClients": 128,
+        "minConnectedClients": 128,
+        "disconnects": 0,
+        "decodeErrors": 0,
+        "clientErrors": 0,
+        "inputsSent": 227183,
+        "snapshotsReceived": 26998
+      },
+      "loadGeneratorElu": {
+        "utilization": 0.6265805447676778,
+        "utilizationPercent": 62.658054476767774,
+        "activeMs": 38132.59500000306,
+        "idleMs": 22725.654299999995
+      },
+      "server": {
+        "durationMs": 60462.3456,
+        "expectedClients": 128,
+        "ticks": 210,
+        "actualTickRateHz": 3.473236076372135,
+        "ticksOver33Ms": 210,
+        "over33MsShare": 1,
+        "tickMs": {
+          "count": 210,
+          "min": 143.53609999999753,
+          "mean": 274.7296085714285,
+          "p50": 279.519100000005,
+          "p95": 447.8404999999984,
+          "p99": 485.04799999999886,
+          "max": 491.7497000000003
+        },
+        "elu": {
+          "utilization": 0.9738978144184809,
+          "utilizationPercent": 97.38978144184809,
+          "activeMs": 58884.181099869915,
+          "idleMs": 1578.2003
+        },
+        "memory": {
+          "rssStartBytes": 231542784,
+          "rssEndBytes": 230490112,
+          "rssPeakBytes": 238092288,
+          "heapUsedStartBytes": 25257672,
+          "heapUsedEndBytes": 24094176
+        },
+        "network": {
+          "receivedBytes": 4355924,
+          "sentBytes": 716620406,
+          "receivedMessages": 225704,
+          "sentMessages": 43870,
+          "receivedBytesPerSecond": 72043.58277492959,
+          "sentBytesPerSecond": 11852342.129445935,
+          "totalBytesPerSecond": 11924385.712220864,
+          "droppedMessages": 0,
+          "backpressureEvents": 0,
+          "scopeNote": "WebSocket application payload throughput only (excludes TCP, IP, TLS, and WebSocket framing overhead)"
+        },
+        "entities": {
+          "avg": 128.67142857142858,
+          "max": 161
+        },
+        "players": 128
+      }
+    }
+  ],
+  "capacity": {
+    "tickBudgetMs": 33,
+    "targetTickRateHz": 30,
+    "largestPassingTestedN": 32,
+    "firstFailingTestedN": 64,
+    "capacityLowerBound": "between 32 and 63 concurrent clients (passed N=32, failed N=64)",
+    "bottleneckSummary": "At N=64, limiting factors: tick p99 128.27 ms > 33 ms; server ELU 88.5%.",
+    "warnings": [
+      "N=64: actualTickRateHz=12.86 Hz is below 28.5 Hz stability threshold.",
+      "N=128: actualTickRateHz=3.47 Hz is below 28.5 Hz stability threshold."
+    ],
+    "evaluations": [
+      {
+        "N": 8,
+        "valid": true,
+        "passedBudget": true,
+        "p99TickMs": 4.234600000003411,
+        "actualTickRateHz": 29.997357432792555,
+        "over33MsShare": 0,
+        "disconnects": 0,
+        "warnings": []
+      },
+      {
+        "N": 32,
+        "valid": true,
+        "passedBudget": true,
+        "p99TickMs": 30.542600000000675,
+        "actualTickRateHz": 29.993164008047895,
+        "over33MsShare": 0.0033333333333333335,
+        "disconnects": 0,
+        "warnings": []
+      },
+      {
+        "N": 64,
+        "valid": true,
+        "passedBudget": false,
+        "p99TickMs": 128.26950000000215,
+        "actualTickRateHz": 12.855118496289954,
+        "over33MsShare": 1,
+        "disconnects": 0,
+        "warnings": [
+          "N=64: actualTickRateHz=12.86 Hz is below 28.5 Hz stability threshold."
+        ]
+      },
+      {
+        "N": 128,
+        "valid": true,
+        "passedBudget": false,
+        "p99TickMs": 485.04799999999886,
+        "actualTickRateHz": 3.473236076372135,
+        "over33MsShare": 1,
+        "disconnects": 0,
+        "warnings": [
+          "N=128: actualTickRateHz=3.47 Hz is below 28.5 Hz stability threshold."
+        ]
+      }
+    ]
+  }
+}

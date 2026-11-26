@@ -26,6 +26,7 @@
     "test:e2e:headed": "playwright test --headed",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:report": "playwright show-report",
+    "test:load": "node server/scripts/load-test.ts",
     "audit:types": "node scripts/audit-types.mjs",
     "benchmark": "node server/scripts/codec-benchmark.ts",
     "format": "prettier --write .",

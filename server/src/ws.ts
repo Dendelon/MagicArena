@@ -23,8 +23,23 @@ import type { Room, RoomManager } from './rooms.ts';
 import type { Match } from './game/Match.ts';
 import type { MatchManager } from './game/MatchManager.ts';
 import type { ServerProfiler } from './performance/ServerProfiler.ts';
+import type { LoadProfiler } from './performance/LoadProfiler.ts';
+import type { RawData } from 'ws';
 
 const MAX_BUFFERED_AMOUNT = 256 * 1024;
+const LOAD_TEST_ROOM_ID = 'load-test';
+
+const rawByteLength = (data: RawData): number => {
+  if (Buffer.isBuffer(data)) return data.byteLength;
+  if (Array.isArray(data)) {
+    let total = 0;
+    for (const chunk of data) {
+      total += chunk.byteLength;
+    }
+    return total;
+  }
+  return data.byteLength;
+};
 
 interface WebSocketOptions {
   matchManager?: MatchManager | null;
@@ -33,6 +48,7 @@ interface WebSocketOptions {
   dropRate?: number;
   codec?: CodecMode;
   profiler?: ServerProfiler | null;
+  loadProfiler?: LoadProfiler | null;
 }
 
 type WithoutVersion<T> = T extends { v: number } ? Omit<T, 'v'> : never;
@@ -51,6 +67,7 @@ export const setupWebSocket = (
     dropRate = 0,
     codec = 'binary',
     profiler = null,
+    loadProfiler = null,
   }: WebSocketOptions = {},
 ) => {
   const wss = new WebSocketServer({
@@ -72,11 +89,15 @@ export const setupWebSocket = (
     socket: WebSocket,
     payload: string | ArrayBuffer,
     critical = false,
+    isLoadTestRoom = false,
   ): void => {
     if (shuttingDown || socket.readyState !== WebSocket.OPEN) return;
 
     // Не накопичуємо нескінченну чергу для повільного клієнта
     if (socket.bufferedAmount > MAX_BUFFERED_AMOUNT) {
+      if (isLoadTestRoom) {
+        loadProfiler?.recordBackpressure();
+      }
       if (critical) {
         socket.close(4009, 'Slow client');
       }
@@ -84,12 +105,21 @@ export const setupWebSocket = (
     }
 
     socket.send(payload);
+
+    if (isLoadTestRoom) {
+      const bytes =
+        typeof payload === 'string'
+          ? Buffer.byteLength(payload)
+          : payload.byteLength;
+      loadProfiler?.recordSent(bytes);
+    }
   };
 
   const send = (
     socket: WebSocket,
     message: OutgoingMessage,
     critical = false,
+    isLoadTestRoom = false,
   ): void => {
     sendRaw(
       socket,
@@ -98,6 +128,7 @@ export const setupWebSocket = (
         ...message,
       }),
       critical,
+      isLoadTestRoom,
     );
   };
 
@@ -106,8 +137,9 @@ export const setupWebSocket = (
     message: OutgoingMessage,
     critical = false,
   ): void => {
+    const isLoadTestRoom = room.id === LOAD_TEST_ROOM_ID;
     for (const player of room.players.values()) {
-      send(player.socket, message, critical);
+      send(player.socket, message, critical, isLoadTestRoom);
     }
   };
 
@@ -156,6 +188,7 @@ export const setupWebSocket = (
                 ...ack,
               },
               true,
+              room.id === LOAD_TEST_ROOM_ID,
             );
           },
           { allowDrop: false },
@@ -185,16 +218,21 @@ export const setupWebSocket = (
         continue;
       }
 
-      latency.schedule(
+      const isLoadTestRoom = room.id === LOAD_TEST_ROOM_ID;
+      const scheduled = latency.schedule(
         () => {
           if (shuttingDown || match.stopped || !room.players.has(player.id)) {
             return;
           }
 
-          sendRaw(player.socket, payload, false);
+          sendRaw(player.socket, payload, false, isLoadTestRoom);
         },
         { allowDrop: true },
       );
+
+      if (!scheduled && isLoadTestRoom) {
+        loadProfiler?.recordDropped();
+      }
     }
 
     if (profiling && profiler) {
@@ -292,6 +330,11 @@ export const setupWebSocket = (
 
     socket.on('message', (data, isBinary) => {
       try {
+        const messageBytes = rawByteLength(data);
+        if (currentRoom?.id === LOAD_TEST_ROOM_ID) {
+          loadProfiler?.recordReceived(messageBytes);
+        }
+
         // Token Bucket: поступове відновлення токенів
         const now = Date.now();
         const messageLimit = consumeToken(state.tokens, state.lastRefill, now, {
@@ -346,6 +389,10 @@ export const setupWebSocket = (
             currentPlayer = player;
             clearTimeout(joinTimeout);
 
+            if (room.id === LOAD_TEST_ROOM_ID) {
+              loadProfiler?.recordReceived(messageBytes);
+            }
+
             const match = matchManager?.getMatch(room.id) ?? null;
             const playerState = match?.getPlayer(player.id) ?? null;
             const entityId = playerState?.entityId ?? null;
@@ -370,6 +417,7 @@ export const setupWebSocket = (
                 },
               },
               true,
+              room.id === LOAD_TEST_ROOM_ID,
             );
 
             return;
@@ -390,11 +438,16 @@ export const setupWebSocket = (
                   () => {
                     if (shuttingDown || !room.players.has(player.id)) return;
 
-                    send(socket, {
-                      type: 'pong',
-                      id: message.id,
-                      clientTime: message.clientTime,
-                    });
+                    send(
+                      socket,
+                      {
+                        type: 'pong',
+                        id: message.id,
+                        clientTime: message.clientTime,
+                      },
+                      false,
+                      room.id === LOAD_TEST_ROOM_ID,
+                    );
                   },
                   { allowDrop: false },
                 );
@@ -414,7 +467,7 @@ export const setupWebSocket = (
 
             if (!match) return;
 
-            latency.schedule(
+            const scheduled = latency.schedule(
               () => {
                 if (shuttingDown || match.stopped) return;
                 if (socket.readyState !== WebSocket.OPEN) return;
@@ -424,6 +477,10 @@ export const setupWebSocket = (
               },
               { allowDrop: true },
             );
+
+            if (!scheduled && room.id === LOAD_TEST_ROOM_ID) {
+              loadProfiler?.recordDropped();
+            }
 
             return;
           }

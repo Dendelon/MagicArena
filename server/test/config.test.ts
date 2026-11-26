@@ -12,6 +12,7 @@ test('Environment defaults', () => {
   assert.equal(result.NET_DELAY_MS, 0);
   assert.equal(result.ENABLE_BOTS, false);
   assert.equal(result.ENABLE_PROFILE, false);
+  assert.equal(result.ENABLE_LOAD_TEST, false);
 });
 
 test('ENABLE_BOTS accepts loopback host and rejects non-loopback host', () => {
@@ -41,6 +42,22 @@ test('ENABLE_PROFILE accepts loopback host and rejects non-loopback host', () =>
   const rejected = EnvSchema.safeParse({
     HOST: '0.0.0.0',
     ENABLE_PROFILE: '1',
+  });
+
+  assert.equal(rejected.success, false);
+});
+
+test('ENABLE_LOAD_TEST accepts loopback host and rejects non-loopback host', () => {
+  const enabled = EnvSchema.parse({
+    HOST: '127.0.0.1',
+    ENABLE_LOAD_TEST: '1',
+  });
+
+  assert.equal(enabled.ENABLE_LOAD_TEST, true);
+
+  const rejected = EnvSchema.safeParse({
+    HOST: '0.0.0.0',
+    ENABLE_LOAD_TEST: '1',
   });
 
   assert.equal(rejected.success, false);

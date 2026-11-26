@@ -43,6 +43,7 @@ import type {
 
 import type { Room } from '../rooms.ts';
 import type { ServerProfiler } from '../performance/ServerProfiler.ts';
+import type { LoadProfiler } from '../performance/LoadProfiler.ts';
 import { FIXED_DT, createTickLoop } from './tickLoop.ts';
 
 type SnapshotEvent = z.infer<typeof WorldEventSchema>;
@@ -54,6 +55,7 @@ export interface MatchOptions {
   seed?: number;
   onSnapshot?: SnapshotHandler | null;
   profiler?: ServerProfiler | null;
+  loadProfiler?: LoadProfiler | null;
 }
 
 export interface MatchStats {
@@ -205,7 +207,9 @@ export class Match {
   #loop: ReturnType<typeof createTickLoop>;
   #stopped = false;
   #profiler: ServerProfiler | null;
+  #loadProfiler: LoadProfiler | null;
   #activeTickStart: number | null = null;
+  #activeLoadTickStart: number | null = null;
 
   constructor(
     room: Room,
@@ -214,6 +218,7 @@ export class Match {
       seed = hashSeed(room.id),
       onSnapshot = null,
       profiler = null,
+      loadProfiler = null,
     }: MatchOptions = {},
   ) {
     this.room = room;
@@ -225,6 +230,7 @@ export class Match {
     this.world = new World(this.bounds, { seed: this.seed });
     this.onSnapshot = onSnapshot;
     this.#profiler = profiler;
+    this.#loadProfiler = loadProfiler;
 
     for (const eventName of WORLD_EVENTS) {
       this.world.addEventListener(eventName, (event) => {
@@ -246,6 +252,11 @@ export class Match {
         } else {
           this.#activeTickStart = null;
         }
+        if (this.room.id === 'load-test' && this.#loadProfiler?.isRunning()) {
+          this.#activeLoadTickStart = performance.now();
+        } else {
+          this.#activeLoadTickStart = null;
+        }
         this.step(dt);
       },
       onAfterTick: () => {
@@ -253,6 +264,14 @@ export class Match {
         if (this.#activeTickStart !== null) {
           this.#profiler?.recordTick(performance.now() - this.#activeTickStart);
           this.#activeTickStart = null;
+        }
+        if (this.#activeLoadTickStart !== null) {
+          this.#loadProfiler?.recordTick(
+            performance.now() - this.#activeLoadTickStart,
+            this.world.count,
+            this.players.size,
+          );
+          this.#activeLoadTickStart = null;
         }
       },
     });

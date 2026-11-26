@@ -78,6 +78,11 @@ export const EnvSchema = z.object({
     .string()
     .optional()
     .transform((value) => value === '1'),
+
+  ENABLE_LOAD_TEST: z
+    .string()
+    .optional()
+    .transform((value) => value === '1'),
 })
   .refine(
     (data) => !data.ENABLE_BOTS || data.HOST === '127.0.0.1',
@@ -91,6 +96,13 @@ export const EnvSchema = z.object({
     {
       message: 'ENABLE_PROFILE=1 requires HOST=127.0.0.1',
       path: ['ENABLE_PROFILE'],
+    },
+  )
+  .refine(
+    (data) => !data.ENABLE_LOAD_TEST || data.HOST === '127.0.0.1',
+    {
+      message: 'ENABLE_LOAD_TEST=1 requires HOST=127.0.0.1',
+      path: ['ENABLE_LOAD_TEST'],
     },
   );
 
@@ -112,6 +124,7 @@ export const readConfig = (env: unknown) => {
     enableSlowDemo: data.ENABLE_SLOW_DEMO,
     enableBots: data.ENABLE_BOTS,
     enableProfile: data.ENABLE_PROFILE,
+    enableLoadTest: data.ENABLE_LOAD_TEST,
   };
 };
 

@@ -15,6 +15,7 @@ import { MatchManager } from './game/MatchManager.ts';
 import { setupWebSocket } from './ws.ts';
 import { BotManager } from './bots/BotManager.ts';
 import { ServerProfiler } from './performance/ServerProfiler.ts';
+import { LoadProfiler } from './performance/LoadProfiler.ts';
 import { setupMatchLogs } from './log/matchlog.ts';
 import { getReplayPath, listReplays } from './log/replay.ts';
 import { startRssProfiler } from './log/rss.ts';
@@ -45,6 +46,15 @@ if (config.enableBots) {
     name: 'Performance Arena',
     obstacleCount: 3,
     maxPlayers: 9,
+  });
+}
+
+if (config.enableLoadTest) {
+  rooms.create({
+    id: 'load-test',
+    name: 'Load Test Arena',
+    obstacleCount: 3,
+    maxPlayers: 128,
   });
 }
 
@@ -132,6 +142,11 @@ const CreateBotsSchema = z.strictObject({
 
 const ProfileStartSchema = z.strictObject({
   durationMs: z.number().int().min(100).max(300_000).default(30_000),
+});
+
+const LoadTestStartSchema = z.strictObject({
+  durationMs: z.number().int().min(1000).max(600_000).default(60_000),
+  expectedClients: z.number().int().min(1).max(128),
 });
 
 const serveStatic = async (
@@ -396,6 +411,57 @@ const handleRequest = async (
     return;
   }
 
+  if (pathname === '/api/load-test/start' && req.method === 'POST') {
+    if (!config.enableLoadTest) {
+      sendJson(res, 404, { error: 'Load test API is disabled' });
+      return;
+    }
+
+    if (config.host !== '127.0.0.1') {
+      sendJson(res, 403, { error: 'Load test requires loopback host' });
+      return;
+    }
+
+    const loadRoom = rooms.get('load-test');
+    if (!loadRoom) {
+      sendJson(res, 404, { error: 'Load test room not found' });
+      return;
+    }
+
+    const body = await readJsonBody(req);
+    const result = LoadTestStartSchema.safeParse(body);
+
+    if (!result.success) {
+      sendJson(res, 400, { error: 'Invalid load test start payload' });
+      return;
+    }
+
+    if (loadRoom.players.size !== result.data.expectedClients) {
+      sendJson(res, 409, {
+        error: `Expected ${result.data.expectedClients} connected clients, found ${loadRoom.players.size}`,
+      });
+      return;
+    }
+
+    loadProfiler.start(result.data.durationMs, result.data.expectedClients);
+    sendJson(res, 202, {
+      status: 'running',
+      durationMs: result.data.durationMs,
+      expectedClients: result.data.expectedClients,
+    });
+    return;
+  }
+
+  if (pathname === '/api/load-test/result' && req.method === 'GET') {
+    if (!config.enableLoadTest) {
+      sendJson(res, 404, { error: 'Load test API is disabled' });
+      return;
+    }
+
+    sendJson(res, 200, loadProfiler.getState());
+    return;
+  }
+
   if (pathname.startsWith('/api/')) {
     sendJson(res, 404, { error: 'Unknown API route' });
     return;
@@ -433,6 +499,7 @@ let matchManagerRef: MatchManager | null = null;
 const serverProfiler = new ServerProfiler({
   getPoolStats: () => matchManagerRef?.getPoolStats() ?? null,
 });
+const loadProfiler = new LoadProfiler();
 
 const botManager = new BotManager({
   roomManager: rooms,
@@ -449,6 +516,7 @@ const matchManager = new MatchManager(rooms, {
     websocket?.broadcastSnapshot(match);
   },
   profiler: serverProfiler,
+  loadProfiler,
 });
 matchManagerRef = matchManager;
 
@@ -459,6 +527,7 @@ websocket = setupWebSocket(server, rooms, {
   dropRate: config.netDropRate,
   codec: config.netCodec,
   profiler: serverProfiler,
+  loadProfiler,
 });
 
 server.on('error', (error: Error) => {
@@ -477,6 +546,7 @@ const shutdown = (): void => {
 
   void (async () => {
     serverProfiler.shutdown();
+    loadProfiler.shutdown();
     await botManager.shutdown();
 
     const httpClosed = new Promise<void>((resolve, reject) => {

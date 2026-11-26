@@ -1,0 +1,81 @@
+{
+  "scenario": "clients-64",
+  "recordedAt": "2026-11-26T10:37:11.415Z",
+  "valid": true,
+  "requestedClients": 64,
+  "warmupMs": 15000,
+  "durationMs": 60000,
+  "seed": 1337,
+  "environment": {
+    "platform": "win32",
+    "release": "10.0.19045",
+    "arch": "x64",
+    "nodeVersion": "v24.19.0",
+    "cpuModel": "AMD Ryzen 5 4600H with Radeon Graphics",
+    "cpuCores": 12,
+    "totalMemoryMiB": 15741.32
+  },
+  "clients": {
+    "requestedClients": 64,
+    "joinedClients": 64,
+    "minConnectedClients": 64,
+    "disconnects": 0,
+    "decodeErrors": 0,
+    "clientErrors": 0,
+    "inputsSent": 113920,
+    "snapshotsReceived": 49810
+  },
+  "loadGeneratorElu": {
+    "utilization": 0.5396246158325193,
+    "utilizationPercent": 53.96246158325193,
+    "activeMs": 32692.930599890533,
+    "idleMs": 27891.649199999985
+  },
+  "server": {
+    "durationMs": 60209.479999999996,
+    "expectedClients": 64,
+    "ticks": 774,
+    "actualTickRateHz": 12.855118496289954,
+    "ticksOver33Ms": 774,
+    "over33MsShare": 1,
+    "tickMs": {
+      "count": 774,
+      "min": 40.86830000000191,
+      "mean": 67.68584186046495,
+      "p50": 65.19509999999718,
+      "p95": 92.91889999999694,
+      "p99": 128.26950000000215,
+      "max": 134.04620000000068
+    },
+    "elu": {
+      "utilization": 0.8851976697695552,
+      "utilizationPercent": 88.51976697695551,
+      "activeMs": 53297.24200005799,
+      "idleMs": 6912.182199999999
+    },
+    "memory": {
+      "rssStartBytes": 229818368,
+      "rssEndBytes": 229928960,
+      "rssPeakBytes": 234934272,
+      "heapUsedStartBytes": 36946216,
+      "heapUsedEndBytes": 49179848
+    },
+    "network": {
+      "receivedBytes": 2185401,
+      "sentBytes": 678494737,
+      "receivedMessages": 113231,
+      "sentMessages": 58037,
+      "receivedBytesPerSecond": 36296.62637843742,
+      "sentBytesPerSecond": 11268902.123054376,
+      "totalBytesPerSecond": 11305198.749432813,
+      "droppedMessages": 0,
+      "backpressureEvents": 0,
+      "scopeNote": "WebSocket application payload throughput only (excludes TCP, IP, TLS, and WebSocket framing overhead)"
+    },
+    "entities": {
+      "avg": 80.34496124031008,
+      "max": 108
+    },
+    "players": 64
+  }
+}
