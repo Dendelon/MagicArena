@@ -5,10 +5,17 @@ import type { TransformCallback } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 
 import { getErrorMessage } from '../errors.ts';
+import { serializeLogError, type AppLogger } from './logger.ts';
 import type { Room, RoomManager } from '../rooms.ts';
 import type { RoomLogEvent } from '../types.ts';
 
-export const createMatchLog = (room: Room, logDir: string) => {
+export type MatchLogLogger = Pick<AppLogger, 'error'>;
+
+export const createMatchLog = (
+  room: Room,
+  logDir: string,
+  logger: MatchLogLogger | null = null,
+) => {
   const id = `${room.id}-${Date.now()}`;
   const filePath = join(logDir, `${id}.ndjson`);
 
@@ -72,18 +79,34 @@ export const createMatchLog = (room: Room, logDir: string) => {
       room.logBackpressured = false;
     })
     .catch((error: unknown) => {
-      console.error(`Log error (${id}):`, error);
+      if (logger) {
+        logger.error(
+          {
+            event: 'matchlog.error',
+            logId: id,
+            roomId: room.id,
+            err: serializeLogError(error),
+          },
+          'matchlog.error',
+        );
+      } else {
+        console.error(`Log error (${id}):`, error);
+      }
       room.emit('error', error);
     });
 
   return { id, filePath, close, done };
 };
 
-export const setupMatchLogs = (roomManager: RoomManager, logDir: string) => {
+export const setupMatchLogs = (
+  roomManager: RoomManager,
+  logDir: string,
+  logger: MatchLogLogger | null = null,
+) => {
   const active = new Map<string, ReturnType<typeof createMatchLog>>();
 
   const register = (room: Room): void => {
-    const log = createMatchLog(room, logDir);
+    const log = createMatchLog(room, logDir, logger);
     active.set(room.id, log);
 
     log.done.then(

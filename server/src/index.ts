@@ -1,6 +1,6 @@
 import { createServer } from 'node:http';
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import { createReadStream } from 'node:fs';
+import { createReadStream, readFileSync } from 'node:fs';
 import { mkdir, stat } from 'node:fs/promises';
 import type { Stats } from 'node:fs';
 import { extname, join, resolve, sep } from 'node:path';
@@ -16,21 +16,44 @@ import { setupWebSocket } from './ws.ts';
 import { BotManager } from './bots/BotManager.ts';
 import { ServerProfiler } from './performance/ServerProfiler.ts';
 import { LoadProfiler } from './performance/LoadProfiler.ts';
+import { ServerMetrics } from './performance/ServerMetrics.ts';
 import { collectLiveServerStats } from './performance/serverStats.ts';
-import { createLogger } from './log/logger.ts';
+import { createLogger, serializeLogError } from './log/logger.ts';
 import { setupMatchLogs } from './log/matchlog.ts';
 import { getReplayPath, listReplays } from './log/replay.ts';
 import { startRssProfiler } from './log/rss.ts';
 import { createServerLifecycle } from './lifecycle.ts';
 
+const readServerPackageVersion = (): string => {
+  try {
+    const raw = readFileSync(
+      new URL('../package.json', import.meta.url),
+      'utf8',
+    );
+    const parsed: unknown = JSON.parse(raw);
+    if (
+      typeof parsed === 'object' &&
+      parsed !== null &&
+      'version' in parsed &&
+      typeof parsed.version === 'string'
+    ) {
+      return parsed.version;
+    }
+  } catch {
+    // Fallback when package.json cannot be read.
+  }
+  return '0.0.0';
+};
+
 const logger = createLogger({ level: config.logLevel });
+const serverVersion = readServerPackageVersion();
 
 const distDir = resolve(
   fileURLToPath(new URL('../../client/dist/', import.meta.url)),
 );
 const clientIndexPath = join(distDir, 'index.html');
 
-const rooms = new RoomManager();
+const rooms = new RoomManager({ logger });
 
 rooms.create({
   id: 'arcane',
@@ -260,6 +283,19 @@ const handleRequest = async (
     return;
   }
 
+  if (pathname === '/metrics' && req.method === 'GET') {
+    sendJson(
+      res,
+      200,
+      metrics.getMetrics({
+        shuttingDown: lifecycle.isShuttingDown(),
+        matches: matchManager.getStats(),
+        roomManager: rooms,
+      }),
+    );
+    return;
+  }
+
   if (pathname === '/api/rooms' && req.method === 'POST') {
     const body = await readJsonBody(req);
 
@@ -481,7 +517,28 @@ const handleRequest = async (
 
 const server = createServer((req, res) => {
   handleRequest(req, res).catch((error: unknown) => {
-    console.error('HTTP error:', error);
+    if (error instanceof HttpError && error.status < 500) {
+      logger.warn(
+        {
+          event: 'http.request.rejected',
+          status: error.status,
+          method: req.method ?? null,
+          path: (req.url ?? '/').split('?')[0] ?? '/',
+          message: error.message,
+        },
+        'http.request.rejected',
+      );
+    } else {
+      logger.error(
+        {
+          event: 'http.error',
+          method: req.method ?? null,
+          path: (req.url ?? '/').split('?')[0] ?? '/',
+          err: serializeLogError(error),
+        },
+        'http.error',
+      );
+    }
 
     if (res.destroyed || res.headersSent) {
       res.destroy();
@@ -504,6 +561,15 @@ const serverProfiler = new ServerProfiler({
   getPoolStats: () => matchManagerRef?.getPoolStats() ?? null,
 });
 const loadProfiler = new LoadProfiler();
+const metrics = new ServerMetrics({
+  runtime: {
+    version: serverVersion,
+    nodeVersion: process.version,
+    nodeEnv: config.nodeEnv,
+    gitSha: config.gitSha,
+    buildId: config.buildId,
+  },
+});
 
 const botManager = new BotManager({
   roomManager: rooms,
@@ -521,6 +587,7 @@ const matchManager = new MatchManager(rooms, {
   },
   profiler: serverProfiler,
   loadProfiler,
+  metrics,
 });
 matchManagerRef = matchManager;
 
@@ -532,6 +599,8 @@ websocket = setupWebSocket(server, rooms, {
   codec: config.netCodec,
   profiler: serverProfiler,
   loadProfiler,
+  metrics,
+  logger,
 });
 
 const lifecycle = createServerLifecycle({
@@ -542,6 +611,7 @@ const lifecycle = createServerLifecycle({
   stopBackgroundServices: () => {
     serverProfiler.shutdown();
     loadProfiler.shutdown();
+    metrics.shutdown();
     matchManager.shutdown();
   },
   shutdownBots: () => botManager.shutdown(),
@@ -553,6 +623,7 @@ const lifecycle = createServerLifecycle({
   forceCleanup: () => {
     serverProfiler.shutdown();
     loadProfiler.shutdown();
+    metrics.shutdown();
     matchManager.shutdown();
   },
   onExit: (code) => {
@@ -598,7 +669,7 @@ process.on('unhandledRejection', (reason: unknown) => {
 
 const startServer = async (): Promise<void> => {
   await mkdir(config.logDir, { recursive: true });
-  matchLogs = setupMatchLogs(rooms, config.logDir);
+  matchLogs = setupMatchLogs(rooms, config.logDir, logger);
   rssProfiler = config.rssProfile ? await startRssProfiler(config.logDir) : null;
 
   await new Promise<void>((resolveListen, rejectListen) => {

@@ -24,6 +24,8 @@ import type { Match } from './game/Match.ts';
 import type { MatchManager } from './game/MatchManager.ts';
 import type { ServerProfiler } from './performance/ServerProfiler.ts';
 import type { LoadProfiler } from './performance/LoadProfiler.ts';
+import type { ServerMetrics } from './performance/ServerMetrics.ts';
+import { serializeLogError, type AppLogger } from './log/logger.ts';
 import type { RawData } from 'ws';
 
 const MAX_BUFFERED_AMOUNT = 256 * 1024;
@@ -41,6 +43,8 @@ const rawByteLength = (data: RawData): number => {
   return data.byteLength;
 };
 
+export type WebSocketLogger = Pick<AppLogger, 'info' | 'warn' | 'error'>;
+
 interface WebSocketOptions {
   matchManager?: MatchManager | null;
   delayMs?: number;
@@ -49,6 +53,8 @@ interface WebSocketOptions {
   codec?: CodecMode;
   profiler?: ServerProfiler | null;
   loadProfiler?: LoadProfiler | null;
+  metrics?: ServerMetrics | null;
+  logger?: WebSocketLogger | null;
 }
 
 type WithoutVersion<T> = T extends { v: number } ? Omit<T, 'v'> : never;
@@ -68,6 +74,8 @@ export const setupWebSocket = (
     codec = 'binary',
     profiler = null,
     loadProfiler = null,
+    metrics = null,
+    logger = null,
   }: WebSocketOptions = {},
 ) => {
   const wss = new WebSocketServer({
@@ -84,7 +92,14 @@ export const setupWebSocket = (
   let shutdownPromise: Promise<void> | null = null;
 
   wss.on('error', (error: Error) => {
-    console.error('WebSocket server error:', error);
+    if (logger) {
+      logger.error(
+        { event: 'wss.error', err: serializeLogError(error) },
+        'wss.error',
+      );
+    } else {
+      console.error('WebSocket server error:', error);
+    }
   });
 
   const sendRaw = (
@@ -97,6 +112,7 @@ export const setupWebSocket = (
 
     // Не накопичуємо нескінченну чергу для повільного клієнта
     if (socket.bufferedAmount > MAX_BUFFERED_AMOUNT) {
+      metrics?.recordBackpressure();
       if (isLoadTestRoom) {
         loadProfiler?.recordBackpressure();
       }
@@ -108,12 +124,15 @@ export const setupWebSocket = (
 
     socket.send(payload);
 
-    if (isLoadTestRoom) {
+    if (metrics !== null || isLoadTestRoom) {
       const bytes =
         typeof payload === 'string'
           ? Buffer.byteLength(payload)
           : payload.byteLength;
-      loadProfiler?.recordSent(bytes);
+      metrics?.recordOutgoingMessage(bytes);
+      if (isLoadTestRoom) {
+        loadProfiler?.recordSent(bytes);
+      }
     }
   };
 
@@ -214,7 +233,18 @@ export const setupWebSocket = (
           encodedCount += 1;
         }
       } catch (error: unknown) {
-        console.error(`Snapshot encoding failed for room ${room.id}:`, error);
+        if (logger) {
+          logger.error(
+            {
+              event: 'ws.snapshot.encode_failed',
+              roomId: room.id,
+              err: serializeLogError(error),
+            },
+            'ws.snapshot.encode_failed',
+          );
+        } else {
+          console.error(`Snapshot encoding failed for room ${room.id}:`, error);
+        }
 
         player.socket.close(1011, 'Snapshot encoding failed');
         continue;
@@ -232,8 +262,11 @@ export const setupWebSocket = (
         { allowDrop: true },
       );
 
-      if (!scheduled && isLoadTestRoom) {
-        loadProfiler?.recordDropped();
+      if (!scheduled) {
+        metrics?.recordDroppedMessage();
+        if (isLoadTestRoom) {
+          loadProfiler?.recordDropped();
+        }
       }
     }
 
@@ -326,6 +359,9 @@ export const setupWebSocket = (
       return;
     }
 
+    metrics?.recordConnectionOpened();
+    logger?.info({ event: 'player.connected' }, 'player.connected');
+
     let currentRoom: Room | null = null;
     let currentPlayer: Player | null = null;
 
@@ -357,6 +393,7 @@ export const setupWebSocket = (
     socket.on('message', (data, isBinary) => {
       try {
         const messageBytes = rawByteLength(data);
+        metrics?.recordIncomingMessage(messageBytes);
         if (currentRoom?.id === LOAD_TEST_ROOM_ID) {
           loadProfiler?.recordReceived(messageBytes);
         }
@@ -510,8 +547,11 @@ export const setupWebSocket = (
               { allowDrop: true },
             );
 
-            if (!scheduled && room.id === LOAD_TEST_ROOM_ID) {
-              loadProfiler?.recordDropped();
+            if (!scheduled) {
+              metrics?.recordDroppedMessage();
+              if (room.id === LOAD_TEST_ROOM_ID) {
+                loadProfiler?.recordDropped();
+              }
             }
 
             return;
@@ -554,7 +594,19 @@ export const setupWebSocket = (
             return assertNever(message, 'Unhandled client message');
         }
       } catch (error: unknown) {
-        console.warn('Invalid WS message:', getErrorMessage(error));
+        if (logger) {
+          logger.warn(
+            {
+              event: 'ws.message.invalid',
+              playerId: currentPlayer?.id ?? null,
+              roomId: currentRoom?.id ?? null,
+              reason: getErrorMessage(error),
+            },
+            'ws.message.invalid',
+          );
+        } else {
+          console.warn('Invalid WS message:', getErrorMessage(error));
+        }
 
         const closeCode =
           error instanceof ProtocolError ? error.closeCode : 1008;
@@ -563,15 +615,20 @@ export const setupWebSocket = (
       }
     });
 
-    socket.on('close', (code, reason) => {
+    socket.on('close', (code) => {
       clearTimeout(joinTimeout);
       activeJoinTimeouts.delete(joinTimeout);
+      metrics?.recordConnectionClosed();
 
-      console.info('[WS] Client closed:', {
-        playerId: currentPlayer?.id ?? null,
-        code,
-        reason: reason ? reason.toString('utf8') : '',
-      });
+      logger?.info(
+        {
+          event: 'player.disconnected',
+          playerId: currentPlayer?.id ?? null,
+          roomId: currentRoom?.id ?? null,
+          code,
+        },
+        'player.disconnected',
+      );
 
       if (currentRoom && currentPlayer) {
         currentRoom.leave(currentPlayer.id);
@@ -579,7 +636,19 @@ export const setupWebSocket = (
     });
 
     socket.on('error', (error: Error) => {
-      console.error('WebSocket error:', error.message);
+      if (logger) {
+        logger.error(
+          {
+            event: 'ws.error',
+            playerId: currentPlayer?.id ?? null,
+            roomId: currentRoom?.id ?? null,
+            err: serializeLogError(error),
+          },
+          'ws.error',
+        );
+      } else {
+        console.error('WebSocket error:', error.message);
+      }
     });
   });
 

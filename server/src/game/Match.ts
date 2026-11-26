@@ -44,6 +44,7 @@ import type {
 import type { Room } from '../rooms.ts';
 import type { ServerProfiler } from '../performance/ServerProfiler.ts';
 import type { LoadProfiler } from '../performance/LoadProfiler.ts';
+import type { ServerMetrics } from '../performance/ServerMetrics.ts';
 import { FIXED_DT, createTickLoop } from './tickLoop.ts';
 
 type SnapshotEvent = z.infer<typeof WorldEventSchema>;
@@ -56,6 +57,7 @@ export interface MatchOptions {
   onSnapshot?: SnapshotHandler | null;
   profiler?: ServerProfiler | null;
   loadProfiler?: LoadProfiler | null;
+  metrics?: ServerMetrics | null;
 }
 
 export interface MatchStats {
@@ -208,8 +210,10 @@ export class Match {
   #stopped = false;
   #profiler: ServerProfiler | null;
   #loadProfiler: LoadProfiler | null;
+  #metrics: ServerMetrics | null;
   #activeTickStart: number | null = null;
   #activeLoadTickStart: number | null = null;
+  #activeMetricsTickStart: number | null = null;
 
   constructor(
     room: Room,
@@ -219,6 +223,7 @@ export class Match {
       onSnapshot = null,
       profiler = null,
       loadProfiler = null,
+      metrics = null,
     }: MatchOptions = {},
   ) {
     this.room = room;
@@ -231,6 +236,7 @@ export class Match {
     this.onSnapshot = onSnapshot;
     this.#profiler = profiler;
     this.#loadProfiler = loadProfiler;
+    this.#metrics = metrics;
 
     for (const eventName of WORLD_EVENTS) {
       this.world.addEventListener(eventName, (event) => {
@@ -257,6 +263,8 @@ export class Match {
         } else {
           this.#activeLoadTickStart = null;
         }
+        this.#activeMetricsTickStart =
+          this.#metrics !== null ? performance.now() : null;
         this.step(dt);
       },
       onAfterTick: () => {
@@ -272,6 +280,12 @@ export class Match {
             this.players.size,
           );
           this.#activeLoadTickStart = null;
+        }
+        if (this.#activeMetricsTickStart !== null) {
+          this.#metrics?.recordTick(
+            performance.now() - this.#activeMetricsTickStart,
+          );
+          this.#activeMetricsTickStart = null;
         }
       },
     });

@@ -107,6 +107,15 @@ test('Supports Docker production configuration while preserving loopback debug r
   assert.equal(prod.HOST, '0.0.0.0');
   assert.equal(prod.PORT, 3000);
   assert.equal(prod.LOG_LEVEL, 'warn');
+  assert.equal(prod.GIT_SHA, null);
+  assert.equal(prod.BUILD_ID, null);
+
+  const withMetadata = EnvSchema.parse({
+    GIT_SHA: '  abc1234def5678  ',
+    BUILD_ID: ' build-42 ',
+  });
+  assert.equal(withMetadata.GIT_SHA, 'abc1234def5678');
+  assert.equal(withMetadata.BUILD_ID, 'build-42');
 
   for (const flag of [
     'ENABLE_BOTS',

@@ -4,6 +4,7 @@ import type { MatchStats, SnapshotHandler } from './Match.ts';
 import type { Room, RoomManager } from '../rooms.ts';
 import type { ServerProfiler } from '../performance/ServerProfiler.ts';
 import type { LoadProfiler } from '../performance/LoadProfiler.ts';
+import type { ServerMetrics } from '../performance/ServerMetrics.ts';
 import type { Player } from '../types.ts';
 import type { WorldPoolStats } from '@magicarena/shared';
 
@@ -14,6 +15,7 @@ export class MatchManager {
   #onSnapshot: SnapshotHandler | null;
   #profiler: ServerProfiler | null;
   #loadProfiler: LoadProfiler | null;
+  #metrics: ServerMetrics | null;
   #onCreated: (room: Room) => void;
   #onRemoved: (room: Room) => void;
 
@@ -23,16 +25,19 @@ export class MatchManager {
       onSnapshot = null,
       profiler = null,
       loadProfiler = null,
+      metrics = null,
     }: {
       onSnapshot?: SnapshotHandler | null;
       profiler?: ServerProfiler | null;
       loadProfiler?: LoadProfiler | null;
+      metrics?: ServerMetrics | null;
     } = {},
   ) {
     this.#roomManager = roomManager;
     this.#onSnapshot = onSnapshot;
     this.#profiler = profiler;
     this.#loadProfiler = loadProfiler;
+    this.#metrics = metrics;
 
     this.#onCreated = (room) => {
       this.#createMatch(room);
@@ -62,6 +67,7 @@ export class MatchManager {
       onSnapshot: this.#onSnapshot,
       profiler: this.#profiler,
       loadProfiler: this.#loadProfiler,
+      metrics: this.#metrics,
     });
 
     const onJoin = (player: Player) => {

@@ -36,6 +36,35 @@ export interface LiveServerStatsDependencies {
   readonly eventLoopUtilization?: () => EventLoopUtilization;
 }
 
+export const collectMemoryStats = (
+  memoryUsage: () => LiveMemorySnapshot = () => process.memoryUsage(),
+): LiveMemoryStats => {
+  const memory = memoryUsage();
+  return {
+    rssBytes: memory.rss,
+    heapTotalBytes: memory.heapTotal,
+    heapUsedBytes: memory.heapUsed,
+    externalBytes: memory.external,
+    arrayBuffersBytes: memory.arrayBuffers,
+  };
+};
+
+export const collectEventLoopStats = (
+  eventLoopUtilization: () => EventLoopUtilization = () =>
+    performance.eventLoopUtilization(),
+): LiveEventLoopStats => {
+  const elu = eventLoopUtilization();
+  const utilization = Number.isFinite(elu.utilization)
+    ? Math.max(0, Math.min(1, elu.utilization))
+    : 0;
+
+  return {
+    utilization,
+    activeMs: elu.active,
+    idleMs: elu.idle,
+  };
+};
+
 /**
  * Collects live server match, memory, and process-cumulative Event Loop Utilization (ELU) statistics.
  * Note: `eventLoop` reports cumulative process-lifetime ELU from `performance.eventLoopUtilization()`,
@@ -44,30 +73,9 @@ export interface LiveServerStatsDependencies {
 export const collectLiveServerStats = (
   matches: MatchStats[],
   deps: LiveServerStatsDependencies = {},
-): LiveServerStats => {
-  const memory = (deps.memoryUsage ?? (() => process.memoryUsage()))();
-  const elu = (
-    deps.eventLoopUtilization ?? (() => performance.eventLoopUtilization())
-  )();
-
-  const utilization = Number.isFinite(elu.utilization)
-    ? Math.max(0, Math.min(1, elu.utilization))
-    : 0;
-
-  return {
-    matches,
-    memory: {
-      rssBytes: memory.rss,
-      heapTotalBytes: memory.heapTotal,
-      heapUsedBytes: memory.heapUsed,
-      externalBytes: memory.external,
-      arrayBuffersBytes: memory.arrayBuffers,
-    },
-    eventLoop: {
-      utilization,
-      activeMs: elu.active,
-      idleMs: elu.idle,
-    },
-  };
-};
+): LiveServerStats => ({
+  matches,
+  memory: collectMemoryStats(deps.memoryUsage),
+  eventLoop: collectEventLoopStats(deps.eventLoopUtilization),
+});
 

@@ -2,6 +2,7 @@ import { EventEmitter } from 'node:events';
 import { randomUUID } from 'node:crypto';
 
 import { HttpError } from './errors.ts';
+import { serializeLogError, type AppLogger } from './log/logger.ts';
 
 import type {
   Player,
@@ -127,15 +128,25 @@ export class Room extends EventEmitter<RoomEvents> {
   }
 }
 
+export type RoomLogger = Pick<AppLogger, 'info' | 'warn' | 'error'>;
+
 export class RoomManager extends EventEmitter<RoomManagerEvents> {
   readonly rooms = new Map<string, Room>();
 
   readonly maxRooms: number;
+  readonly #logger: RoomLogger | null;
 
-  constructor({ maxRooms = 20 }: { maxRooms?: number } = {}) {
+  constructor({
+    maxRooms = 20,
+    logger = null,
+  }: {
+    maxRooms?: number;
+    logger?: RoomLogger | null;
+  } = {}) {
     super();
 
     this.maxRooms = maxRooms;
+    this.#logger = logger;
   }
 
   create(options: RoomOptions): Room {
@@ -147,16 +158,64 @@ export class RoomManager extends EventEmitter<RoomManagerEvents> {
 
     this.rooms.set(room.id, room);
 
+    room.on('join', (player) => {
+      this.#logger?.info(
+        {
+          event: 'room.player.joined',
+          roomId: room.id,
+          playerId: player.id,
+        },
+        'room.player.joined',
+      );
+    });
+
+    room.on('leave', (player) => {
+      this.#logger?.info(
+        {
+          event: 'room.player.left',
+          roomId: room.id,
+          playerId: player.id,
+        },
+        'room.player.left',
+      );
+    });
+
     room.once('empty', () => {
       this.rooms.delete(room.id);
       this.emit('removed', room);
+      this.#logger?.info(
+        {
+          event: 'room.closed',
+          roomId: room.id,
+        },
+        'room.closed',
+      );
     });
 
     room.on('error', (error) => {
-      console.error(`Room ${room.id}:`, error);
+      if (this.#logger) {
+        this.#logger.error(
+          {
+            event: 'room.error',
+            roomId: room.id,
+            err: serializeLogError(error),
+          },
+          'room.error',
+        );
+      } else {
+        console.error(`Room ${room.id}:`, error);
+      }
     });
 
     this.emit('created', room);
+    this.#logger?.info(
+      {
+        event: 'room.created',
+        roomId: room.id,
+        maxPlayers: room.maxPlayers,
+      },
+      'room.created',
+    );
 
     return room;
   }

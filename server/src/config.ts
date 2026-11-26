@@ -43,6 +43,22 @@ export type LogLevel = z.infer<typeof LogLevelSchema>;
 export const EnvSchema = z.object({
   NODE_ENV: envText('development'),
 
+  GIT_SHA: z
+    .string()
+    .optional()
+    .transform((value) => {
+      const trimmed = value?.trim() ?? '';
+      return trimmed.length > 0 ? trimmed : null;
+    }),
+
+  BUILD_ID: z
+    .string()
+    .optional()
+    .transform((value) => {
+      const trimmed = value?.trim() ?? '';
+      return trimmed.length > 0 ? trimmed : null;
+    }),
+
   PORT: z.preprocess(
     (value) =>
       typeof value === 'string' ? Number(value) : (value ?? 3000),
@@ -134,6 +150,8 @@ export const readConfig = (env: unknown) => {
   return {
     nodeEnv: data.NODE_ENV,
     isProduction: data.NODE_ENV === 'production',
+    gitSha: data.GIT_SHA,
+    buildId: data.BUILD_ID,
     port: data.PORT,
     host: data.HOST,
     logDir: resolve(data.LOG_DIR),
