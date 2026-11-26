@@ -28,7 +28,21 @@ const envText = (defaultValue: string) =>
     z.string(),
   );
 
+export const LogLevelSchema = z.enum([
+  'fatal',
+  'error',
+  'warn',
+  'info',
+  'debug',
+  'trace',
+  'silent',
+]);
+
+export type LogLevel = z.infer<typeof LogLevelSchema>;
+
 export const EnvSchema = z.object({
+  NODE_ENV: envText('development'),
+
   PORT: z.preprocess(
     (value) =>
       typeof value === 'string' ? Number(value) : (value ?? 3000),
@@ -43,6 +57,14 @@ export const EnvSchema = z.object({
   LOG_DIR: envText('server/logs').refine(
     (value) => value.length > 0 && !value.includes('\0'),
     'Invalid LOG_DIR',
+  ),
+
+  LOG_LEVEL: z.preprocess(
+    (value) =>
+      typeof value === 'string'
+        ? value.trim().toLowerCase() || 'info'
+        : (value ?? 'info'),
+    LogLevelSchema,
   ),
 
   NET_DELAY_MS: envNumber(0, z.number().min(0).max(1000)),
@@ -110,9 +132,12 @@ export const readConfig = (env: unknown) => {
   const data = EnvSchema.parse(env);
 
   return {
+    nodeEnv: data.NODE_ENV,
+    isProduction: data.NODE_ENV === 'production',
     port: data.PORT,
     host: data.HOST,
     logDir: resolve(data.LOG_DIR),
+    logLevel: data.LOG_LEVEL,
 
     netDelayMs: data.NET_DELAY_MS,
     netJitterMs: data.NET_JITTER_MS,

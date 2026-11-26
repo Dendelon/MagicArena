@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@magicarena/shared": "*",
+    "pino": "^10.4.0",
     "ws": "^8.23.0",
     "zod": "^4.6.7"
   }

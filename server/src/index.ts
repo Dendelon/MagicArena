@@ -3,7 +3,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import { createReadStream } from 'node:fs';
 import { mkdir, stat } from 'node:fs/promises';
 import type { Stats } from 'node:fs';
-import { extname, resolve, sep } from 'node:path';
+import { extname, join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { pipeline } from 'node:stream/promises';
 import { z } from 'zod';
@@ -17,13 +17,18 @@ import { BotManager } from './bots/BotManager.ts';
 import { ServerProfiler } from './performance/ServerProfiler.ts';
 import { LoadProfiler } from './performance/LoadProfiler.ts';
 import { collectLiveServerStats } from './performance/serverStats.ts';
+import { createLogger } from './log/logger.ts';
 import { setupMatchLogs } from './log/matchlog.ts';
 import { getReplayPath, listReplays } from './log/replay.ts';
 import { startRssProfiler } from './log/rss.ts';
+import { createServerLifecycle } from './lifecycle.ts';
+
+const logger = createLogger({ level: config.logLevel });
 
 const distDir = resolve(
   fileURLToPath(new URL('../../client/dist/', import.meta.url)),
 );
+const clientIndexPath = join(distDir, 'index.html');
 
 const rooms = new RoomManager();
 
@@ -59,17 +64,8 @@ if (config.enableLoadTest) {
   });
 }
 
-await mkdir(config.logDir, { recursive: true });
-
-const matchLogs = setupMatchLogs(rooms, config.logDir);
-
-const rssProfiler = config.rssProfile
-  ? await startRssProfiler(config.logDir)
-  : null;
-
-if (rssProfiler) {
-  console.log(`RSS log: ${rssProfiler.filePath}`);
-}
+let matchLogs: ReturnType<typeof setupMatchLogs> | null = null;
+let rssProfiler: Awaited<ReturnType<typeof startRssProfiler>> | null = null;
 
 const mimeTypes: Readonly<Record<string, string>> = {
   '.html': 'text/html; charset=utf-8',
@@ -220,6 +216,14 @@ const handleRequest = async (
 
   if (pathname === '/health' && req.method === 'GET') {
     sendJson(res, 200, { status: 'ok' });
+    return;
+  }
+
+  if (pathname === '/ready' && req.method === 'GET') {
+    const readyNow = await lifecycle.isReady();
+    sendJson(res, readyNow ? 200 : 503, {
+      status: readyNow ? 'ready' : 'not-ready',
+    });
     return;
   }
 
@@ -530,66 +534,104 @@ websocket = setupWebSocket(server, rooms, {
   loadProfiler,
 });
 
-server.on('error', (error: Error) => {
-  console.error('Server error:', error);
-  process.exitCode = 1;
-});
-
-// Завершення без різкого обриву HTTP-запитів
-let stopping = false;
-
-const shutdown = (): void => {
-  if (stopping) return;
-  stopping = true;
-
-  console.log('Shutting down server...');
-
-  (async () => {
+const lifecycle = createServerLifecycle({
+  server,
+  logger,
+  isProduction: config.isProduction,
+  clientIndexPath,
+  stopBackgroundServices: () => {
     serverProfiler.shutdown();
     loadProfiler.shutdown();
-    await botManager.shutdown();
-
-    const httpClosed = new Promise<void>((resolve, reject) => {
-      server.close((error) => {
-        if (error) reject(error);
-        else resolve();
-      });
-    });
-
-    server.closeIdleConnections();
-
     matchManager.shutdown();
-    const websocketClosed = websocket
-      ? websocket.shutdown()
-      : Promise.resolve();
-
-    const forceCloseTimer = setTimeout(() => {
-      server.closeAllConnections();
-    }, 5000);
-
-    forceCloseTimer.unref();
-
-    // Очікуємо завершення HTTP та WebSocket
-    await Promise.all([httpClosed, websocketClosed]);
-
-    clearTimeout(forceCloseTimer);
-
-    // Дозаписуємо NDJSON-файли
-    await matchLogs.shutdown();
+  },
+  shutdownBots: () => botManager.shutdown(),
+  shutdownWebSocket: () => (websocket ? websocket.shutdown() : Promise.resolve()),
+  shutdownLogs: async () => {
+    await matchLogs?.shutdown();
     await rssProfiler?.stop();
+  },
+  forceCleanup: () => {
+    serverProfiler.shutdown();
+    loadProfiler.shutdown();
+    matchManager.shutdown();
+  },
+  onExit: (code) => {
+    process.exit(code);
+  },
+});
 
-    console.log('Server stopped gracefully');
-    process.exitCode = 0;
-  })().catch((error: unknown) => {
-    console.error('Shutdown error:', error);
-    process.exitCode = 1;
+const triggerShutdown = (signal: NodeJS.Signals): void => {
+  lifecycle.shutdown('signal', signal).catch((error: unknown) => {
+    console.error('Unhandled shutdown error:', error);
+    process.exit(1);
   });
 };
 
-process.on('SIGINT', shutdown);
-process.on('SIGTERM', shutdown);
+const triggerFatal = (
+  source: 'uncaughtException' | 'unhandledRejection' | 'httpServer' | 'startup',
+  error: unknown,
+): void => {
+  lifecycle.handleFatal(source, error).catch((fatalError: unknown) => {
+    console.error('Fatal handler failed:', fatalError);
+    process.exit(1);
+  });
+};
 
-server.listen(config.port, config.host, () => {
-  console.log(`Magic Arena server: http://${config.host}:${config.port}`);
+const attachRuntimeHttpErrorHandler = (): void => {
+  server.on('error', (error: Error) => {
+    triggerFatal('httpServer', error);
+  });
+};
+
+process.on('SIGINT', () => {
+  triggerShutdown('SIGINT');
 });
+process.on('SIGTERM', () => {
+  triggerShutdown('SIGTERM');
+});
+process.on('uncaughtException', (error: Error) => {
+  triggerFatal('uncaughtException', error);
+});
+process.on('unhandledRejection', (reason: unknown) => {
+  triggerFatal('unhandledRejection', reason);
+});
+
+const startServer = async (): Promise<void> => {
+  await mkdir(config.logDir, { recursive: true });
+  matchLogs = setupMatchLogs(rooms, config.logDir);
+  rssProfiler = config.rssProfile ? await startRssProfiler(config.logDir) : null;
+
+  await new Promise<void>((resolveListen, rejectListen) => {
+    const onListenError = (err: Error): void => {
+      server.off('listening', onListening);
+      rejectListen(err);
+    };
+    const onListening = (): void => {
+      server.off('error', onListenError);
+      attachRuntimeHttpErrorHandler();
+      resolveListen();
+    };
+    server.once('error', onListenError);
+    server.once('listening', onListening);
+    server.listen(config.port, config.host);
+  });
+
+  lifecycle.markReady();
+  logger.info(
+    {
+      event: 'server.started',
+      host: config.host,
+      port: config.port,
+      nodeEnv: config.nodeEnv,
+      logLevel: config.logLevel,
+    },
+    'server.started',
+  );
+};
+
+try {
+  await startServer();
+} catch (error: unknown) {
+  await lifecycle.handleFatal('startup', error);
+}
 

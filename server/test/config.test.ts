@@ -8,6 +8,8 @@ test('Environment defaults', () => {
 
   assert.equal(result.PORT, 3000);
   assert.equal(result.HOST, '127.0.0.1');
+  assert.equal(result.NODE_ENV, 'development');
+  assert.equal(result.LOG_LEVEL, 'info');
   assert.equal(result.NET_CODEC, 'binary');
   assert.equal(result.NET_DELAY_MS, 0);
   assert.equal(result.ENABLE_BOTS, false);
@@ -84,11 +86,39 @@ test('Reject invalid environment values', () => {
     { NET_JITTER_MS: '501' },
     { NET_DROP_RATE: '1.5' },
     { NET_CODEC: 'unknown' },
+    { LOG_LEVEL: 'verbose' },
     { HOST: 'invalid host' },
   ];
 
   for (const env of invalid) {
     assert.equal(EnvSchema.safeParse(env).success, false);
+  }
+});
+
+test('Supports Docker production configuration while preserving loopback debug restrictions', () => {
+  const prod = EnvSchema.parse({
+    NODE_ENV: 'production',
+    HOST: '0.0.0.0',
+    PORT: '3000',
+    LOG_LEVEL: '  WARN ',
+  });
+
+  assert.equal(prod.NODE_ENV, 'production');
+  assert.equal(prod.HOST, '0.0.0.0');
+  assert.equal(prod.PORT, 3000);
+  assert.equal(prod.LOG_LEVEL, 'warn');
+
+  for (const flag of [
+    'ENABLE_BOTS',
+    'ENABLE_PROFILE',
+    'ENABLE_LOAD_TEST',
+  ] as const) {
+    const rejected = EnvSchema.safeParse({
+      NODE_ENV: 'production',
+      HOST: '0.0.0.0',
+      [flag]: '1',
+    });
+    assert.equal(rejected.success, false);
   }
 });
 

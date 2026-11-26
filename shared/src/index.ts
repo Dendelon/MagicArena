@@ -97,6 +97,7 @@ export {
   ServerMessageSchema,
   InputMessageSchema,
   SnapshotMessageSchema,
+  ShutdownMessageSchema,
 } from './protocol/index.ts';
 
 export type {
@@ -117,6 +118,7 @@ export type {
   RosterPlayer,
   ServerChatMessage,
   ServerMessage,
+  ShutdownMessage,
   SnapshotMessage,
 } from './protocol/index.ts';
 

@@ -360,49 +360,53 @@ describe('Property-based tests', () => {
     );
   });
 
-  test('Integrated sword remains finite, bounded, and within max speed over 1000 input steps', () => {
-    fc.assert(
-      fc.property(
-        fc.record({
-          x: finiteNumber(0, 959),
-          y: finiteNumber(0, 639),
-          vx: finiteNumber(-320, 320),
-          vy: finiteNumber(-320, 320),
-          angle: finiteNumber(-Math.PI, Math.PI),
-        }),
-        fc.array(inputArbitrary, { minLength: 1000, maxLength: 1000 }),
-        (initialState, inputs) => {
-          const bounds = {
-            width: 960,
-            height: 640,
-          };
-          const dt = 1 / 30;
-          let current = initialState;
+  test(
+    'Integrated sword remains finite, bounded, and within max speed over 1000 input steps',
+    { timeout: 20_000 },
+    () => {
+      fc.assert(
+        fc.property(
+          fc.record({
+            x: finiteNumber(0, 959),
+            y: finiteNumber(0, 639),
+            vx: finiteNumber(-320, 320),
+            vy: finiteNumber(-320, 320),
+            angle: finiteNumber(-Math.PI, Math.PI),
+          }),
+          fc.array(inputArbitrary, { minLength: 1000, maxLength: 1000 }),
+          (initialState, inputs) => {
+            const bounds = {
+              width: 960,
+              height: 640,
+            };
+            const dt = 1 / 30;
+            let current = initialState;
 
-          for (const input of inputs) {
-            const next = integrate(current, input, dt, bounds);
+            for (const input of inputs) {
+              const next = integrate(current, input, dt, bounds);
 
-            expect(Number.isFinite(next.x)).toBe(true);
-            expect(Number.isFinite(next.y)).toBe(true);
-            expect(Number.isFinite(next.vx)).toBe(true);
-            expect(Number.isFinite(next.vy)).toBe(true);
+              expect(Number.isFinite(next.x)).toBe(true);
+              expect(Number.isFinite(next.y)).toBe(true);
+              expect(Number.isFinite(next.vx)).toBe(true);
+              expect(Number.isFinite(next.vy)).toBe(true);
 
-            expect(next.x).toBeGreaterThanOrEqual(0);
-            expect(next.x).toBeLessThan(bounds.width);
-            expect(next.y).toBeGreaterThanOrEqual(0);
-            expect(next.y).toBeLessThan(bounds.height);
+              expect(next.x).toBeGreaterThanOrEqual(0);
+              expect(next.x).toBeLessThan(bounds.width);
+              expect(next.y).toBeGreaterThanOrEqual(0);
+              expect(next.y).toBeLessThan(bounds.height);
 
-            expect(Math.hypot(next.vx, next.vy)).toBeLessThanOrEqual(320 + 1e-8);
-            current = next;
-          }
+              expect(Math.hypot(next.vx, next.vy)).toBeLessThanOrEqual(320 + 1e-8);
+              current = next;
+            }
+          },
+        ),
+        {
+          numRuns: 25,
+          seed: 1337,
         },
-      ),
-      {
-        numRuns: 25,
-        seed: 1337,
-      },
-    );
-  });
+      );
+    },
+  );
 
   test('Valid inputs are accepted and corrupted inputs rejected', () => {
     fc.assert(

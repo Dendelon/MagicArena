@@ -487,6 +487,13 @@ bootGame({
         resetSessionState();
       });
 
+      activeConnection.addEventListener('shutdown', () => {
+        loop.stop();
+        frameProfiler?.dispose();
+        resetSessionState();
+        netgraph?.setPendingCount(0);
+      });
+
       activeConnection.addEventListener('status', (statusEvent) => {
         if (
           statusEvent.detail === 'Connecting...' ||

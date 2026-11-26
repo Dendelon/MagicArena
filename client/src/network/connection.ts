@@ -1,4 +1,5 @@
 import {
+  assertNever,
   getCodec,
   PROTOCOL_VERSION,
 } from '@magicarena/shared';
@@ -197,13 +198,18 @@ export const createConnection = ({
         emit('pong', message);
         break;
 
-      default: {
-        const exhaustive: never = message;
+      case 'shutdown':
+        stopped = true;
+        joined = false;
+        codec = null;
+        clearRetryTimer();
+        queue.length = 0;
+        emit('shutdown', message);
+        emit('status', message.reason || 'Server is shutting down');
+        break;
 
-        throw new Error(
-          `Unhandled server message: ${JSON.stringify(exhaustive)}`,
-        );
-      }
+      default:
+        return assertNever(message, 'Unhandled server message');
     }
   };
 

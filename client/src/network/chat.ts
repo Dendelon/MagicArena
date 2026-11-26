@@ -72,6 +72,12 @@ export const mountRoomChat = (connection: Connection): (() => void) => {
     addMessage(`${event.detail.name}: ${event.detail.text}`);
   });
 
+  connection.addEventListener('shutdown', (event) => {
+    addMessage(`• ${event.detail.reason}`);
+    input.disabled = true;
+    button.disabled = true;
+  });
+
   // Клавіші під час введення чату не повинні керувати мечем
   input.addEventListener('keydown', (event) => {
     event.stopPropagation();

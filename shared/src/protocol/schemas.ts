@@ -293,6 +293,13 @@ export const FireAckMessageSchema = z.strictObject({
   entityIds: z.array(EntityIdSchema),
 });
 
+export const ShutdownMessageSchema = z.strictObject({
+  v: z.literal(PROTOCOL_VERSION),
+  type: z.literal('shutdown'),
+
+  reason: z.string(),
+});
+
 export const ServerMessageSchema = z.discriminatedUnion('type', [
   SnapshotMessageSchema,
   JoinedMessageSchema,
@@ -301,6 +308,7 @@ export const ServerMessageSchema = z.discriminatedUnion('type', [
   ServerChatMessageSchema,
   PongMessageSchema,
   FireAckMessageSchema,
+  ShutdownMessageSchema,
 ]);
 
 export const GameMessageSchema = z.discriminatedUnion('type', [
@@ -331,6 +339,8 @@ export type ServerChatMessage = z.infer<typeof ServerChatMessageSchema>;
 export type PongMessage = z.infer<typeof PongMessageSchema>;
 
 export type FireAckMessage = z.infer<typeof FireAckMessageSchema>;
+
+export type ShutdownMessage = z.infer<typeof ShutdownMessageSchema>;
 
 export type ClientMessage = z.infer<typeof ClientMessageSchema>;
 

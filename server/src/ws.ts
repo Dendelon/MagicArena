@@ -4,7 +4,7 @@ import { performance } from 'node:perf_hooks';
 import type { Server, IncomingMessage } from 'node:http';
 import type { Duplex } from 'node:stream';
 
-import { getCodec, PROTOCOL_VERSION } from '@magicarena/shared';
+import { assertNever, getCodec, PROTOCOL_VERSION } from '@magicarena/shared';
 import type { CodecMode, ServerMessage } from '@magicarena/shared';
 
 import { MAX_MESSAGE_SIZE, ProtocolError, parseMessage } from './protocol.ts';
@@ -79,7 +79,9 @@ export const setupWebSocket = (
   const latency = createLatencyController({ delayMs, jitterMs, dropRate });
   const gameCodec = getCodec(codec);
   const socketStates = new WeakMap<WebSocket, SocketState>();
+  const activeJoinTimeouts = new Set<ReturnType<typeof setTimeout>>();
   let shuttingDown = false;
+  let shutdownPromise: Promise<void> | null = null;
 
   wss.on('error', (error: Error) => {
     console.error('WebSocket server error:', error);
@@ -281,11 +283,21 @@ export const setupWebSocket = (
 
   roomManager.on('created', registerRoom);
 
+  const rejectUpgrade = (socket: Duplex): void => {
+    socket.write('HTTP/1.1 503 Service Unavailable\r\nConnection: close\r\n\r\n');
+    socket.destroy();
+  };
+
   const handleUpgrade = (
     req: IncomingMessage,
     socket: Duplex,
     head: Buffer,
   ): void => {
+    if (shuttingDown) {
+      rejectUpgrade(socket);
+      return;
+    }
+
     const pathname = new URL(req.url ?? '/', 'http://localhost').pathname;
 
     if (pathname !== '/ws') {
@@ -299,9 +311,21 @@ export const setupWebSocket = (
     });
   };
 
+  const rejectUpgradeDuringShutdown = (
+    _req: IncomingMessage,
+    socket: Duplex,
+  ): void => {
+    rejectUpgrade(socket);
+  };
+
   server.on('upgrade', handleUpgrade);
 
   wss.on('connection', (socket: WebSocket) => {
+    if (shuttingDown) {
+      socket.close(1001, 'Server shutting down');
+      return;
+    }
+
     let currentRoom: Room | null = null;
     let currentPlayer: Player | null = null;
 
@@ -319,10 +343,12 @@ export const setupWebSocket = (
 
     // Гравець має приєднатися до кімнати за 5 секунд
     const joinTimeout = setTimeout(() => {
+      activeJoinTimeouts.delete(joinTimeout);
       if (!currentRoom) {
         socket.close(4001, 'Join timeout');
       }
     }, 5000);
+    activeJoinTimeouts.add(joinTimeout);
 
     socket.on('pong', () => {
       state.missedPongs = 0;
@@ -362,6 +388,11 @@ export const setupWebSocket = (
 
         switch (message.type) {
           case 'join': {
+            if (shuttingDown) {
+              socket.close(1001, 'Server shutting down');
+              return;
+            }
+
             if (currentRoom) {
               socket.close(1008, 'Already joined');
               return;
@@ -388,6 +419,7 @@ export const setupWebSocket = (
             currentRoom = room;
             currentPlayer = player;
             clearTimeout(joinTimeout);
+            activeJoinTimeouts.delete(joinTimeout);
 
             if (room.id === LOAD_TEST_ROOM_ID) {
               loadProfiler?.recordReceived(messageBytes);
@@ -518,13 +550,8 @@ export const setupWebSocket = (
             return;
           }
 
-          default: {
-            const exhaustive: never = message;
-
-            throw new Error(
-              `Unhandled client message: ${JSON.stringify(exhaustive)}`,
-            );
-          }
+          default:
+            return assertNever(message, 'Unhandled client message');
         }
       } catch (error: unknown) {
         console.warn('Invalid WS message:', getErrorMessage(error));
@@ -538,6 +565,7 @@ export const setupWebSocket = (
 
     socket.on('close', (code, reason) => {
       clearTimeout(joinTimeout);
+      activeJoinTimeouts.delete(joinTimeout);
 
       console.info('[WS] Client closed:', {
         playerId: currentPlayer?.id ?? null,
@@ -578,29 +606,63 @@ export const setupWebSocket = (
   // Викликаємо перед завершенням HTTP-сервера
 
   const shutdown = (): Promise<void> => {
+    if (shutdownPromise !== null) {
+      return shutdownPromise;
+    }
+
     shuttingDown = true;
     latency.clear();
     clearInterval(heartbeat);
 
+    for (const timer of activeJoinTimeouts) {
+      clearTimeout(timer);
+    }
+    activeJoinTimeouts.clear();
+
     server.off('upgrade', handleUpgrade);
+    server.on('upgrade', rejectUpgradeDuringShutdown);
+    server.once('close', () => {
+      server.off('upgrade', rejectUpgradeDuringShutdown);
+    });
     roomManager.off('created', registerRoom);
 
-    // Повідомляємо всім гравцям про завершення
+    const shutdownPayload = JSON.stringify({
+      v: PROTOCOL_VERSION,
+      type: 'shutdown',
+      reason: 'Server is shutting down',
+    });
+
+    // Повідомляємо всім гравцям про завершення перед закриттям із кодом 1001
     for (const socket of wss.clients) {
-      socket.close(1001, 'Server shutting down');
+      if (socket.readyState === WebSocket.OPEN) {
+        try {
+          socket.send(shutdownPayload);
+          socket.close(1001, 'Server shutting down');
+        } catch {
+          socket.terminate();
+        }
+      } else if (socket.readyState === WebSocket.CONNECTING) {
+        socket.terminate();
+      }
     }
 
-    return new Promise<void>((resolve) => {
-      // Чекаємо закриття WebSocket-з'єднань
-      wss.close(() => resolve());
-
+    shutdownPromise = new Promise<void>((resolve) => {
       // Примусове закриття завислих сокетів
-      setTimeout(() => {
+      const forceTerminateTimer = setTimeout(() => {
         for (const socket of wss.clients) {
           socket.terminate();
         }
-      }, 1000).unref();
+      }, 1000);
+      forceTerminateTimer.unref();
+
+      // Чекаємо закриття WebSocket-з'єднань
+      wss.close(() => {
+        clearTimeout(forceTerminateTimer);
+        resolve();
+      });
     });
+
+    return shutdownPromise;
   };
 
   return { broadcastSnapshot, shutdown };
