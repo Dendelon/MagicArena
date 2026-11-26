@@ -7,7 +7,14 @@ import {
   toTick,
 } from '@magicarena/shared';
 
-import type { EntityId, PlayerId, Seq, Tick } from '@magicarena/shared';
+import type {
+  CodecMode,
+  EntityId,
+  NetSim,
+  PlayerId,
+  Seq,
+  Tick,
+} from '@magicarena/shared';
 
 import { createCanvas } from './render/canvas.ts';
 import { createGameAudio } from './audio/audio.ts';
@@ -39,6 +46,10 @@ import {
 } from './network/interpolation.ts';
 import { createProjectilePredictor } from './network/projectiles.ts';
 import { createRenderProbe } from './e2e/renderProbe.ts';
+import {
+  FrameProfiler,
+  createMagicArenaProfileApi,
+} from './performance/FrameProfiler.ts';
 
 import type { FrameStats, LoadedAssets } from './types.ts';
 import type { TypedEvent } from './events.ts';
@@ -63,6 +74,10 @@ let gameAudio: ReturnType<typeof createGameAudio> | null = null;
 
 let playerName = 'Mage';
 let roomName = 'Arcane Ruins';
+let roomId: string | null = null;
+let roomPlayerCount: number | null = null;
+let sessionCodec: CodecMode | null = null;
+let sessionNetSim: NetSim | null = null;
 
 let connection: Connection | null = null;
 let netgraph: Netgraph | null = null;
@@ -326,10 +341,31 @@ const render = (_alpha: number, stats: FrameStats): void => {
   renderProbe.endFrame(lastAppliedSnapshotTick, world.width, world.height);
 };
 
+const frameProfiler =
+  import.meta.env.VITE_PROFILE === '1' ? new FrameProfiler() : null;
+
 const loop = createLoop({
   render,
   simulate,
+  ...(frameProfiler ? { profiler: frameProfiler } : {}),
 });
+
+if (import.meta.env.VITE_PROFILE === '1' && frameProfiler) {
+  window.magicArenaProfile = createMagicArenaProfileApi({
+    profiler: frameProfiler,
+    getContext: () => ({
+      roomId,
+      roomName: roomId !== null ? roomName : null,
+      playerCount: roomPlayerCount,
+      codec: sessionCodec,
+      netSim: sessionNetSim,
+      bounds:
+        world.width > 0 && world.height > 0
+          ? { width: world.width, height: world.height }
+          : null,
+    }),
+  });
+}
 
 const audioContext = new AudioContext();
 
@@ -369,6 +405,8 @@ void bootGame({
 
       playerName = name;
       roomName = room.name;
+      roomId = room.id;
+      roomPlayerCount = room.players;
 
       // Прибираємо лобі та запускаємо гру
       destroyLobby();
@@ -383,6 +421,9 @@ void bootGame({
       const resetSessionState = (): void => {
         myPlayerId = null;
         myEntityId = null;
+        sessionCodec = null;
+        sessionNetSim = null;
+        roomPlayerCount = null;
         lastAppliedSnapshotTick = null;
         lastServerAckSeq = toSeq(0);
         inputSeq = toSeq(0);
@@ -403,6 +444,11 @@ void bootGame({
         resetSessionState();
         myPlayerId = detail.player.id;
         myEntityId = detail.entityId ?? detail.player.entityId ?? null;
+        roomId = detail.room.id;
+        roomName = detail.room.name;
+        roomPlayerCount = detail.room.players;
+        sessionCodec = detail.codec;
+        sessionNetSim = detail.netSim;
 
         if (detail.bounds) {
           world.bounds = {
@@ -410,6 +456,10 @@ void bootGame({
             height: detail.bounds.height,
           };
         }
+      });
+
+      activeConnection.addEventListener('roster', (rosterEvent) => {
+        roomPlayerCount = rosterEvent.detail.players.length;
       });
 
       activeConnection.addEventListener('disconnected', () => {
@@ -488,6 +538,7 @@ void bootGame({
       window.addEventListener(
         'beforeunload',
         () => {
+          frameProfiler?.dispose();
           loop.stop();
           resetSessionState();
           netgraph?.destroy();

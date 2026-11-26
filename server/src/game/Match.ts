@@ -1,3 +1,5 @@
+import { performance } from 'node:perf_hooks';
+
 import {
   Bullet,
   Obstacle,
@@ -40,6 +42,7 @@ import type {
 } from '../types.ts';
 
 import type { Room } from '../rooms.ts';
+import type { ServerProfiler } from '../performance/ServerProfiler.ts';
 import { FIXED_DT, createTickLoop } from './tickLoop.ts';
 
 type SnapshotEvent = z.infer<typeof WorldEventSchema>;
@@ -50,6 +53,7 @@ export interface MatchOptions {
   bounds?: Bounds;
   seed?: number;
   onSnapshot?: SnapshotHandler | null;
+  profiler?: ServerProfiler | null;
 }
 
 export interface MatchStats {
@@ -200,6 +204,8 @@ export class Match {
   #tickEvents: SnapshotEvent[] = [];
   #loop: ReturnType<typeof createTickLoop>;
   #stopped = false;
+  #profiler: ServerProfiler | null;
+  #activeTickStart: number | null = null;
 
   constructor(
     room: Room,
@@ -207,6 +213,7 @@ export class Match {
       bounds = DEFAULT_ARENA_BOUNDS,
       seed = hashSeed(room.id),
       onSnapshot = null,
+      profiler = null,
     }: MatchOptions = {},
   ) {
     this.room = room;
@@ -217,6 +224,7 @@ export class Match {
     this.seed = seed >>> 0;
     this.world = new World(this.bounds, { seed: this.seed });
     this.onSnapshot = onSnapshot;
+    this.#profiler = profiler;
 
     for (const eventName of WORLD_EVENTS) {
       this.world.addEventListener(eventName, (event) => {
@@ -233,10 +241,19 @@ export class Match {
 
     this.#loop = createTickLoop({
       onTick: (dt) => {
+        if (this.players.size > 0 && this.#profiler?.isRunning()) {
+          this.#activeTickStart = performance.now();
+        } else {
+          this.#activeTickStart = null;
+        }
         this.step(dt);
       },
       onAfterTick: () => {
         this.onSnapshot?.(this);
+        if (this.#activeTickStart !== null) {
+          this.#profiler?.recordTick(performance.now() - this.#activeTickStart);
+          this.#activeTickStart = null;
+        }
       },
     });
   }
@@ -484,7 +501,27 @@ export class Match {
       }
     }
 
-    this.world.step(dt, inputs);
+    if (this.players.size > 0 && this.#profiler?.isRunning()) {
+      let collisionStart = 0;
+      let collisionMs = 0;
+      const worldStepStart = performance.now();
+
+      this.world.step(dt, inputs, {
+        onBeforeCollisions: () => {
+          collisionStart = performance.now();
+        },
+        onAfterCollisions: () => {
+          collisionMs = performance.now() - collisionStart;
+        },
+      });
+
+      this.#profiler.recordWorldStep(performance.now() - worldStepStart);
+      this.#profiler.recordCollision(collisionMs);
+      this.#profiler.recordEntities(this.world.count);
+      this.#profiler.recordPlayers(this.players.size);
+    } else {
+      this.world.step(dt, inputs);
+    }
 
     for (const state of this.players.values()) {
       const command = tickCommands.get(state.playerId);

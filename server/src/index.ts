@@ -14,6 +14,7 @@ import { RoomManager } from './rooms.ts';
 import { MatchManager } from './game/MatchManager.ts';
 import { setupWebSocket } from './ws.ts';
 import { BotManager } from './bots/BotManager.ts';
+import { ServerProfiler } from './performance/ServerProfiler.ts';
 import { setupMatchLogs } from './log/matchlog.ts';
 import { getReplayPath, listReplays } from './log/replay.ts';
 import { startRssProfiler } from './log/rss.ts';
@@ -127,6 +128,10 @@ const CreateRoomSchema = z.object({
 const CreateBotsSchema = z.strictObject({
   count: z.number().int().min(1).max(8),
   seed: z.number().int().min(0).max(0xffffffff).default(1337),
+});
+
+const ProfileStartSchema = z.strictObject({
+  durationMs: z.number().int().min(100).max(300_000).default(30_000),
 });
 
 const serveStatic = async (
@@ -358,6 +363,38 @@ const handleRequest = async (
     return;
   }
 
+  if (pathname === '/api/profile/start' && req.method === 'POST') {
+    if (!config.enableProfile) {
+      sendJson(res, 404, { error: 'Profiling API is disabled' });
+      return;
+    }
+
+    const body = await readJsonBody(req);
+    const result = ProfileStartSchema.safeParse(body);
+
+    if (!result.success) {
+      sendJson(res, 400, { error: 'Invalid profile start payload' });
+      return;
+    }
+
+    serverProfiler.start(result.data.durationMs);
+    sendJson(res, 202, {
+      status: 'running',
+      durationMs: result.data.durationMs,
+    });
+    return;
+  }
+
+  if (pathname === '/api/profile/result' && req.method === 'GET') {
+    if (!config.enableProfile) {
+      sendJson(res, 404, { error: 'Profiling API is disabled' });
+      return;
+    }
+
+    sendJson(res, 200, serverProfiler.getState());
+    return;
+  }
+
   if (pathname.startsWith('/api/')) {
     sendJson(res, 404, { error: 'Unknown API route' });
     return;
@@ -390,6 +427,7 @@ const server = createServer((req, res) => {
 });
 
 let websocket: ReturnType<typeof setupWebSocket> | null = null;
+const serverProfiler = new ServerProfiler();
 
 const botManager = new BotManager({
   roomManager: rooms,
@@ -405,6 +443,7 @@ const matchManager = new MatchManager(rooms, {
   onSnapshot: (match) => {
     websocket?.broadcastSnapshot(match);
   },
+  profiler: serverProfiler,
 });
 
 websocket = setupWebSocket(server, rooms, {
@@ -413,6 +452,7 @@ websocket = setupWebSocket(server, rooms, {
   jitterMs: config.netJitterMs,
   dropRate: config.netDropRate,
   codec: config.netCodec,
+  profiler: serverProfiler,
 });
 
 server.on('error', (error: Error) => {
@@ -430,6 +470,7 @@ const shutdown = (): void => {
   console.log('Shutting down server...');
 
   void (async () => {
+    serverProfiler.shutdown();
     await botManager.shutdown();
 
     const httpClosed = new Promise<void>((resolve, reject) => {

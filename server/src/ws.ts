@@ -1,5 +1,6 @@
 import WebSocket, { WebSocketServer } from 'ws';
 import { randomUUID } from 'node:crypto';
+import { performance } from 'node:perf_hooks';
 import type { Server, IncomingMessage } from 'node:http';
 import type { Duplex } from 'node:stream';
 
@@ -21,6 +22,7 @@ import type { Player, SocketState, ChatEvent } from './types.ts';
 import type { Room, RoomManager } from './rooms.ts';
 import type { Match } from './game/Match.ts';
 import type { MatchManager } from './game/MatchManager.ts';
+import type { ServerProfiler } from './performance/ServerProfiler.ts';
 
 const MAX_BUFFERED_AMOUNT = 256 * 1024;
 
@@ -30,6 +32,7 @@ interface WebSocketOptions {
   jitterMs?: number;
   dropRate?: number;
   codec?: CodecMode;
+  profiler?: ServerProfiler | null;
 }
 
 type WithoutVersion<T> = T extends { v: number } ? Omit<T, 'v'> : never;
@@ -47,6 +50,7 @@ export const setupWebSocket = (
     jitterMs = 0,
     dropRate = 0,
     codec = 'binary',
+    profiler = null,
   }: WebSocketOptions = {},
 ) => {
   const wss = new WebSocketServer({
@@ -122,6 +126,12 @@ export const setupWebSocket = (
     if (shuttingDown || match.stopped) return;
 
     const room = match.room;
+    const profiling = room.players.size > 0 && (profiler?.isRunning() ?? false);
+    const broadcastStart = profiling ? performance.now() : 0;
+    let snapshotCreateMs = 0;
+    let binaryEncodingMs = 0;
+    let encodedCount = 0;
+    let snapshotCount = 0;
 
     for (const player of room.players.values()) {
       if (player.socket.readyState !== WebSocket.OPEN) continue;
@@ -152,12 +162,22 @@ export const setupWebSocket = (
         );
       }
 
+      const snapshotStart = profiling ? performance.now() : 0;
       const snapshot = match.getSnapshotForPlayer(player.id);
+      if (profiling) {
+        snapshotCreateMs += performance.now() - snapshotStart;
+        snapshotCount += 1;
+      }
 
       let payload: string | ArrayBuffer;
 
       try {
+        const encodeStart = profiling ? performance.now() : 0;
         payload = gameCodec.encode(snapshot);
+        if (profiling && codec === 'binary') {
+          binaryEncodingMs += performance.now() - encodeStart;
+          encodedCount += 1;
+        }
       } catch (error: unknown) {
         console.error(`Snapshot encoding failed for room ${room.id}:`, error);
 
@@ -175,6 +195,17 @@ export const setupWebSocket = (
         },
         { allowDrop: true },
       );
+    }
+
+    if (profiling && profiler) {
+      if (snapshotCount > 0) {
+        profiler.recordSnapshotCreate(snapshotCreateMs);
+      }
+      if (encodedCount > 0) {
+        profiler.recordBinaryEncode(binaryEncodingMs);
+      }
+      profiler.recordBroadcast(performance.now() - broadcastStart);
+      profiler.recordPlayers(room.players.size);
     }
   };
 

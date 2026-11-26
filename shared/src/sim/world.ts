@@ -25,6 +25,11 @@ export interface WorldOptions {
   rng?: RandomSource | null;
 }
 
+export interface WorldStepHooks {
+  readonly onBeforeCollisions?: () => void;
+  readonly onAfterCollisions?: () => void;
+}
+
 export type WorldInputs =
   | Map<EntityId, SwordInput>
   | Readonly<Record<string, SwordInput | undefined>>;
@@ -200,7 +205,11 @@ export class World {
   }
 
   // Один крок симуляції
-  step(dt: number, inputs: WorldInputs = new Map()): void {
+  step(
+    dt: number,
+    inputs: WorldInputs = new Map(),
+    hooks?: WorldStepHooks,
+  ): void {
     this.tick = toTick(this.tick + 1);
 
     const entities = [...this.#entities.values()];
@@ -220,7 +229,12 @@ export class World {
     }
 
     // 2. Перевіряємо зіткнення
-    resolveCollisions(this);
+    hooks?.onBeforeCollisions?.();
+    try {
+      resolveCollisions(this);
+    } finally {
+      hooks?.onAfterCollisions?.();
+    }
 
     // 3. Видаляємо знищені об'єкти
     for (const [id, entity] of this.#entities) {

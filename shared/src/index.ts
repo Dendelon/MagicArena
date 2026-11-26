@@ -17,7 +17,11 @@ export {
 } from './sim/scenario.ts';
 export { integrate } from './sim/sword.ts';
 export { Vector2 } from './sim/vector.ts';
-export { World } from './sim/world.ts';
+export { World, type WorldStepHooks } from './sim/world.ts';
+export {
+  summarizeTimings,
+  type TimingSummary,
+} from './performance/statistics.ts';
 
 export { Bullet } from './entities/Bullet.ts';
 export { Explosion } from './entities/Explosion.ts';

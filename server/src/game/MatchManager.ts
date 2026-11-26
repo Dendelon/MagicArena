@@ -2,6 +2,7 @@ import { Match } from './Match.ts';
 
 import type { MatchStats, SnapshotHandler } from './Match.ts';
 import type { Room, RoomManager } from '../rooms.ts';
+import type { ServerProfiler } from '../performance/ServerProfiler.ts';
 import type { Player } from '../types.ts';
 
 export class MatchManager {
@@ -9,15 +10,23 @@ export class MatchManager {
   #cleanups = new Map<string, () => void>();
   #roomManager: RoomManager;
   #onSnapshot: SnapshotHandler | null;
+  #profiler: ServerProfiler | null;
   #onCreated: (room: Room) => void;
   #onRemoved: (room: Room) => void;
 
   constructor(
     roomManager: RoomManager,
-    { onSnapshot = null }: { onSnapshot?: SnapshotHandler | null } = {},
+    {
+      onSnapshot = null,
+      profiler = null,
+    }: {
+      onSnapshot?: SnapshotHandler | null;
+      profiler?: ServerProfiler | null;
+    } = {},
   ) {
     this.#roomManager = roomManager;
     this.#onSnapshot = onSnapshot;
+    this.#profiler = profiler;
 
     this.#onCreated = (room) => {
       this.#createMatch(room);
@@ -45,6 +54,7 @@ export class MatchManager {
 
     const match = new Match(room, {
       onSnapshot: this.#onSnapshot,
+      profiler: this.#profiler,
     });
 
     const onJoin = (player: Player) => {

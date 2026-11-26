@@ -1,0 +1,37 @@
+{
+  "source": "Trace-20261126T102926.json.gz",
+  "scope": "CrRendererMain, complete trace events (ph=X); top-level MinorGC and MajorGC only; incremental marking reported separately, not added to combined GC.",
+  "method": "Nearest-rank percentiles; durations converted from microseconds to milliseconds.",
+  "minorGC": {
+    "count": 23,
+    "totalDurationMs": 21.734,
+    "p50Ms": 0.911,
+    "p95Ms": 1.288,
+    "p99Ms": 1.291,
+    "maxMs": 1.291
+  },
+  "majorGC": {
+    "count": 9,
+    "totalDurationMs": 20.075,
+    "p50Ms": 1.761,
+    "p95Ms": 6.235,
+    "p99Ms": 6.235,
+    "maxMs": 6.235
+  },
+  "combinedGC": {
+    "count": 32,
+    "totalDurationMs": 41.809,
+    "p50Ms": 1.036,
+    "p95Ms": 2.07,
+    "p99Ms": 6.235,
+    "maxMs": 6.235
+  },
+  "incrementalMarking": {
+    "count": 102,
+    "totalDurationMs": 10.249,
+    "p50Ms": 0.042,
+    "p95Ms": 0.392,
+    "p99Ms": 0.449,
+    "maxMs": 0.472
+  }
+}

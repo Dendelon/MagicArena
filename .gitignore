@@ -29,3 +29,9 @@ coverage/
 playwright-report/
 test-results/
 playwright/.cache/
+
+# Raw profiling artifacts
+*.cpuprofile
+*.heapprofile
+*.heapsnapshot
+profiles/
