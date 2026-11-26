@@ -388,7 +388,7 @@ if (import.meta.env.VITE_PROFILE === '1' && frameProfiler) {
 
 const audioContext = new AudioContext();
 
-void bootGame({
+bootGame({
   ctx,
   size,
   audioContext,
@@ -592,9 +592,13 @@ void bootGame({
     // Показуємо лобі
     const destroyLobby = mountLobby(lobby, {
       onJoinGesture: () => {
-        void audio.unlock().catch(console.error);
+        audio.unlock().catch((error: unknown) => {
+          console.error('Audio unlock failed:', error);
+        });
       },
     });
   },
+}).catch((error: unknown) => {
+  console.error('[Lab03] Fatal boot error:', error);
 });
 

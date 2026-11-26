@@ -224,7 +224,7 @@ export const createProjectilePredictor = () => {
       }
 
       const bullet = bulletPool.acquire({
-        id: toEntityId(-originSeq - (isHoming ? 0.5 : 0)),
+        id: toEntityId(-Number(originSeq) - (isHoming ? 0.5 : 0)),
         pos,
         vel,
         ttl: isHoming ? 1 : 1.5,

@@ -1,3 +1,6 @@
+import { ZodError } from 'zod';
+
+import { assertNever } from '../assertNever.ts';
 import {
   PROTOCOL_VERSION,
 } from '../protocol/messages.ts';
@@ -74,19 +77,44 @@ const NUMBERS: Readonly<
   f64: { size: 8 },
 };
 
+export class BinaryDecodeError extends Error {
+  constructor(message: string, options?: ErrorOptions) {
+    super(message, options);
+    this.name = 'BinaryDecodeError';
+  }
+}
+
 const fail = (message: string): never => {
   throw new Error(`Binary codec: ${message}`);
+};
+
+const failDecode = (message: string, options?: ErrorOptions): never => {
+  throw new BinaryDecodeError(`Binary codec: ${message}`, options);
+};
+
+const parseWithBinaryDecodeError = <T>(parseFn: () => T): T => {
+  try {
+    return parseFn();
+  } catch (error: unknown) {
+    if (error instanceof ZodError) {
+      throw new BinaryDecodeError(error.message, { cause: error });
+    }
+    throw error instanceof Error ? error : new Error(String(error));
+  }
 };
 
 const validateNumber = (
   type: NumberType,
   value: unknown,
+  reading = false,
 ): number => {
+  const reportError = reading ? failDecode : fail;
+
   if (
     typeof value !== 'number' ||
     !Number.isFinite(value)
   ) {
-    return fail(`Invalid ${type} value`);
+    return reportError(`Invalid ${type} value`);
   }
 
   const { min, max } = NUMBERS[type];
@@ -100,14 +128,14 @@ const validateNumber = (
       value > max
     )
   ) {
-    return fail(`${type} out of range`);
+    return reportError(`${type} out of range`);
   }
 
   if (
     type === 'f32' &&
     !Number.isFinite(Math.fround(value))
   ) {
-    return fail('Float32 overflow');
+    return reportError('Float32 overflow');
   }
 
   return value;
@@ -201,13 +229,8 @@ class Writer implements TransferIO {
         this.view.setFloat64(offset, numeric, true);
         break;
 
-      default: {
-        const exhaustive: never = type;
-
-        return fail(
-          `Unsupported number type: ${exhaustive}`,
-        );
-      }
+      default:
+        return assertNever(type, 'Binary codec: Unsupported number type');
     }
 
     return numeric;
@@ -251,14 +274,14 @@ class Reader implements TransferIO {
         data.byteLength,
       );
     } else {
-      throw new Error('Binary codec: Expected binary data');
+      throw new BinaryDecodeError('Binary codec: Expected binary data');
     }
 
     if (
       this.buffer.byteLength >
       MAX_PACKET_SIZE
     ) {
-      fail('Packet too large');
+      failDecode('Packet too large');
     }
 
     this.view = new DataView(
@@ -275,7 +298,7 @@ class Reader implements TransferIO {
       this.offset + size >
       this.buffer.byteLength
     ) {
-      fail('Truncated packet');
+      failDecode('Truncated packet');
     }
 
     const offset = this.offset;
@@ -317,28 +340,30 @@ class Reader implements TransferIO {
         value = this.view.getFloat64(offset, true);
         break;
 
-      default: {
-        const exhaustive: never = type;
-
-        return fail(
-          `Unsupported number type: ${exhaustive}`,
-        );
-      }
+      default:
+        return assertNever(type, 'Binary codec: Unsupported number type');
     }
 
-    return validateNumber(type, value);
+    return validateNumber(type, value, true);
   }
 
   text(): string {
     const size = this.number('u16');
     const offset = this.take(size);
 
-    return decoder.decode(
-      this.buffer.subarray(
-        offset,
-        offset + size,
-      ),
-    );
+    try {
+      return decoder.decode(
+        this.buffer.subarray(
+          offset,
+          offset + size,
+        ),
+      );
+    } catch (error: unknown) {
+      if (error instanceof TypeError) {
+        return failDecode(error.message, { cause: error });
+      }
+      throw error instanceof Error ? error : new Error(String(error));
+    }
   }
 
   finish(): void {
@@ -346,7 +371,7 @@ class Reader implements TransferIO {
       this.offset !==
       this.buffer.byteLength
     ) {
-      fail('Unexpected trailing bytes');
+      failDecode('Unexpected trailing bytes');
     }
   }
 }
@@ -368,7 +393,7 @@ const bool = (
   );
 
   if (flag !== 0 && flag !== 1) {
-    return fail('Invalid boolean flag');
+    return (io.reading ? failDecode : fail)('Invalid boolean flag');
   }
 
   return flag === 1;
@@ -398,7 +423,7 @@ const transferId = (
       return io.text(value);
 
     default:
-      return fail('Invalid ID type');
+      return (io.reading ? failDecode : fail)('Invalid ID type');
   }
 };
 
@@ -421,7 +446,7 @@ const transferAngle = (
     const encoded = io.number('i16');
 
     if (Math.abs(encoded) > 3142) {
-      return fail('Invalid angle');
+      return failDecode('Invalid angle');
     }
 
     return encoded / 1000;
@@ -512,13 +537,8 @@ const transfer = (
       case 'entity':
         return transferEntity(io, value);
 
-      default: {
-        const exhaustive: never = schema;
-
-        return fail(
-          `Unknown schema: ${exhaustive}`,
-        );
-      }
+      default:
+        return assertNever(schema, 'Binary codec: Unknown schema');
     }
   }
 
@@ -563,7 +583,7 @@ const transfer = (
         );
 
         if (count > MAX_ARRAY_LENGTH) {
-          return fail('Array too large');
+          return (io.reading ? failDecode : fail)('Array too large');
         }
 
         const result: unknown[] = [];
@@ -581,13 +601,8 @@ const transfer = (
         return result;
       }
 
-      default: {
-        const exhaustive: never = mode;
-
-        return fail(
-          `Unknown schema mode: ${exhaustive}`,
-        );
-      }
+      default:
+        return assertNever(mode, 'Binary codec: Unknown schema mode');
     }
   }
 
@@ -722,7 +737,7 @@ const transferEntity = (
   const kind = ENTITY_KINDS[kindIndex];
 
   if (!kind) {
-    return fail('Unknown entity kind');
+    return (io.reading ? failDecode : fail)('Unknown entity kind');
   }
 
   const schema: SchemaRecord = {
@@ -734,7 +749,7 @@ const transferEntity = (
     const fields = transfer(io, schema);
 
     if (!isRecord(fields)) {
-      return fail('Invalid entity fields');
+      return failDecode('Invalid entity fields');
     }
 
     return {
@@ -814,11 +829,11 @@ const readHeader = (
   const version = reader.number('u8');
 
   if (type !== expectedType) {
-    fail('Unexpected message type');
+    failDecode('Unexpected message type');
   }
 
   if (version !== PROTOCOL_VERSION) {
-    fail('Unsupported protocol version');
+    failDecode('Unsupported protocol version');
   }
 };
 
@@ -883,7 +898,7 @@ export const decodeInput = (
   const flags = reader.number('u8');
 
   if (flags & ~31) {
-    return fail('Unknown input flags');
+    return failDecode('Unknown input flags');
   }
 
   const message = {
@@ -907,7 +922,7 @@ export const decodeInput = (
 
   reader.finish();
 
-  return InputMessageSchema.parse(message);
+  return parseWithBinaryDecodeError(() => InputMessageSchema.parse(message));
 };
 
 // SNAPSHOT:
@@ -959,14 +974,16 @@ export const decodeSnapshot = (
   reader.finish();
 
   if (!isRecord(fields)) {
-    return fail('Invalid snapshot fields');
+    return failDecode('Invalid snapshot fields');
   }
 
-  return SnapshotMessageSchema.parse({
-    v: PROTOCOL_VERSION,
-    type: 'snapshot',
-    ...fields,
-  });
+  return parseWithBinaryDecodeError(() =>
+    SnapshotMessageSchema.parse({
+      v: PROTOCOL_VERSION,
+      type: 'snapshot',
+      ...fields,
+    }),
+  );
 };
 
 export const binaryCodec: Codec<
@@ -1008,7 +1025,7 @@ export const binaryCodec: Codec<
         return decodeSnapshot(data);
 
       default:
-        return fail(
+        return failDecode(
           'Unknown binary message type',
         );
     }

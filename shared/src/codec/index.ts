@@ -5,6 +5,7 @@ export {
 } from './json.ts';
 
 export {
+  BinaryDecodeError,
   encodeInput,
   decodeInput,
   encodeSnapshot,

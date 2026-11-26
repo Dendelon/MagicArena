@@ -12,6 +12,10 @@ import type {
 
 const ZERO_VEC: Vec2Like = { x: 0, y: 0 };
 
+const isParticleSnapshotList = (
+  value: readonly ParticleSnapshot[] | null | undefined,
+): value is readonly ParticleSnapshot[] => Array.isArray(value);
+
 export interface ExplosionOptions
   extends Omit<EntityOptions, 'kind' | 'radius'> {
   count?: number;
@@ -54,7 +58,7 @@ export class Explosion extends Entity {
     this.#particlePool = particlePool;
     this.color = color;
 
-    if (Array.isArray(particles)) {
+    if (isParticleSnapshotList(particles)) {
       this.particles = particles.map((particle) =>
         this.#particlePool
           ? this.#particlePool.acquire({

@@ -42,6 +42,6 @@ try {
   );
 } catch (error: unknown) {
   stream.destroy();
-  throw error;
+  throw error instanceof Error ? error : new Error(String(error));
 }
 

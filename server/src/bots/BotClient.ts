@@ -89,13 +89,15 @@ export class BotClient {
     );
   }
 
-  async connect(): Promise<PlayerId> {
+  connect(): Promise<PlayerId> {
     if (this.#stopped) {
-      throw new Error(`Bot ${this.name} is already stopped`);
+      return Promise.reject(new Error(`Bot ${this.name} is already stopped`));
     }
 
     if (this.#socket !== null) {
-      throw new Error(`Bot ${this.name} is already connecting or connected`);
+      return Promise.reject(
+        new Error(`Bot ${this.name} is already connecting or connected`),
+      );
     }
 
     const socket = new WebSocket(this.#url);

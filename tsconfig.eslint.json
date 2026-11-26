@@ -1,0 +1,27 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "types": ["node", "vite/client"]
+  },
+  "include": [
+    "client/src/**/*.ts",
+    "client/test/**/*.ts",
+    "server/src/**/*.ts",
+    "server/test/**/*.ts",
+    "server/scripts/**/*.ts",
+    "shared/src/**/*.ts",
+    "shared/test/**/*.ts",
+    "e2e/**/*.ts",
+    "playwright.config.ts",
+    "vitest.config.ts"
+  ],
+  "exclude": [
+    "**/node_modules",
+    "**/dist",
+    "**/logs"
+  ]
+}
+

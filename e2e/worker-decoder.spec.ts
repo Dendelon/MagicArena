@@ -21,17 +21,22 @@ test('Web Worker decodes binary snapshots via Transferable ArrayBuffers and clea
     const pageTwo = await browser.newPage();
 
     await pageOne.addInitScript(() => {
-      const originalTerminate = Worker.prototype.terminate;
       let count = 0;
 
       Object.defineProperty(window, '__workerTerminateCount', {
         get: () => count,
       });
 
-      Worker.prototype.terminate = function terminateSpy(): void {
-        count += 1;
-        originalTerminate.call(this);
-      };
+      const BaseWorker = window.Worker;
+
+      class TrackedWorker extends BaseWorker {
+        override terminate(): void {
+          count += 1;
+          super.terminate();
+        }
+      }
+
+      window.Worker = TrackedWorker;
     });
 
     const pageOneErrors: Error[] = [];

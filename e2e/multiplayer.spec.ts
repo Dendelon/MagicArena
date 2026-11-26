@@ -8,6 +8,30 @@ const wrappedDistance = (a: number, b: number, size: number): number => {
   return Math.min(distance, size - distance);
 };
 
+const measureRemoteDisplacement = async (
+  pageTwo: Parameters<typeof readRenderProbe>[0],
+  playerOneOwnerId: string,
+  initialPos: { readonly x: number; readonly y: number },
+  initialTick: number,
+): Promise<number> => {
+  const frame = await readRenderProbe(pageTwo);
+
+  if (!frame || frame.tick === null || frame.tick <= initialTick) {
+    return 0;
+  }
+
+  const remote = frame.swords.find(
+    (sword) => !sword.isOwnSword && sword.ownerId === playerOneOwnerId,
+  );
+
+  if (!remote) return 0;
+
+  const dx = wrappedDistance(remote.x, initialPos.x, frame.width);
+  const dy = wrappedDistance(remote.y, initialPos.y, frame.height);
+
+  return Math.hypot(dx, dy);
+};
+
 test('Two players see each other move and exchange chat messages', async ({
   browser,
   request,
@@ -81,7 +105,7 @@ test('Two players see each other move and exchange chat messages', async ({
     expect(initialRemote).toBeDefined();
     expect(frameTwo?.tick).not.toBeNull();
 
-    if (!initialRemote || frameTwo === null || frameTwo.tick === null) {
+    if (!initialRemote || playerOneOwnerId === null || frameTwo === null || frameTwo.tick === null) {
       throw new Error('Expected initial remote sword and tick on Player Two');
     }
 
@@ -96,27 +120,50 @@ test('Two players see each other move and exchange chat messages', async ({
     await pageOne.locator('#game').click();
 
     await pageOne.keyboard.down('w');
+    const movementStartedAt = performance.now();
 
     try {
+      let firstVisibleMovementLatencyMs: number | null = null;
+
       await expect
-        .poll(async () => {
-          const frame = await readRenderProbe(pageTwo);
+        .poll(
+          async () => {
+            const distance = await measureRemoteDisplacement(
+              pageTwo,
+              playerOneOwnerId,
+              initialPos,
+              initialTick,
+            );
 
-          if (!frame || frame.tick === null || frame.tick <= initialTick) {
-            return 0;
-          }
+            if (distance >= 3 && firstVisibleMovementLatencyMs === null) {
+              firstVisibleMovementLatencyMs = performance.now() - movementStartedAt;
+            }
 
-          const remote = frame.swords.find(
-            (sword) => !sword.isOwnSword && sword.ownerId === playerOneOwnerId,
-          );
+            return distance;
+          },
+          {
+            timeout: 500,
+            intervals: [16, 25, 33, 50],
+          },
+        )
+        .toBeGreaterThanOrEqual(3);
 
-          if (!remote) return 0;
+      expect(firstVisibleMovementLatencyMs).not.toBeNull();
+      expect(firstVisibleMovementLatencyMs ?? Number.POSITIVE_INFINITY).toBeLessThanOrEqual(500);
 
-          const dx = wrappedDistance(remote.x, initialPos.x, frame.width);
-          const dy = wrappedDistance(remote.y, initialPos.y, frame.height);
-
-          return Math.hypot(dx, dy);
-        })
+      await expect
+        .poll(
+          () =>
+            measureRemoteDisplacement(
+              pageTwo,
+              playerOneOwnerId,
+              initialPos,
+              initialTick,
+            ),
+          {
+            intervals: [25, 50],
+          },
+        )
         .toBeGreaterThanOrEqual(20);
     } finally {
       await pageOne.keyboard.up('w');

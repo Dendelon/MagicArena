@@ -13,6 +13,11 @@ interface BootOptions {
   audioContext?: AudioContext | null;
 }
 
+const toAbortError = (signal: AbortSignal): Error =>
+  signal.reason instanceof Error
+    ? signal.reason
+    : new DOMException('Aborted', 'AbortError');
+
 export const bootGame = async ({
   ctx,
   size,
@@ -45,7 +50,7 @@ export const bootGame = async ({
       // Deterministic demo of AbortSignal.timeout for ?lab03=timeout.
       if (isTimeoutTest) {
         await new Promise<void>((resolve) => setTimeout(resolve, 25));
-        if (signal.aborted) throw signal.reason;
+        if (signal.aborted) throw toAbortError(signal);
       }
 
       const rawManifest = await withRetry(
@@ -69,7 +74,7 @@ export const bootGame = async ({
       if (import.meta.env.DEV) {
         await new Promise<void>((resolve) => setTimeout(resolve, 1500));
       }
-      if (signal.aborted) throw signal.reason;
+      if (signal.aborted) throw toAbortError(signal);
       start(assets);
     } catch (error: unknown) {
       console.error('[Lab03] Loading failed:', error);
@@ -85,7 +90,9 @@ export const bootGame = async ({
       const onRetry = (event: KeyboardEvent): void => {
         if (event.code !== 'KeyR') return;
         window.removeEventListener('keydown', onRetry);
-        void run();
+        run().catch((retryError: unknown) => {
+          console.error('[Lab03] Retry failed:', retryError);
+        });
       };
 
       window.addEventListener('keydown', onRetry);

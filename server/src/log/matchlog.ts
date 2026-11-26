@@ -66,14 +66,14 @@ export const createMatchLog = (room: Room, logDir: string) => {
   room.once('empty', close);
 
   // Обробка помилки без unhandled rejection
-  void done
-    .catch((error: unknown) => {
-      console.error(`Log error (${id}):`, error);
-      room.emit('error', error);
-    })
+  done
     .finally(() => {
       room.off('empty', close);
       room.logBackpressured = false;
+    })
+    .catch((error: unknown) => {
+      console.error(`Log error (${id}):`, error);
+      room.emit('error', error);
     });
 
   return { id, filePath, close, done };
@@ -86,9 +86,13 @@ export const setupMatchLogs = (roomManager: RoomManager, logDir: string) => {
     const log = createMatchLog(room, logDir);
     active.set(room.id, log);
 
-    void log.done.then(
-      () => active.delete(room.id),
-      () => active.delete(room.id),
+    log.done.then(
+      () => {
+        active.delete(room.id);
+      },
+      () => {
+        active.delete(room.id);
+      },
     );
   };
 

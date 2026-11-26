@@ -16,6 +16,7 @@ import { setupWebSocket } from './ws.ts';
 import { BotManager } from './bots/BotManager.ts';
 import { ServerProfiler } from './performance/ServerProfiler.ts';
 import { LoadProfiler } from './performance/LoadProfiler.ts';
+import { collectLiveServerStats } from './performance/serverStats.ts';
 import { setupMatchLogs } from './log/matchlog.ts';
 import { getReplayPath, listReplays } from './log/replay.ts';
 import { startRssProfiler } from './log/rss.ts';
@@ -250,9 +251,8 @@ const handleRequest = async (
   }
 
   if (pathname === '/api/stats' && req.method === 'GET') {
-    sendJson(res, 200, {
-      matches: matchManager.getStats(),
-    });
+    // Returns matches plus current memoryUsage() and process-cumulative ELU.
+    sendJson(res, 200, collectLiveServerStats(matchManager.getStats()));
     return;
   }
 
@@ -306,7 +306,7 @@ const handleRequest = async (
         return;
       }
 
-      throw error;
+      throw error instanceof Error ? error : new Error(String(error));
     }
 
     if (!info.isFile()) {
@@ -476,7 +476,7 @@ const handleRequest = async (
 };
 
 const server = createServer((req, res) => {
-  void handleRequest(req, res).catch((error: unknown) => {
+  handleRequest(req, res).catch((error: unknown) => {
     console.error('HTTP error:', error);
 
     if (res.destroyed || res.headersSent) {
@@ -544,7 +544,7 @@ const shutdown = (): void => {
 
   console.log('Shutting down server...');
 
-  void (async () => {
+  (async () => {
     serverProfiler.shutdown();
     loadProfiler.shutdown();
     await botManager.shutdown();

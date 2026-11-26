@@ -304,20 +304,24 @@ describe('FrameProfiler', () => {
       players: 9,
     };
 
-    const fetchMock = vi.fn<typeof fetch>(async (url) => {
+    const fetchMock = vi.fn<typeof fetch>((url) => {
       if (url === '/api/profile/start') {
-        return new Response(JSON.stringify({ status: 'running', durationMs: 250 }), {
-          status: 202,
-          headers: { 'Content-Type': 'application/json' },
-        });
+        return Promise.resolve(
+          new Response(JSON.stringify({ status: 'running', durationMs: 250 }), {
+            status: 202,
+            headers: { 'Content-Type': 'application/json' },
+          }),
+        );
       }
 
-      return new Response(
-        JSON.stringify({ status: 'completed', result: serverReport }),
-        {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' },
-        },
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({ status: 'completed', result: serverReport }),
+          {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          },
+        ),
       );
     });
 
@@ -418,15 +422,17 @@ describe('FrameProfiler', () => {
 
   test('prevents starting client profiler when server start fails', async () => {
     const profiler = new FrameProfiler();
-    const fetchMock = vi.fn<typeof fetch>(async () => {
-      return new Response(
-        JSON.stringify({ error: 'Server profiling is already running' }),
-        {
-          status: 409,
-          headers: { 'Content-Type': 'application/json' },
-        },
-      );
-    });
+    const fetchMock = vi.fn<typeof fetch>(() =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify({ error: 'Server profiling is already running' }),
+          {
+            status: 409,
+            headers: { 'Content-Type': 'application/json' },
+          },
+        ),
+      ),
+    );
 
     const api = createMagicArenaProfileApi({
       profiler,
@@ -564,18 +570,22 @@ describe('FrameProfiler', () => {
     vi.stubGlobal('WebSocket', FakeSocket);
 
     const makeServerFetch = (): typeof fetch =>
-      vi.fn<typeof fetch>(async (url) => {
+      vi.fn<typeof fetch>((url) => {
         if (url === '/api/profile/start') {
-          return new Response(
-            JSON.stringify({ status: 'running', durationMs: 250 }),
-            { status: 202, headers: { 'Content-Type': 'application/json' } },
+          return Promise.resolve(
+            new Response(
+              JSON.stringify({ status: 'running', durationMs: 250 }),
+              { status: 202, headers: { 'Content-Type': 'application/json' } },
+            ),
           );
         }
 
-        return new Response(JSON.stringify({ status: 'idle' }), {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' },
-        });
+        return Promise.resolve(
+          new Response(JSON.stringify({ status: 'idle' }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }),
+        );
       });
 
     const joinedPayload = JSON.stringify({
@@ -671,7 +681,8 @@ describe('FrameProfiler', () => {
         readBlobText(blob),
         vi.advanceTimersByTimeAsync(50),
       ]);
-      return JSON.parse(text);
+      const parsed: unknown = JSON.parse(text);
+      return parsed;
     };
 
     const mainRun = mainApi.start(250);

@@ -2,6 +2,10 @@ import { describe, expect, test } from 'vitest';
 import fc from 'fast-check';
 
 import {
+  BinaryDecodeError,
+  InputMessageSchema,
+  SnapshotMessageSchema,
+  binaryCodec,
   createInputMessage,
   createSnapshotMessage,
   decodeInput,
@@ -356,6 +360,50 @@ describe('Property-based tests', () => {
     );
   });
 
+  test('Integrated sword remains finite, bounded, and within max speed over 1000 input steps', () => {
+    fc.assert(
+      fc.property(
+        fc.record({
+          x: finiteNumber(0, 959),
+          y: finiteNumber(0, 639),
+          vx: finiteNumber(-320, 320),
+          vy: finiteNumber(-320, 320),
+          angle: finiteNumber(-Math.PI, Math.PI),
+        }),
+        fc.array(inputArbitrary, { minLength: 1000, maxLength: 1000 }),
+        (initialState, inputs) => {
+          const bounds = {
+            width: 960,
+            height: 640,
+          };
+          const dt = 1 / 30;
+          let current = initialState;
+
+          for (const input of inputs) {
+            const next = integrate(current, input, dt, bounds);
+
+            expect(Number.isFinite(next.x)).toBe(true);
+            expect(Number.isFinite(next.y)).toBe(true);
+            expect(Number.isFinite(next.vx)).toBe(true);
+            expect(Number.isFinite(next.vy)).toBe(true);
+
+            expect(next.x).toBeGreaterThanOrEqual(0);
+            expect(next.x).toBeLessThan(bounds.width);
+            expect(next.y).toBeGreaterThanOrEqual(0);
+            expect(next.y).toBeLessThan(bounds.height);
+
+            expect(Math.hypot(next.vx, next.vy)).toBeLessThanOrEqual(320 + 1e-8);
+            current = next;
+          }
+        },
+      ),
+      {
+        numRuns: 25,
+        seed: 1337,
+      },
+    );
+  });
+
   test('Valid inputs are accepted and corrupted inputs rejected', () => {
     fc.assert(
       fc.property(inputArbitrary, (input) => {
@@ -501,6 +549,115 @@ describe('Property-based tests', () => {
         expect(decodeMessage(encodeMessage(input))).toEqual(input);
         expect(decodeMessage(encodeMessage(snapshot))).toEqual(snapshot);
       }),
+      PROPERTY_OPTIONS,
+    );
+  });
+
+  test('Binary decoders reject arbitrary garbage buffers with BinaryDecodeError unless valid', () => {
+    const assertDecodesOrBinaryDecodeError = (
+      buffer: Uint8Array,
+      decodeFn: (data: Uint8Array) => unknown,
+      validateDecoded: (decoded: unknown) => boolean,
+    ): void => {
+      try {
+        const decoded = decodeFn(buffer);
+        expect(validateDecoded(decoded)).toBe(true);
+      } catch (error: unknown) {
+        expect(error).toBeInstanceOf(BinaryDecodeError);
+      }
+    };
+
+    const withValidHeader = (typeByte: number, payload: Uint8Array): Uint8Array => {
+      const framed = new Uint8Array(2 + payload.byteLength);
+      framed[0] = typeByte;
+      framed[1] = 1;
+      framed.set(payload, 2);
+      return framed;
+    };
+
+    const isValidGameMessage = (v: unknown): boolean =>
+      InputMessageSchema.safeParse(v).success ||
+      SnapshotMessageSchema.safeParse(v).success;
+
+    // Explicit empty buffer check across all public binary decode boundaries
+    for (const [decodeFn, validate] of [
+      [(data: Uint8Array) => decodeInput(data), (v: unknown) => InputMessageSchema.safeParse(v).success],
+      [(data: Uint8Array) => decodeSnapshot(data), (v: unknown) => SnapshotMessageSchema.safeParse(v).success],
+      [(data: Uint8Array) => binaryCodec.decode(data), isValidGameMessage],
+    ] as const) {
+      assertDecodesOrBinaryDecodeError(new Uint8Array(0), decodeFn, validate);
+    }
+
+    fc.assert(
+      fc.property(
+        fc.uint8Array({ minLength: 0, maxLength: 512 }),
+        (bytes) => {
+          assertDecodesOrBinaryDecodeError(
+            bytes,
+            (data) => decodeInput(data),
+            (v) => InputMessageSchema.safeParse(v).success,
+          );
+          assertDecodesOrBinaryDecodeError(
+            bytes,
+            (data) => decodeSnapshot(data),
+            (v) => SnapshotMessageSchema.safeParse(v).success,
+          );
+          assertDecodesOrBinaryDecodeError(
+            bytes,
+            (data) => binaryCodec.decode(data),
+            isValidGameMessage,
+          );
+
+          // Valid message header + arbitrary payload bytes (corrupted/non-empty payloads)
+          assertDecodesOrBinaryDecodeError(
+            withValidHeader(1, bytes),
+            (data) => decodeInput(data),
+            (v) => InputMessageSchema.safeParse(v).success,
+          );
+          assertDecodesOrBinaryDecodeError(
+            withValidHeader(2, bytes),
+            (data) => decodeSnapshot(data),
+            (v) => SnapshotMessageSchema.safeParse(v).success,
+          );
+        },
+      ),
+      PROPERTY_OPTIONS,
+    );
+
+    fc.assert(
+      fc.property(
+        inputArbitrary,
+        snapshotArbitrary,
+        fc.nat(),
+        fc.integer({ min: 0, max: 255 }),
+        (input, snapshot, selector, byteValue) => {
+          for (const [packet, decodeFn, validate] of [
+            [
+              encodeInput(input),
+              (data: Uint8Array) => decodeInput(data),
+              (v: unknown) => InputMessageSchema.safeParse(v).success,
+            ],
+            [
+              encodeSnapshot(snapshot),
+              (data: Uint8Array) => decodeSnapshot(data),
+              (v: unknown) => SnapshotMessageSchema.safeParse(v).success,
+            ],
+            [
+              encodeSnapshot(snapshot),
+              (data: Uint8Array) => binaryCodec.decode(data),
+              isValidGameMessage,
+            ],
+          ] as const) {
+            const cutLength = selector % packet.byteLength;
+            assertDecodesOrBinaryDecodeError(packet.slice(0, cutLength), decodeFn, validate);
+
+            const mutated = packet.slice();
+            const index = selector % mutated.byteLength;
+            mutated[index] = ((mutated[index] ?? 0) ^ (byteValue === 0 ? 1 : byteValue)) & 0xff;
+            assertDecodesOrBinaryDecodeError(mutated, decodeFn, validate);
+          }
+        },
+      ),
       PROPERTY_OPTIONS,
     );
   });

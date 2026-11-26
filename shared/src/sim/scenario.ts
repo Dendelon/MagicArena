@@ -37,6 +37,10 @@ interface ScenarioOptions {
     | null;
 }
 
+const isInputMessageArray = (
+  value: ScenarioOptions['inputSequence'],
+): value is readonly InputMessage[] => Array.isArray(value);
+
 interface ScenarioResult {
   readonly seed: number;
   readonly steps: number;
@@ -150,7 +154,7 @@ export const runDeterministicScenario = ({
     const command =
       typeof inputSequence === 'function'
         ? inputSequence(toTick(tick))
-        : Array.isArray(inputSequence)
+        : isInputMessageArray(inputSequence)
           ? (inputSequence[tick] ?? createInputMessage({ seq: tick + 1, tick }))
           : createDefaultInputForTick(tick);
 

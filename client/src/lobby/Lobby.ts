@@ -61,8 +61,17 @@ export class Lobby {
   open(): void {
     if (this.#visible) return;
     this.#visible = true;
-    void this.refresh();
-    this.#timer = window.setInterval(() => void this.refresh(), this.refreshMs);
+    const triggerRefresh = (): void => {
+      this.refresh().catch((error: unknown) => {
+        if (!this.#visible) return;
+        this.#events.emit(
+          'error',
+          error instanceof Error ? error : new Error(String(error)),
+        );
+      });
+    };
+    triggerRefresh();
+    this.#timer = window.setInterval(triggerRefresh, this.refreshMs);
   }
 
   close(): void {

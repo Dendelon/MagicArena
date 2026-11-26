@@ -408,7 +408,7 @@ describe('HeadlessClient and scenario cleanup', () => {
       readonly clientIndex: number;
     }): HeadlessClient => {
       const real = new HeadlessClient(options);
-      real.connect = async () => Promise.reject(new Error('WS handshake refused'));
+      real.connect = () => Promise.reject(new Error('WS handshake refused'));
       const originalClose = real.close.bind(real);
       real.close = () => {
         closedClients.push(options.name);
@@ -429,7 +429,7 @@ describe('HeadlessClient and scenario cleanup', () => {
       {
         spawnServer: () => fakeChild,
         createClient: createFakeClient,
-        fetchFn: async () => new Response('ok', { status: 200 }),
+        fetchFn: () => Promise.resolve(new Response('ok', { status: 200 })),
       },
     );
 

@@ -17,6 +17,7 @@ import type {
 } from '@magicarena/shared';
 
 import { createScriptedPlayer, type ScriptedInputStep } from './scriptedInput.ts';
+import { rawDataToUtf8 } from '../../src/network/rawData.ts';
 
 export interface HeadlessClientOptions {
   readonly url: string;
@@ -57,16 +58,6 @@ const rawDataToArrayBuffer = (data: RawData): ArrayBuffer => {
   const copy = new Uint8Array(combined.byteLength);
   copy.set(combined);
   return copy.buffer;
-};
-
-const rawDataToUtf8 = (data: RawData): string => {
-  if (Buffer.isBuffer(data)) {
-    return data.toString('utf8');
-  }
-  if (data instanceof ArrayBuffer) {
-    return Buffer.from(data).toString('utf8');
-  }
-  return Buffer.concat(data).toString('utf8');
 };
 
 /**

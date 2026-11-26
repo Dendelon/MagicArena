@@ -5,6 +5,7 @@ import WebSocket from 'ws';
 
 import { RoomManager } from '../src/rooms.ts';
 import { setupWebSocket } from '../src/ws.ts';
+import { rawDataToUtf8 } from '../src/network/rawData.ts';
 
 afterEach(() => {
   vi.useRealTimers();
@@ -21,7 +22,7 @@ const connectAndJoin = async (
 
   const joined = new Promise<void>((resolve) => {
     client.on('message', (raw) => {
-      const parsed: unknown = JSON.parse(raw.toString());
+      const parsed: unknown = JSON.parse(rawDataToUtf8(raw));
       if (
         typeof parsed === 'object' &&
         parsed !== null &&

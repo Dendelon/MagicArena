@@ -1,3 +1,4 @@
+export { assertNever } from './assertNever.ts';
 export { wrap, findSafeSpawn } from './sim/arena.ts';
 export { createHealingEffect } from './sim/behaviors/healing.ts';
 export { createHoming } from './sim/behaviors/homing.ts';
@@ -120,6 +121,7 @@ export type {
 } from './protocol/index.ts';
 
 export {
+  BinaryDecodeError,
   encodeMessage,
   decodeMessage,
   encodeInput,

@@ -6,6 +6,7 @@ import type { RawData } from 'ws';
 
 import { RoomManager } from '../src/rooms.ts';
 import { setupWebSocket } from '../src/ws.ts';
+import { rawDataToUtf8 } from '../src/network/rawData.ts';
 import {
   BUCKET_CAPACITY,
   CHAT_BUCKET_CAPACITY,
@@ -13,6 +14,13 @@ import {
   RATE_PER_SECOND,
   consumeToken,
 } from '../src/network/rateLimit.ts';
+
+const waitForCloseCode = (socket: WebSocket): Promise<number> =>
+  new Promise((resolve) => {
+    socket.once('close', (code: number) => {
+      resolve(code);
+    });
+  });
 
 afterEach(() => {
   vi.useRealTimers();
@@ -76,7 +84,7 @@ const joinRoom = async (
 
     const onMessage = (raw: RawData): void => {
       try {
-        const parsed: unknown = JSON.parse(raw.toString());
+        const parsed: unknown = JSON.parse(rawDataToUtf8(raw));
 
         if (
           typeof parsed === 'object' &&
@@ -89,7 +97,13 @@ const joinRoom = async (
         }
       } catch (error: unknown) {
         cleanup();
-        reject(error);
+        reject(
+          error instanceof Error
+            ? error
+            : new Error('Invalid JSON message while joining room', {
+                cause: error,
+              }),
+        );
       }
     };
 
@@ -250,7 +264,7 @@ describe('Token bucket rate limiting', () => {
       );
     }
 
-    const chatClosed = once(chatClient, 'close');
+    const chatClosed = waitForCloseCode(chatClient);
     for (let i = 0; i < CHAT_BUCKET_CAPACITY + 1; i++) {
       chatClient.send(
         JSON.stringify({
@@ -261,7 +275,7 @@ describe('Token bucket rate limiting', () => {
       );
     }
 
-    const [chatCloseCode] = await chatClosed;
+    const chatCloseCode = await chatClosed;
     expect(chatCloseCode).toBe(4008);
 
     // 2. Exceed global message bucket (join uses 1 token; sending 65 pings closes with 4008).
@@ -272,7 +286,7 @@ describe('Token bucket rate limiting', () => {
       clients,
     );
 
-    const floodClosed = once(floodClient, 'close');
+    const floodClosed = waitForCloseCode(floodClient);
     for (let i = 0; i < BUCKET_CAPACITY + 5; i++) {
       floodClient.send(
         JSON.stringify({
@@ -284,7 +298,7 @@ describe('Token bucket rate limiting', () => {
       );
     }
 
-    const [floodCloseCode] = await floodClosed;
+    const floodCloseCode = await floodClosed;
     expect(floodCloseCode).toBe(4008);
 
     // 3. Invalid JSON closes with 1007.
@@ -295,10 +309,10 @@ describe('Token bucket rate limiting', () => {
       clients,
     );
 
-    const badClosed = once(badClient, 'close');
+    const badClosed = waitForCloseCode(badClient);
     badClient.send('{not-json');
 
-    const [badCloseCode] = await badClosed;
+    const badCloseCode = await badClosed;
     expect(badCloseCode).toBe(1007);
   });
 });

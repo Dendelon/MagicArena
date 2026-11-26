@@ -432,10 +432,12 @@ export const runLoadTestScenario = async (
     await terminateChildProcess(child);
   };
 
-  let signalTriggered: string | null = null;
+  const signalState: { signal: NodeJS.Signals | null } = { signal: null };
   const onSignal = (signal: NodeJS.Signals): void => {
-    signalTriggered = signal;
-    void cleanupResources();
+    signalState.signal = signal;
+    cleanupResources().catch((cleanupError: unknown) => {
+      console.error('[load-test] Cleanup failed on signal abort:', cleanupError);
+    });
   };
   process.once('SIGINT', onSignal);
   process.once('SIGTERM', onSignal);
@@ -474,9 +476,9 @@ export const runLoadTestScenario = async (
     minConnectedClients = await waitWithDisconnectCheck(config.durationMs, clients, child);
     serverResult = await waitForCompletedServerResult(baseUrl, child, fetchFn);
     loadGeneratorElu = computeEluMetrics(performance.eventLoopUtilization(eluBaseline));
-    valid = signalTriggered === null;
-    if (signalTriggered !== null) {
-      invalidReason = `Aborted by signal ${signalTriggered}`;
+    valid = signalState.signal === null;
+    if (signalState.signal !== null) {
+      invalidReason = `Aborted by signal ${signalState.signal}`;
     }
   } catch (err) {
     invalidReason = err instanceof Error ? err.message : String(err);

@@ -1,3 +1,5 @@
+import { assertNever } from '@magicarena/shared';
+
 import type { LoadedAssets } from '../types.ts';
 import type { AssetManifest, AssetEntry } from './schemas.ts';
 
@@ -27,8 +29,10 @@ class AssetHttpError extends Error {
   }
 }
 
-const abortReason = (signal?: AbortSignal): unknown =>
-  signal?.reason ?? new DOMException('Aborted', 'AbortError');
+const abortReason = (signal?: AbortSignal): Error =>
+  signal?.reason instanceof Error
+    ? signal.reason
+    : new DOMException('Aborted', 'AbortError');
 
 const assertNotAborted = (signal?: AbortSignal): void => {
   if (signal?.aborted) throw abortReason(signal);
@@ -125,7 +129,7 @@ export const withRetry = async <T>(
       const invalidData = error instanceof SyntaxError;
 
       if (clientError || interrupted || invalidData || attempt === attempts - 1)
-        throw error;
+        throw error instanceof Error ? error : new Error(String(error));
 
       const delay = baseMs * 2 ** attempt * (0.75 + Math.random() * 0.5);
       await wait(delay, signal);
@@ -197,11 +201,8 @@ export const loadAll = async (
         });
         break;
 
-      default: {
-        const exhaustive: never = kind;
-
-        throw new Error(`Unknown asset kind: ${exhaustive}`);
-      }
+      default:
+        return assertNever(kind, 'Unknown asset kind');
     }
 
     completed++;

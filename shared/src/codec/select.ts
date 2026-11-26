@@ -1,3 +1,4 @@
+import { assertNever } from '../assertNever.ts';
 import { jsonCodec } from './json.ts';
 import { binaryCodec } from './binary.ts';
 
@@ -18,13 +19,8 @@ export const getCodec = (
     case 'binary':
       return binaryCodec;
 
-    default: {
-      const exhaustive: never = mode;
-
-      throw new Error(
-        `Unknown codec: ${exhaustive}`,
-      );
-    }
+    default:
+      return assertNever(mode, 'Unknown codec');
   }
 };
 

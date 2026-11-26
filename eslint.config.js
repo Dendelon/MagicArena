@@ -55,10 +55,19 @@ export default tseslint.config(
       'vitest.config.ts',
     ],
 
-    extends: [...tseslint.configs.recommended],
+    languageOptions: {
+      parserOptions: {
+        project: './tsconfig.eslint.json',
+        tsconfigRootDir: import.meta.dirname,
+      },
+    },
+
+    extends: [...tseslint.configs.recommendedTypeChecked],
 
     rules: {
       '@typescript-eslint/no-explicit-any': 'error',
+
+      '@typescript-eslint/no-floating-promises': 'error',
 
       '@typescript-eslint/no-non-null-assertion': 'error',
 
