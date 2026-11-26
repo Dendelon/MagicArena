@@ -2,6 +2,10 @@ import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
   testDir: './e2e',
+  testIgnore:
+    process.env.VITE_PROFILE === '1'
+      ? undefined
+      : '**/worker-decoder.spec.ts',
 
   fullyParallel: false,
   workers: 1,
@@ -64,6 +68,7 @@ export default defineConfig({
       LOG_DIR: 'server/logs/e2e',
 
       VITE_E2E: '1',
+      VITE_PROFILE: process.env.VITE_PROFILE ?? '0',
     },
 
     stdout: 'pipe',

@@ -1,0 +1,566 @@
+{
+  "experiment": "M4.2 Web Worker decoding",
+  "conditions": {
+    "runsPerMode": 3,
+    "requestedDurationMs": 30000,
+    "players": 9,
+    "room": "profiling",
+    "codec": "binary",
+    "netSim": {
+      "delayMs": 0,
+      "jitterMs": 0,
+      "dropRate": 0
+    }
+  },
+  "aggregation": "Arithmetic mean of run summaries; percentiles are not pooled. Message counts equal in every run.",
+  "main": {
+    "runs": 3,
+    "messagesTotal": 2790,
+    "decodedTotal": 2790,
+    "binaryMessagesTotal": 2700,
+    "textMessagesTotal": 90,
+    "receivedBytesTotal": 4203903,
+    "meanReceivedBytesPerRun": 1401301,
+    "mainThreadTotalMsMeanPerRun": 221.86666433016458,
+    "mainThreadTotalMsAllRuns": 665.5999929904938,
+    "fpsMean": 60.01532884429704,
+    "frameWorkP99MeanMs": 0.833333412806193,
+    "frameIntervalP99MeanMs": 16.800000000027165,
+    "serverTickP99MeanMs": 4.342133333324455,
+    "framesOver33MsTotal": 0,
+    "ticksOver33MsTotal": 0,
+    "transferredBuffersTotal": 0,
+    "maxPending": 0,
+    "errorsTotal": 0,
+    "fallbacksTotal": 0,
+    "workerErrorsTotal": 0,
+    "valid": true,
+    "timingMeansOfRunSummariesMs": {
+      "decodeMs": {
+        "mean": 0.23856630573135978,
+        "p50": 0.20000004768371582,
+        "p95": 0.4333333969116211,
+        "p99": 0.5666667620340983
+      },
+      "mainThreadWorkMs": {
+        "mean": 0.23856630573135978,
+        "p50": 0.20000004768371582,
+        "p95": 0.4333333969116211,
+        "p99": 0.5666667620340983
+      },
+      "workerDecodeMs": null,
+      "roundTripMs": null,
+      "estimatedOverheadMs": null,
+      "postMessageMs": null,
+      "responseBookkeepingMs": null
+    }
+  },
+  "worker": {
+    "runs": 3,
+    "messagesTotal": 2790,
+    "decodedTotal": 2790,
+    "binaryMessagesTotal": 2700,
+    "textMessagesTotal": 90,
+    "receivedBytesTotal": 4273586,
+    "meanReceivedBytesPerRun": 1424528.6666666667,
+    "mainThreadTotalMsMeanPerRun": 268.53333560625714,
+    "mainThreadTotalMsAllRuns": 805.6000068187714,
+    "fpsMean": 60.02042153709161,
+    "frameWorkP99MeanMs": 0.9000000953674316,
+    "frameIntervalP99MeanMs": 16.80000000000776,
+    "serverTickP99MeanMs": 3.8835333333311914,
+    "framesOver33MsTotal": 0,
+    "ticksOver33MsTotal": 0,
+    "transferredBuffersTotal": 2700,
+    "maxPending": 2,
+    "errorsTotal": 0,
+    "fallbacksTotal": 0,
+    "workerErrorsTotal": 0,
+    "valid": true,
+    "timingMeansOfRunSummariesMs": {
+      "decodeMs": null,
+      "mainThreadWorkMs": {
+        "mean": 0.28874552215726573,
+        "p50": 0.2999999523162842,
+        "p95": 0.4999999205271403,
+        "p99": 0.5666667620340983
+      },
+      "workerDecodeMs": {
+        "mean": 0.16824372712002006,
+        "p50": 0.16666666666666666,
+        "p95": 0.33333325386047363,
+        "p99": 0.4333333174387614
+      },
+      "roundTripMs": {
+        "mean": 0.7983512536599218,
+        "p50": 0.7333333492279053,
+        "p95": 1.2666666507720947,
+        "p99": 2.200000047683716
+      },
+      "estimatedOverheadMs": {
+        "mean": 0.6301075265399017,
+        "p50": 0.5999999046325684,
+        "p95": 1.0333333015441895,
+        "p99": 1.966666618982951
+      },
+      "postMessageMs": {
+        "mean": 0.06566308373618725,
+        "p50": 0.09999990463256836,
+        "p95": 0.16666674613952637,
+        "p99": 0.20000004768371582
+      },
+      "responseBookkeepingMs": {
+        "mean": 0.2230824384210785,
+        "p50": 0.20000004768371582,
+        "p95": 0.3999999364217122,
+        "p99": 0.4333333969116211
+      }
+    }
+  },
+  "workerMainThreadWorkIncreasePercent": 21.03365614522734,
+  "workerMainThreadWorkDifferenceMsPerRun": 46.66667127609256,
+  "decision": "Keep main mode as default; retain worker as opt-in experiment.",
+  "limitations": [
+    "Measured main-thread work covers decode/validation in main mode and postMessage plus response bookkeeping in worker mode. Internal structured clone costs may not be fully captured.",
+    "Estimated overhead includes queue wait, scheduling, delivery and structured clone; not a direct measure of copying or CPU usage.",
+    "Payload sizes and game states differ between runs. Seed and restart/warm-up procedure are not verified by the JSON; cumulative server pool counters continue across the two mode groups, suggesting a continuous server session.",
+    "Three sequential runs per mode on one system do not establish universal performance or causality for other metrics."
+  ],
+  "runs": [
+    {
+      "file": "main-1.json",
+      "sha256": "45fea3bf73cec694db6ab4e2a75bee6a2d18a91dca2e3104d0fbecc152cc357b",
+      "recordedAt": "2026-11-26T10:03:25.870Z",
+      "decodeExperiment": {
+        "requestedMode": "main",
+        "actualMode": "main",
+        "messageCount": 930,
+        "decodedCount": 930,
+        "textMessages": 30,
+        "binaryMessages": 900,
+        "messageTypes": {
+          "snapshot": 900,
+          "pong": 30
+        },
+        "receivedBytes": 1450754,
+        "durationMs": 30012.400000095367,
+        "decodeMs": {
+          "count": 930,
+          "min": 0,
+          "mean": 0.26021504837979553,
+          "p50": 0.20000004768371582,
+          "p95": 0.5,
+          "p99": 0.6000001430511475,
+          "max": 1
+        },
+        "mainThreadWorkMs": {
+          "count": 930,
+          "min": 0,
+          "mean": 0.26021504837979553,
+          "p50": 0.20000004768371582,
+          "p95": 0.5,
+          "p99": 0.6000001430511475,
+          "max": 1
+        },
+        "mainThreadTotalMs": 241.99999499320984,
+        "postMessageMs": null,
+        "responseBookkeepingMs": null,
+        "workerDecodeMs": null,
+        "roundTripMs": null,
+        "estimatedOverheadMs": null,
+        "transferredBuffers": 0,
+        "maxPending": 0,
+        "errors": 0,
+        "fallbacks": 0,
+        "workerErrors": 0,
+        "valid": true,
+        "invalidReason": null,
+        "limitations": []
+      },
+      "clientFps": 60.0131289129798,
+      "frameWorkP99Ms": 0.9000000953674316,
+      "frameIntervalP99Ms": 16.800000000017462,
+      "serverTickP99Ms": 4.71909999998752
+    },
+    {
+      "file": "main-2.json",
+      "sha256": "a7ec95f9c8a29ee718a5877eee2c87573fdf147f472df92a435a0f1f5dbe0837",
+      "recordedAt": "2026-11-26T10:04:21.647Z",
+      "decodeExperiment": {
+        "requestedMode": "main",
+        "actualMode": "main",
+        "messageCount": 930,
+        "decodedCount": 930,
+        "textMessages": 30,
+        "binaryMessages": 900,
+        "messageTypes": {
+          "snapshot": 900,
+          "pong": 30
+        },
+        "receivedBytes": 1382609,
+        "durationMs": 30011.599999904633,
+        "decodeMs": {
+          "count": 930,
+          "min": 0,
+          "mean": 0.22537634423983993,
+          "p50": 0.20000004768371582,
+          "p95": 0.40000009536743164,
+          "p99": 0.5,
+          "max": 1.0999999046325684
+        },
+        "mainThreadWorkMs": {
+          "count": 930,
+          "min": 0,
+          "mean": 0.22537634423983993,
+          "p50": 0.20000004768371582,
+          "p95": 0.40000009536743164,
+          "p99": 0.5,
+          "max": 1.0999999046325684
+        },
+        "mainThreadTotalMs": 209.60000014305115,
+        "postMessageMs": null,
+        "responseBookkeepingMs": null,
+        "workerDecodeMs": null,
+        "roundTripMs": null,
+        "estimatedOverheadMs": null,
+        "transferredBuffers": 0,
+        "maxPending": 0,
+        "errors": 0,
+        "fallbacks": 0,
+        "workerErrors": 0,
+        "valid": true,
+        "invalidReason": null,
+        "limitations": []
+      },
+      "clientFps": 60.013928829583044,
+      "frameWorkP99Ms": 0.8000001907348633,
+      "frameIntervalP99Ms": 16.800000000017462,
+      "serverTickP99Ms": 3.7586000000010245
+    },
+    {
+      "file": "main-3.json",
+      "sha256": "8f711350dd1518dd5779b7a9516a3948fd70faa0b8edd158315f6f68709b7474",
+      "recordedAt": "2026-11-26T10:05:05.465Z",
+      "decodeExperiment": {
+        "requestedMode": "main",
+        "actualMode": "main",
+        "messageCount": 930,
+        "decodedCount": 930,
+        "textMessages": 30,
+        "binaryMessages": 900,
+        "messageTypes": {
+          "snapshot": 900,
+          "pong": 30
+        },
+        "receivedBytes": 1370540,
+        "durationMs": 30009.10000014305,
+        "decodeMs": {
+          "count": 930,
+          "min": 0,
+          "mean": 0.23010752457444386,
+          "p50": 0.20000004768371582,
+          "p95": 0.40000009536743164,
+          "p99": 0.6000001430511475,
+          "max": 0.7000000476837158
+        },
+        "mainThreadWorkMs": {
+          "count": 930,
+          "min": 0,
+          "mean": 0.23010752457444386,
+          "p50": 0.20000004768371582,
+          "p95": 0.40000009536743164,
+          "p99": 0.6000001430511475,
+          "max": 0.7000000476837158
+        },
+        "mainThreadTotalMs": 213.9999978542328,
+        "postMessageMs": null,
+        "responseBookkeepingMs": null,
+        "workerDecodeMs": null,
+        "roundTripMs": null,
+        "estimatedOverheadMs": null,
+        "transferredBuffers": 0,
+        "maxPending": 0,
+        "errors": 0,
+        "fallbacks": 0,
+        "workerErrors": 0,
+        "valid": true,
+        "invalidReason": null,
+        "limitations": []
+      },
+      "clientFps": 60.01892879032826,
+      "frameWorkP99Ms": 0.7999999523162842,
+      "frameIntervalP99Ms": 16.800000000046566,
+      "serverTickP99Ms": 4.548699999984819
+    },
+    {
+      "file": "worker-1.json",
+      "sha256": "e90521318b40b192e649851b50a93ee4014e68716ea9802dedaa3f5b81aa5d4b",
+      "recordedAt": "2026-11-26T10:06:37.450Z",
+      "decodeExperiment": {
+        "requestedMode": "worker",
+        "actualMode": "worker",
+        "messageCount": 930,
+        "decodedCount": 930,
+        "textMessages": 30,
+        "binaryMessages": 900,
+        "messageTypes": {
+          "snapshot": 900,
+          "pong": 30
+        },
+        "receivedBytes": 1365501,
+        "durationMs": 30004.10000014305,
+        "decodeMs": null,
+        "mainThreadWorkMs": {
+          "count": 930,
+          "min": 0,
+          "mean": 0.27118279780111004,
+          "p50": 0.2999999523162842,
+          "p95": 0.4999997615814209,
+          "p99": 0.5000002384185791,
+          "max": 0.7999999523162842
+        },
+        "mainThreadTotalMs": 252.20000195503235,
+        "postMessageMs": {
+          "count": 930,
+          "min": 0,
+          "mean": 0.06032258002988754,
+          "p50": 0.09999990463256836,
+          "p95": 0.10000014305114746,
+          "p99": 0.20000004768371582,
+          "max": 0.20000004768371582
+        },
+        "responseBookkeepingMs": {
+          "count": 930,
+          "min": 0,
+          "mean": 0.21086021777122252,
+          "p50": 0.20000004768371582,
+          "p95": 0.39999985694885254,
+          "p99": 0.40000009536743164,
+          "max": 0.5999999046325684
+        },
+        "workerDecodeMs": {
+          "count": 930,
+          "min": 0,
+          "mean": 0.15709677280918244,
+          "p50": 0.19999980926513672,
+          "p95": 0.2999999523162842,
+          "p99": 0.39999985694885254,
+          "max": 0.5999999046325684
+        },
+        "roundTripMs": {
+          "count": 930,
+          "min": 0.09999990463256836,
+          "mean": 0.7025806447511078,
+          "p50": 0.6999998092651367,
+          "p95": 1,
+          "p99": 2.1000001430511475,
+          "max": 4.700000047683716
+        },
+        "estimatedOverheadMs": {
+          "count": 930,
+          "min": 0.09999990463256836,
+          "mean": 0.5454838719419254,
+          "p50": 0.5,
+          "p95": 0.7999999523162842,
+          "p99": 1.9000000953674316,
+          "max": 4.400000095367432
+        },
+        "transferredBuffers": 900,
+        "maxPending": 2,
+        "errors": 0,
+        "fallbacks": 0,
+        "workerErrors": 0,
+        "valid": true,
+        "invalidReason": null,
+        "limitations": [
+          "Measured main-thread work covers postMessage dispatch and response bookkeeping; browser internal structured clone cost for returned ServerMessage may not be fully captured.",
+          "Estimated messaging overhead (roundTripMs - workerDecodeMs) combines queue wait, thread scheduling, message delivery, and structured clone."
+        ]
+      },
+      "clientFps": 59.99860003257054,
+      "frameWorkP99Ms": 0.9000000953674316,
+      "frameIntervalP99Ms": 16.80000000000291,
+      "serverTickP99Ms": 3.8390000000363216
+    },
+    {
+      "file": "worker-2.json",
+      "sha256": "509e85e4560d12bd32bb3208c64f10bc24a18a1d1b76cabad6c63a3593960722",
+      "recordedAt": "2026-11-26T10:07:38.265Z",
+      "decodeExperiment": {
+        "requestedMode": "worker",
+        "actualMode": "worker",
+        "messageCount": 930,
+        "decodedCount": 930,
+        "textMessages": 30,
+        "binaryMessages": 900,
+        "messageTypes": {
+          "snapshot": 900,
+          "pong": 30
+        },
+        "receivedBytes": 1520841,
+        "durationMs": 30003.099999904633,
+        "decodeMs": null,
+        "mainThreadWorkMs": {
+          "count": 930,
+          "min": 0,
+          "mean": 0.3167741926767493,
+          "p50": 0.2999999523162842,
+          "p95": 0.5,
+          "p99": 0.6000001430511475,
+          "max": 0.7999999523162842
+        },
+        "mainThreadTotalMs": 294.59999918937683,
+        "postMessageMs": {
+          "count": 930,
+          "min": 0,
+          "mean": 0.069784943262736,
+          "p50": 0.09999990463256836,
+          "p95": 0.20000004768371582,
+          "p99": 0.20000004768371582,
+          "max": 0.2999999523162842
+        },
+        "responseBookkeepingMs": {
+          "count": 930,
+          "min": 0,
+          "mean": 0.2469892494140133,
+          "p50": 0.20000004768371582,
+          "p95": 0.40000009536743164,
+          "p99": 0.5,
+          "max": 0.7000000476837158
+        },
+        "workerDecodeMs": {
+          "count": 930,
+          "min": 0,
+          "mean": 0.19451613016025995,
+          "p50": 0.20000004768371582,
+          "p95": 0.39999985694885254,
+          "p99": 0.5,
+          "max": 0.7000000476837158
+        },
+        "roundTripMs": {
+          "count": 930,
+          "min": 0.09999990463256836,
+          "mean": 0.8920430101374144,
+          "p50": 0.8000001907348633,
+          "p95": 1.4000000953674316,
+          "p99": 2,
+          "max": 3.799999952316284
+        },
+        "estimatedOverheadMs": {
+          "count": 930,
+          "min": 0.09999990463256836,
+          "mean": 0.6975268799771545,
+          "p50": 0.6999998092651367,
+          "p95": 1.1000001430511475,
+          "p99": 1.799999713897705,
+          "max": 3.3999998569488525
+        },
+        "transferredBuffers": 900,
+        "maxPending": 2,
+        "errors": 0,
+        "fallbacks": 0,
+        "workerErrors": 0,
+        "valid": true,
+        "invalidReason": null,
+        "limitations": [
+          "Measured main-thread work covers postMessage dispatch and response bookkeeping; browser internal structured clone cost for returned ServerMessage may not be fully captured.",
+          "Estimated messaging overhead (roundTripMs - workerDecodeMs) combines queue wait, thread scheduling, message delivery, and structured clone."
+        ]
+      },
+      "clientFps": 60.031532387170884,
+      "frameWorkP99Ms": 0.9000000953674316,
+      "frameIntervalP99Ms": 16.80000000000291,
+      "serverTickP99Ms": 4.0939999999827705
+    },
+    {
+      "file": "worker-3.json",
+      "sha256": "a456f73ecb57800e9a01840dda54dadd06d666939924a063dcaa03003f9b2168",
+      "recordedAt": "2026-11-26T10:08:20.278Z",
+      "decodeExperiment": {
+        "requestedMode": "worker",
+        "actualMode": "worker",
+        "messageCount": 930,
+        "decodedCount": 930,
+        "textMessages": 30,
+        "binaryMessages": 900,
+        "messageTypes": {
+          "snapshot": 900,
+          "pong": 30
+        },
+        "receivedBytes": 1387244,
+        "durationMs": 30002.700000047684,
+        "decodeMs": null,
+        "mainThreadWorkMs": {
+          "count": 930,
+          "min": 0,
+          "mean": 0.2782795759939378,
+          "p50": 0.2999999523162842,
+          "p95": 0.5,
+          "p99": 0.5999999046325684,
+          "max": 0.7999999523162842
+        },
+        "mainThreadTotalMs": 258.8000056743622,
+        "postMessageMs": {
+          "count": 930,
+          "min": 0,
+          "mean": 0.06688172791593819,
+          "p50": 0.09999990463256836,
+          "p95": 0.20000004768371582,
+          "p99": 0.20000004768371582,
+          "max": 0.20000004768371582
+        },
+        "responseBookkeepingMs": {
+          "count": 930,
+          "min": 0,
+          "mean": 0.21139784807799966,
+          "p50": 0.20000004768371582,
+          "p95": 0.39999985694885254,
+          "p99": 0.40000009536743164,
+          "max": 0.6000001430511475
+        },
+        "workerDecodeMs": {
+          "count": 930,
+          "min": 0,
+          "mean": 0.15311827839061778,
+          "p50": 0.10000014305114746,
+          "p95": 0.2999999523162842,
+          "p99": 0.40000009536743164,
+          "max": 0.6000001430511475
+        },
+        "roundTripMs": {
+          "count": 930,
+          "min": 0.19999980926513672,
+          "mean": 0.800430106091243,
+          "p50": 0.7000000476837158,
+          "p95": 1.3999998569488525,
+          "p99": 2.5,
+          "max": 7.6000001430511475
+        },
+        "estimatedOverheadMs": {
+          "count": 930,
+          "min": 0.09999990463256836,
+          "mean": 0.6473118277006252,
+          "p50": 0.5999999046325684,
+          "p95": 1.1999998092651367,
+          "p99": 2.200000047683716,
+          "max": 7.300000190734863
+        },
+        "transferredBuffers": 900,
+        "maxPending": 2,
+        "errors": 0,
+        "fallbacks": 0,
+        "workerErrors": 0,
+        "valid": true,
+        "invalidReason": null,
+        "limitations": [
+          "Measured main-thread work covers postMessage dispatch and response bookkeeping; browser internal structured clone cost for returned ServerMessage may not be fully captured.",
+          "Estimated messaging overhead (roundTripMs - workerDecodeMs) combines queue wait, thread scheduling, message delivery, and structured clone."
+        ]
+      },
+      "clientFps": 60.031132191533395,
+      "frameWorkP99Ms": 0.9000000953674316,
+      "frameIntervalP99Ms": 16.800000000017462,
+      "serverTickP99Ms": 3.7175999999744818
+    }
+  ]
+}

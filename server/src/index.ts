@@ -165,6 +165,7 @@ const serveStatic = async (
 
   res.writeHead(200, {
     'Content-Type': mimeTypes[extname(filePath)] ?? 'application/octet-stream',
+    ...(extname(filePath) === '.html' ? { 'Cache-Control': 'no-store' } : {}),
   });
 
   if (req.method === 'HEAD') {

@@ -10,6 +10,13 @@ import type {
 } from '@magicarena/shared';
 
 import type { LoopFrameTiming, LoopProfiler } from '../loop.ts';
+import type { ConnectionDecodeDiagnostics } from '../network/connection.ts';
+import type { DecodeMode } from '../network/workerProtocol.ts';
+import type {
+  DecodeExperimentReport,
+  DecodeProfiler,
+} from './DecodeProfiler.ts';
+import { clearDecodeMeasures } from './DecodeProfiler.ts';
 
 export const DEFAULT_PROFILE_DURATION_MS = 30_000;
 export const FRAME_BUDGET_MS = 1000 / 60;
@@ -25,6 +32,7 @@ const MARK_PROFILE_END = 'magic-arena:profile:end';
 const MEASURE_SIMULATION = 'magic-arena:simulation';
 const MEASURE_RENDER = 'magic-arena:render';
 const MEASURE_FRAME = 'magic-arena:frame';
+const MEASURE_RECONCILE = 'magic-arena:reconcile';
 
 export interface FrameProfileResult {
   readonly durationMs: number;
@@ -91,6 +99,7 @@ export interface ProfileExperimentContext {
   readonly netSim: NetSim | null;
   readonly bounds: Bounds | null;
   readonly pools?: ProfilePoolSnapshots | null;
+  readonly decode?: ConnectionDecodeDiagnostics | null;
 }
 
 export interface CombinedProfileReport {
@@ -124,12 +133,14 @@ export interface CombinedProfileReport {
     } | null;
     readonly localPredictedBullets: PoolDeltaStats | null;
   };
+  readonly decodeExperiment: DecodeExperimentReport | null;
 }
 
 export interface MagicArenaProfileApi {
   start(durationMs?: number): Promise<CombinedProfileReport>;
   result(): CombinedProfileReport | null;
   download(filename?: string): boolean;
+  getDecodeStatus?(): ConnectionDecodeDiagnostics | null;
 }
 
 interface FrameBuffers {
@@ -195,6 +206,8 @@ const clearPerfEntries = (includeLifecycleMarks: boolean): void => {
       performance.clearMeasures(MEASURE_SIMULATION);
       performance.clearMeasures(MEASURE_RENDER);
       performance.clearMeasures(MEASURE_FRAME);
+      performance.clearMeasures(MEASURE_RECONCILE);
+      clearDecodeMeasures();
     } catch {
       // Ignore measure cleanup errors.
     }
@@ -427,6 +440,7 @@ export class FrameProfiler implements LoopProfiler {
 
 interface ProfileControllerOptions {
   readonly profiler: FrameProfiler;
+  readonly decodeProfiler?: DecodeProfiler | null;
   readonly getContext: () => ProfileExperimentContext;
   readonly fetchImpl?: typeof fetch;
   readonly apiBaseUrl?: string;
@@ -467,6 +481,7 @@ const isServerStatePayload = (
 
 export const createMagicArenaProfileApi = ({
   profiler,
+  decodeProfiler = null,
   getContext,
   fetchImpl = fetch,
   apiBaseUrl = '',
@@ -541,8 +556,19 @@ export const createMagicArenaProfileApi = ({
           );
         }
 
-        const poolsBefore = getContext().pools ?? null;
+        const startContext = getContext();
+        const poolsBefore = startContext.pools ?? null;
+        const requestedDecodeMode: DecodeMode =
+          startContext.decode?.requestedMode ?? 'main';
+        const actualDecodeMode: DecodeMode =
+          startContext.decode?.actualMode ?? requestedDecodeMode;
+
+        decodeProfiler?.start(requestedDecodeMode, actualDecodeMode);
+
         const client = await profiler.start(durationMs);
+        const decodeExperiment = decodeProfiler
+          ? decodeProfiler.stop(client.valid, client.cancelledReason)
+          : null;
         const server = await fetchServerResult();
         const context = getContext();
         const poolsAfter = context.pools ?? null;
@@ -590,6 +616,7 @@ export const createMagicArenaProfileApi = ({
                   )
                 : null,
           },
+          decodeExperiment,
         };
 
         lastReport = report;
@@ -601,6 +628,10 @@ export const createMagicArenaProfileApi = ({
 
     result(): CombinedProfileReport | null {
       return lastReport;
+    },
+
+    getDecodeStatus(): ConnectionDecodeDiagnostics | null {
+      return getContext().decode ?? null;
     },
 
     download(filename?: string): boolean {

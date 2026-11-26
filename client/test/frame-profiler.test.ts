@@ -1,6 +1,22 @@
 import { afterEach, describe, expect, test, vi } from 'vitest';
 
+import {
+  PROTOCOL_VERSION,
+  createSnapshotMessage,
+  getCodec,
+  toSeq,
+  toTick,
+} from '@magicarena/shared';
+
 import { createLoop } from '../src/loop.ts';
+import { createConnection } from '../src/network/connection.ts';
+import { processDecodeRequest } from '../src/network/decoder.worker.ts';
+import type { DecoderWorkerLike } from '../src/network/workerDecoder.ts';
+import type {
+  WorkerInboundMessage,
+  WorkerOutboundMessage,
+} from '../src/network/workerProtocol.ts';
+import { DecodeProfiler } from '../src/performance/DecodeProfiler.ts';
 import {
   FRAME_BUDGET_MS,
   FrameProfiler,
@@ -10,6 +26,7 @@ import {
 afterEach(() => {
   vi.useRealTimers();
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
   Object.defineProperty(document, 'hidden', {
     configurable: true,
     value: false,
@@ -429,6 +446,354 @@ describe('FrameProfiler', () => {
     );
     expect(profiler.isActive()).toBe(false);
     expect(api.result()).toBeNull();
+  });
+
+  test('includes real decodeExperiment metrics in result() and downloaded JSON for main and worker modes', async () => {
+    vi.useFakeTimers();
+
+    type SocketListenerArgs =
+      | ['open', (event: Event) => void]
+      | ['message', (event: MessageEvent<string | ArrayBuffer>) => void]
+      | ['close', (event: CloseEvent) => void]
+      | ['error', (event: Event) => void];
+
+    class FakeSocket {
+      static latest: FakeSocket | null = null;
+      static readonly CONNECTING = 0;
+      static readonly OPEN = 1;
+      static readonly CLOSING = 2;
+      static readonly CLOSED = 3;
+
+      readonly #openListeners = new Set<(event: Event) => void>();
+      readonly #messageListeners = new Set<
+        (event: MessageEvent<string | ArrayBuffer>) => void
+      >();
+      readonly #closeListeners = new Set<(event: CloseEvent) => void>();
+      readonly #errorListeners = new Set<(event: Event) => void>();
+
+      readyState = FakeSocket.OPEN;
+      binaryType = 'arraybuffer';
+
+      constructor(_url: string) {
+        FakeSocket.latest = this;
+      }
+
+      addEventListener(...args: SocketListenerArgs): void {
+        const [type, listener] = args;
+        if (type === 'open') this.#openListeners.add(listener);
+        else if (type === 'message') this.#messageListeners.add(listener);
+        else if (type === 'close') this.#closeListeners.add(listener);
+        else this.#errorListeners.add(listener);
+      }
+
+      send(_data: string | ArrayBuffer): void {}
+
+      close(): void {
+        this.readyState = FakeSocket.CLOSED;
+        const ev = new CloseEvent('close', { code: 1000, wasClean: true });
+        for (const listener of this.#closeListeners) listener(ev);
+      }
+
+      triggerMessage(data: string | ArrayBuffer): void {
+        const ev = new MessageEvent<string | ArrayBuffer>('message', { data });
+        for (const listener of this.#messageListeners) listener(ev);
+      }
+
+      get messageListenerCount(): number {
+        return this.#messageListeners.size;
+      }
+    }
+
+    const requireLatestSocket = (): FakeSocket => {
+      const socket = FakeSocket.latest;
+
+      if (socket === null) {
+        throw new Error('Expected a connected FakeSocket');
+      }
+
+      return socket;
+    };
+
+    type WorkerListenerArgs =
+      | ['message', (event: MessageEvent<unknown>) => void]
+      | ['error', (event: Event) => void]
+      | ['messageerror', (event: Event) => void];
+
+    class InlineTestWorker implements DecoderWorkerLike {
+      readonly #messageListeners = new Set<
+        (event: MessageEvent<unknown>) => void
+      >();
+      #terminated = false;
+
+      addEventListener(...args: WorkerListenerArgs): void {
+        const [type, listener] = args;
+        if (type === 'message') this.#messageListeners.add(listener);
+      }
+
+      removeEventListener(...args: WorkerListenerArgs): void {
+        const [type, listener] = args;
+        if (type === 'message') this.#messageListeners.delete(listener);
+      }
+
+      emitReady(): void {
+        if (this.#terminated) return;
+        const ev = new MessageEvent<unknown>('message', {
+          data: { type: 'ready' } satisfies WorkerInboundMessage,
+        });
+        for (const listener of this.#messageListeners) listener(ev);
+      }
+
+      postMessage(message: WorkerOutboundMessage): void {
+        queueMicrotask(() => {
+          if (this.#terminated) return;
+          const response = processDecodeRequest(message);
+          if (!response) return;
+
+          const ev = new MessageEvent<unknown>('message', { data: response });
+          for (const listener of this.#messageListeners) {
+            listener(ev);
+          }
+        });
+      }
+
+      terminate(): void {
+        this.#terminated = true;
+      }
+    }
+
+    vi.stubGlobal('WebSocket', FakeSocket);
+
+    const makeServerFetch = (): typeof fetch =>
+      vi.fn<typeof fetch>(async (url) => {
+        if (url === '/api/profile/start') {
+          return new Response(
+            JSON.stringify({ status: 'running', durationMs: 250 }),
+            { status: 202, headers: { 'Content-Type': 'application/json' } },
+          );
+        }
+
+        return new Response(JSON.stringify({ status: 'idle' }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      });
+
+    const joinedPayload = JSON.stringify({
+      v: PROTOCOL_VERSION,
+      type: 'joined',
+      room: {
+        id: 'profiling',
+        name: 'Performance Arena',
+        obstacleCount: 3,
+        maxPlayers: 9,
+        players: 9,
+      },
+      player: { id: 'p1', name: 'Tester', entityId: 1 },
+      entityId: 1,
+      bounds: { width: 960, height: 640 },
+      codec: 'binary',
+      netSim: { delayMs: 0, jitterMs: 0, dropRate: 0 },
+    });
+
+    const binarySnapshot = getCodec('binary').encode(
+      createSnapshotMessage({
+        tick: toTick(1),
+        lastProcessedSeq: toSeq(0),
+        entities: [],
+      }),
+    );
+
+    if (!(binarySnapshot instanceof ArrayBuffer)) {
+      throw new Error('Expected binary ArrayBuffer snapshot');
+    }
+
+    const createObjectUrlSpy = vi
+      .spyOn(URL, 'createObjectURL')
+      .mockReturnValue('blob:decode-regression');
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+
+    // 1. Main decode mode
+    FakeSocket.latest = null;
+    const mainFrameProfiler = new FrameProfiler();
+    const mainDecodeProfiler = new DecodeProfiler();
+    const mainConn = createConnection({
+      name: 'Tester',
+      roomId: 'profiling',
+      decodeMode: 'main',
+      decodeProfiler: mainDecodeProfiler,
+    });
+    mainConn.connect();
+
+    const mainSocket = requireLatestSocket();
+    expect(mainSocket.messageListenerCount).toBe(1);
+
+    const mainApi = createMagicArenaProfileApi({
+      profiler: mainFrameProfiler,
+      decodeProfiler: mainDecodeProfiler,
+      fetchImpl: makeServerFetch(),
+      getContext: () => ({
+        roomId: 'profiling',
+        roomName: 'Performance Arena',
+        playerCount: 9,
+        codec: 'binary',
+        netSim: { delayMs: 0, jitterMs: 0, dropRate: 0 },
+        bounds: { width: 960, height: 640 },
+        decode: mainConn.getDecodeDiagnostics(),
+      }),
+    });
+
+    const readBlobText = (blob: Blob): Promise<string> =>
+      new Promise((resolve, reject) => {
+        const reader = new FileReader();
+
+        reader.onload = () => {
+          if (typeof reader.result === 'string') {
+            resolve(reader.result);
+          } else {
+            reject(new Error('Expected Blob text'));
+          }
+        };
+
+        reader.onerror = () => {
+          reject(reader.error ?? new Error('Failed to read Blob'));
+        };
+
+        reader.onabort = () => {
+          reject(new Error('Blob reading aborted'));
+        };
+
+        reader.readAsText(blob);
+      });
+
+    const readDownloadedJson = async (blob: Blob): Promise<unknown> => {
+      const [text] = await Promise.all([
+        readBlobText(blob),
+        vi.advanceTimersByTimeAsync(50),
+      ]);
+      return JSON.parse(text);
+    };
+
+    const mainRun = mainApi.start(250);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(mainFrameProfiler.isActive()).toBe(true);
+    expect(mainDecodeProfiler.isActive()).toBe(true);
+
+    mainSocket.triggerMessage(joinedPayload);
+    mainSocket.triggerMessage(binarySnapshot.slice(0));
+    await vi.advanceTimersByTimeAsync(250);
+    const mainResult = await mainRun;
+
+    expect(mainApi.download('main-test.json')).toBe(true);
+    const mainBlobArg = createObjectUrlSpy.mock.calls.at(-1)?.[0];
+    if (!(mainBlobArg instanceof Blob)) {
+      throw new Error('Expected downloaded main Blob');
+    }
+    const mainDownloaded = await readDownloadedJson(mainBlobArg);
+
+    expect(mainResult.decodeExperiment).toMatchObject({
+      requestedMode: 'main',
+      actualMode: 'main',
+      messageCount: 2,
+      textMessages: 1,
+      binaryMessages: 1,
+      messageTypes: { joined: 1, snapshot: 1 },
+      transferredBuffers: 0,
+      errors: 0,
+      fallbacks: 0,
+      valid: true,
+      workerDecodeMs: null,
+      roundTripMs: null,
+      estimatedOverheadMs: null,
+    });
+    expect(mainResult.decodeExperiment?.decodeMs?.count).toBe(2);
+    expect(mainResult.decodeExperiment?.mainThreadWorkMs?.count).toBe(2);
+    expect(mainResult.decodeExperiment?.mainThreadTotalMs).not.toBeNull();
+    expect(mainDownloaded).toMatchObject({
+      decodeExperiment: mainResult.decodeExperiment,
+    });
+    mainConn.close();
+
+    // 2. Worker decode mode
+    FakeSocket.latest = null;
+    const workerFrameProfiler = new FrameProfiler();
+    const workerDecodeProfiler = new DecodeProfiler();
+    const inlineWorker = new InlineTestWorker();
+
+    const workerConn = createConnection({
+      name: 'Tester',
+      roomId: 'profiling',
+      decodeMode: 'worker',
+      decodeProfiler: workerDecodeProfiler,
+      createWorker: () => inlineWorker,
+    });
+    workerConn.connect();
+
+    const workerSocket = requireLatestSocket();
+    expect(workerSocket.messageListenerCount).toBe(1);
+
+    inlineWorker.emitReady();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(workerConn.getDecodeDiagnostics().worker?.ready).toBe(true);
+
+    const workerApi = createMagicArenaProfileApi({
+      profiler: workerFrameProfiler,
+      decodeProfiler: workerDecodeProfiler,
+      fetchImpl: makeServerFetch(),
+      getContext: () => ({
+        roomId: 'profiling',
+        roomName: 'Performance Arena',
+        playerCount: 9,
+        codec: 'binary',
+        netSim: { delayMs: 0, jitterMs: 0, dropRate: 0 },
+        bounds: { width: 960, height: 640 },
+        decode: workerConn.getDecodeDiagnostics(),
+      }),
+    });
+
+    const workerRun = workerApi.start(250);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(workerFrameProfiler.isActive()).toBe(true);
+    expect(workerDecodeProfiler.isActive()).toBe(true);
+
+    workerSocket.triggerMessage(joinedPayload);
+    await vi.advanceTimersByTimeAsync(0);
+
+    workerSocket.triggerMessage(binarySnapshot.slice(0));
+    await vi.advanceTimersByTimeAsync(0);
+
+    await vi.advanceTimersByTimeAsync(250);
+    const workerResult = await workerRun;
+
+    expect(workerApi.download('worker-test.json')).toBe(true);
+    const workerBlobArg = createObjectUrlSpy.mock.calls.at(-1)?.[0];
+    if (!(workerBlobArg instanceof Blob)) {
+      throw new Error('Expected downloaded worker Blob');
+    }
+    const workerDownloaded = await readDownloadedJson(workerBlobArg);
+
+    expect(workerResult.decodeExperiment).toMatchObject({
+      requestedMode: 'worker',
+      actualMode: 'worker',
+      messageCount: 2,
+      textMessages: 1,
+      binaryMessages: 1,
+      messageTypes: { joined: 1, snapshot: 1 },
+      transferredBuffers: 1,
+      maxPending: 1,
+      errors: 0,
+      fallbacks: 0,
+      valid: true,
+      decodeMs: null,
+    });
+    expect(workerResult.decodeExperiment?.workerDecodeMs?.count).toBe(2);
+    expect(workerResult.decodeExperiment?.roundTripMs?.count).toBe(2);
+    expect(workerResult.decodeExperiment?.estimatedOverheadMs?.count).toBe(2);
+    expect(workerResult.decodeExperiment?.mainThreadWorkMs?.count).toBe(2);
+    expect(workerDownloaded).toMatchObject({
+      decodeExperiment: workerResult.decodeExperiment,
+    });
+    workerConn.close();
   });
 });
 

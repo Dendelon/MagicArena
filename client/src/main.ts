@@ -36,7 +36,11 @@ import { createInput } from './input.ts';
 import { bootGame } from './assets/boot.ts';
 import { Lobby, type LobbyEvents } from './lobby/Lobby.ts';
 import { mountLobby } from './lobby/view.ts';
-import { createConnection, type Connection } from './network/connection.ts';
+import {
+  createConnection,
+  resolveDecodeMode,
+  type Connection,
+} from './network/connection.ts';
 import { mountRoomChat } from './network/chat.ts';
 import { mountNetgraph, type Netgraph } from './network/netgraph.ts';
 import { createPrediction } from './network/prediction.ts';
@@ -50,6 +54,7 @@ import {
   FrameProfiler,
   createMagicArenaProfileApi,
 } from './performance/FrameProfiler.ts';
+import { DecodeProfiler } from './performance/DecodeProfiler.ts';
 
 import type { FrameStats, LoadedAssets } from './types.ts';
 import type { TypedEvent } from './events.ts';
@@ -343,6 +348,9 @@ const render = (_alpha: number, stats: FrameStats): void => {
 
 const frameProfiler =
   import.meta.env.VITE_PROFILE === '1' ? new FrameProfiler() : null;
+const decodeProfiler =
+  import.meta.env.VITE_PROFILE === '1' ? new DecodeProfiler() : null;
+const decodeMode = resolveDecodeMode();
 
 const loop = createLoop({
   render,
@@ -353,6 +361,7 @@ const loop = createLoop({
 if (import.meta.env.VITE_PROFILE === '1' && frameProfiler) {
   window.magicArenaProfile = createMagicArenaProfileApi({
     profiler: frameProfiler,
+    decodeProfiler,
     getContext: () => ({
       roomId,
       roomName: roomId !== null ? roomName : null,
@@ -366,6 +375,12 @@ if (import.meta.env.VITE_PROFILE === '1' && frameProfiler) {
       pools: {
         world: world.getPoolStats(),
         localBullets: projectiles.getPoolStats(),
+      },
+      decode: connection?.getDecodeDiagnostics() ?? {
+        requestedMode: decodeMode,
+        actualMode: decodeMode,
+        fallbackOccurred: false,
+        worker: null,
       },
     }),
   });
@@ -418,6 +433,8 @@ void bootGame({
       const activeConnection = createConnection({
         name: playerName,
         roomId: room.id,
+        decodeMode,
+        decodeProfiler,
       });
 
       connection = activeConnection;
@@ -518,12 +535,23 @@ void bootGame({
 
         projectiles.onSnapshot(snapshot, myPlayerId, myEntityId);
 
+        const reconcileStart = frameProfiler?.isActive() ? performance.now() : 0;
         const reconciliation = prediction.reconcile(
           snapshot,
           myPlayerId,
           myEntityId,
           world,
         );
+        if (frameProfiler?.isActive() && typeof performance.measure === 'function') {
+          try {
+            performance.measure('magic-arena:reconcile', {
+              start: reconcileStart,
+              end: performance.now(),
+            });
+          } catch {
+            // Ignore measure errors in restricted environments.
+          }
+        }
 
         if (reconciliation) {
           myEntityId = reconciliation.entityId;
@@ -544,6 +572,7 @@ void bootGame({
         () => {
           frameProfiler?.dispose();
           loop.stop();
+          activeConnection.close();
           resetSessionState();
           netgraph?.destroy();
           destroyChat();

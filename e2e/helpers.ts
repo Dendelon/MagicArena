@@ -60,8 +60,9 @@ export const joinGame = async (
   page: Page,
   playerName: string,
   roomId: string,
+  path = '/',
 ): Promise<void> => {
-  await page.goto('/');
+  await page.goto(path);
 
   const lobby = page.locator('.magic-lobby');
 
